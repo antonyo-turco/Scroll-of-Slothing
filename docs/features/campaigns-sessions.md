@@ -33,8 +33,8 @@ In Python, campaigns lived in `music_campaigns`, but assets used them too. In th
 - `sessions_set_assets {session_id, asset_ids}`
 
 ## Parity checklist
-- [ ] Campaign CRUD (`ui/dm_music_campaigns_panel.py`, `music_*_campaign`)
-- [ ] Session CRUD with notes (`create_session`, `rename_session`, `delete_session`)
-- [ ] Session ↔ asset links (`add_assets_to_session`, `remove_asset_from_session`, `set_session_assets`)
-- [ ] Campaign ↔ asset links (`add_assets_to_campaign`, `set_asset_campaigns`)
-- [ ] Active campaign context
+- [x] Campaign CRUD (`ui/dm_music_campaigns_panel.py`, `music_*_campaign`)
+- [x] Session CRUD with notes (`create_session`, `rename_session`, `delete_session`)
+- [x] Session ↔ asset links (`add_assets_to_session`, `remove_asset_from_session`, `set_session_assets`)
+- [x] Campaign ↔ asset links (`add_assets_to_campaign`, `set_asset_campaigns`)
+- [x] Active campaign context (top bar picker, persisted in `ui.campaign`, default Library filter)

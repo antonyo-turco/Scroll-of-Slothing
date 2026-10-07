@@ -55,7 +55,8 @@ Run Rust commands from **PowerShell**, not Git Bash. Git Bash's `/usr/bin/link` 
 - `cd app; npm run dev`: run the UI in a plain browser against the in-memory mock backend (`src/lib/mock.ts`).
 - `cd app; npm test`: vitest (jsdom, `pool: 'threads'`; the forks pool times out on this machine).
 - `cd app; npx playwright test`: smoke tests using the installed **Edge** (`channel: 'msedge'`), so no browser download is needed.
-- Not built yet: `cargo run -p sleuth-cli -- import-legacy <creatures.db>` (Phase 1) and `cargo run -p sleuth-mcp -- --data-dir <dir>` (Phase 1).
+- CLI: `cargo run -p sleuth-cli -- --help`, e.g. `sleuth import-legacy <creatures.db> [--settings app_settings.json] [--aoe aoe_presets.json]` or `sleuth --json library search goblin`.
+- MCP: `cargo build -p sleuth-mcp --release`, then `claude mcp add sleuth -- <repo>/target/release/sleuth-mcp.exe --data-dir <dir>`. The e2e test (`crates/mcp/tests/mcp_e2e.rs`) drives it with a real MCP client. `tools_are_documented` fails if a tool is missing from `docs/mcp-tools.md`.
 - Data dir: `$SLEUTH_DATA_DIR`, otherwise `%APPDATA%\sleuth`. Tests always use temp dirs.
 
 ## Parity workflow

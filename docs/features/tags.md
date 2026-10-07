@@ -20,5 +20,5 @@ Tags are free-form, case-insensitive labels on assets: `tags.name UNIQUE COLLATE
 - `tags_delete {id}`
 
 ## Parity checklist
-- [ ] `set_asset_tags`, `rename_asset_tag` with auto-merge, `merge_asset_tags`, `delete_asset_tag`, `asset_tag_counts` (`db/creature_db.py`)
-- [ ] Tag manager UI (`ui/asset_tag_manager.py`)
+- [x] `set_asset_tags`, `rename_asset_tag` with auto-merge, `merge_asset_tags`, `delete_asset_tag`, `asset_tag_counts` (`db/creature_db.py`)
+- [x] Tag manager UI (`ui/asset_tag_manager.py`)

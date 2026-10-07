@@ -100,13 +100,20 @@ Assets imported from the old app have no params. They open with default framing,
 - The grid is virtualized. Python built cards in chunks of 24 per tick.
 
 ## Parity checklist (Python refs)
-- [ ] Search across name, aliases and tags; the 6 sort modes (`creature_catalogue_panel.py`)
-- [ ] Kind chips and AND tag chips
-- [ ] Campaign/session filters, where campaign includes session-linked assets (`creature_db.list_assets_full`)
-- [ ] Pin star; Pinned + session view (tagged mode)
-- [ ] Size select with immediate save (`update_creature_size`)
-- [ ] Edit dialog: name, aliases, tags, campaigns, sessions, open-in-editor
-- [ ] Export dialog: original, rendered, clipboard, map PDF (`utils.copy_image_to_clipboard`)
-- [ ] All 8 bulk actions
-- [ ] Import dialog with kind and size per row (`ui/asset_import_dialog.py`)
-- [ ] Re-edit routing by kind (`app.py:539-561`)
+- [x] Search across name, aliases and tags; the 6 sort modes (`creature_catalogue_panel.py`) (store tests, `library.test.ts`)
+- [x] Kind chips and AND tag chips
+- [x] Campaign/session filters, where campaign includes session-linked assets (`creature_db.list_assets_full`)
+- [x] Pin star; Pinned + session view (tagged mode), via the "★ Pinned" toggle plus the session filter
+- [x] Size select with immediate save (`update_creature_size`), on the card and in the inspector
+- [x] Edit dialog: name, aliases, tags, campaigns, sessions (inspector panel)
+- [ ] Open-in-editor: routes by kind now; loading the asset into the editor lands with each editor (Phases 2, 3, 5)
+- [x] Export: original, rendered, clipboard, map PDF (`utils.copy_image_to_clipboard`)
+- [x] Bulk actions: delete, add tag, pin, unpin, add to session, add to campaign, export to folder
+- [ ] Bulk "add to sheet": lands with the sheets in Phases 2 and 3
+- [x] Import dialog with kind and size per row (`ui/asset_import_dialog.py`), plus drop-to-import
+- [ ] Re-edit routing by kind (`app.py:539-561`), with editor state restore in Phases 2, 3, 5
+
+### Phase 1 implementation notes
+- The import dialog lists file names without thumbnails. The webview cannot read arbitrary local paths, and thumbnails appear in the grid as soon as the import finishes.
+- Selection: Ctrl+click toggles, Shift+click selects a range, Ctrl+A selects all, Esc clears. While a selection exists, a plain click toggles.
+- Esc in a text field leaves the field (committing the edit). The next Esc closes the inspector.

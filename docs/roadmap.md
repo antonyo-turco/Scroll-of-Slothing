@@ -9,8 +9,8 @@ After that, promotion to `master` is proposed and **waits for the user's approva
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Bootstrap: repo, docs/specs, CLAUDE.md, workspace + Tauri/Svelte scaffold, parity fixture tooling, app shell, Settings | in progress |
-| 1 | Store + blobs, Library, tags, campaigns/sessions, legacy importer, MCP v0, CLI | planned |
+| 0 | Bootstrap: repo, docs/specs, CLAUDE.md, workspace + Tauri/Svelte scaffold, parity fixture tooling, app shell, Settings | done |
+| 1 | Store + blobs, Library, tags, campaigns/sessions, legacy importer, MCP v0, CLI | done (pending review) |
 | 2 | Token Cutter + Token Sheet | planned |
 | 3 | Object Cutter + Object Sheet | planned |
 | 4 | Cards | planned |
