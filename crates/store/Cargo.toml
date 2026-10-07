@@ -1,0 +1,25 @@
+[package]
+name = "sleuth-store"
+description = "SQLite + content-addressed blob persistence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "sleuth_store"
+
+[dependencies]
+sleuth-core.workspace = true
+rusqlite.workspace = true
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
