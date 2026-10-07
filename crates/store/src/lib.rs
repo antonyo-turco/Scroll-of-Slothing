@@ -19,11 +19,13 @@ use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::Connection;
 
-pub use assets::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, LinkTarget, NewAsset};
+pub use assets::{
+    Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, LinkTarget, NewAsset,
+};
 pub use blobs::{BlobMeta, BlobRef};
 pub use campaigns::{Campaign, Session};
-pub use tags::{RenameOutcome, TagCount};
 pub use changes::Change;
+pub use tags::{RenameOutcome, TagCount};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {

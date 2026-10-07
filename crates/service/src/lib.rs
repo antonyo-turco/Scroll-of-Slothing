@@ -22,8 +22,11 @@ pub use events::Event;
 pub use jobs::{JobCtx, JobId, JobState, JobStatus};
 pub use legacy::{LegacyFailure, LegacyImportOptions, LegacyImportReport};
 pub use library::{ASSET_KINDS, BulkAction, ExportWhat, ImportFailure, ImportFile, ImportReport};
-pub use sleuth_store::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome, Session, TagCount};
 pub use settings::SettingsUpdate;
+pub use sleuth_store::{
+    Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome,
+    Session, TagCount,
+};
 
 pub type Result<T> = std::result::Result<T, ServiceError>;
 

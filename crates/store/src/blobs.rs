@@ -135,8 +135,9 @@ mod tests {
         let (_d, s) = temp_store();
         let data = vec![7u8; 1 << 20];
         let hashes: Vec<String> = std::thread::scope(|sc| {
-            let hs: Vec<_> =
-                (0..8).map(|_| sc.spawn(|| s.put_blob(&data, "image/png", None).unwrap().hash)).collect();
+            let hs: Vec<_> = (0..8)
+                .map(|_| sc.spawn(|| s.put_blob(&data, "image/png", None).unwrap().hash))
+                .collect();
             hs.into_iter().map(|h| h.join().unwrap()).collect()
         });
         assert!(hashes.windows(2).all(|w| w[0] == w[1]));

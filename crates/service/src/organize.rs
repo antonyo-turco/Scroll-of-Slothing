@@ -43,11 +43,21 @@ impl Service {
         self.blocking(move |s| Ok(s.list_sessions(campaign_id.as_deref())?)).await
     }
 
-    pub async fn sessions_create(&self, campaign_id: String, name: String, notes: String) -> Result<Session> {
+    pub async fn sessions_create(
+        &self,
+        campaign_id: String,
+        name: String,
+        notes: String,
+    ) -> Result<Session> {
         self.blocking(move |s| Ok(s.create_session(&campaign_id, &name, &notes)?)).await
     }
 
-    pub async fn sessions_update(&self, id: String, name: Option<String>, notes: Option<String>) -> Result<()> {
+    pub async fn sessions_update(
+        &self,
+        id: String,
+        name: Option<String>,
+        notes: Option<String>,
+    ) -> Result<()> {
         self.blocking(move |s| Ok(s.update_session(&id, name.as_deref(), notes.as_deref())?)).await
     }
 
@@ -68,7 +78,8 @@ mod tests {
     async fn campaign_session_roundtrip() {
         let (_d, svc) = temp_service();
         let c = svc.campaigns_create("Phandelver".into()).await.unwrap();
-        let s = svc.sessions_create(c.id.clone(), "Goblin Arrows".into(), String::new()).await.unwrap();
+        let s =
+            svc.sessions_create(c.id.clone(), "Goblin Arrows".into(), String::new()).await.unwrap();
         svc.sessions_update(s.id.clone(), None, Some("ambush at the road".into())).await.unwrap();
         let list = svc.sessions_list(Some(c.id.clone())).await.unwrap();
         assert_eq!(list[0].notes, "ambush at the road");

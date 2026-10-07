@@ -9,7 +9,9 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
 use sleuth_core::units::SizeLabel;
-use sleuth_store::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, LinkTarget, NewAsset, Store};
+use sleuth_store::{
+    Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, LinkTarget, NewAsset, Store,
+};
 
 use crate::{Result, Service, ServiceError};
 
@@ -20,7 +22,9 @@ pub(crate) fn check_kind(kind: &str) -> Result<()> {
     if ASSET_KINDS.contains(&kind) {
         Ok(())
     } else {
-        Err(ServiceError::InvalidInput(format!("unknown kind {kind:?}; expected one of {ASSET_KINDS:?}")))
+        Err(ServiceError::InvalidInput(format!(
+            "unknown kind {kind:?}; expected one of {ASSET_KINDS:?}"
+        )))
     }
 }
 
@@ -85,17 +89,20 @@ pub(crate) fn store_images(
 ) -> Result<StoredImages> {
     let mime = imaging::sniff_mime(original)
         .ok_or_else(|| ServiceError::InvalidInput("unsupported image format".into()))?;
-    let orig = store.put_blob(original, mime, Some((original_img.width(), original_img.height())))?;
+    let orig =
+        store.put_blob(original, mime, Some((original_img.width(), original_img.height())))?;
     let rendered_hash = match rendered {
         None => orig.hash.clone(),
         Some(r) => {
-            let png = imaging::encode_png(&r.to_rgba8()).map_err(|e| ServiceError::Internal(e.to_string()))?;
+            let png = imaging::encode_png(&r.to_rgba8())
+                .map_err(|e| ServiceError::Internal(e.to_string()))?;
             store.put_blob(&png, "image/png", Some((r.width(), r.height())))?.hash
         }
     };
     let deriv = imaging::derivatives(rendered.unwrap_or(original_img));
     let put_webp = |img: &image::RgbaImage| -> Result<String> {
-        let bytes = imaging::encode_webp_lossless(img).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        let bytes = imaging::encode_webp_lossless(img)
+            .map_err(|e| ServiceError::Internal(e.to_string()))?;
         Ok(store.put_blob(&bytes, "image/webp", Some(img.dimensions()))?.hash)
     };
     Ok(StoredImages {
@@ -108,7 +115,11 @@ pub(crate) fn store_images(
 
 /// Stores already-encoded `original` and `rendered` images verbatim (no
 /// re-encoding) and generates derivatives from the rendered one.
-pub(crate) fn store_encoded(store: &Store, original: &[u8], rendered: &[u8]) -> Result<StoredImages> {
+pub(crate) fn store_encoded(
+    store: &Store,
+    original: &[u8],
+    rendered: &[u8],
+) -> Result<StoredImages> {
     let put_raw = |bytes: &[u8]| -> Result<(String, Option<DynamicImage>)> {
         let mime = imaging::sniff_mime(bytes)
             .ok_or_else(|| ServiceError::InvalidInput("unsupported image format".into()))?;
@@ -119,12 +130,14 @@ pub(crate) fn store_encoded(store: &Store, original: &[u8], rendered: &[u8]) -> 
         Ok((store.put_blob(bytes, mime, dims)?.hash, None))
     };
     let (original_blob, _) = put_raw(original)?;
-    let (rendered_blob, _) = if rendered == original { (original_blob.clone(), None) } else { put_raw(rendered)? };
+    let (rendered_blob, _) =
+        if rendered == original { (original_blob.clone(), None) } else { put_raw(rendered)? };
     let img = imaging::decode(rendered).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
     let deriv = imaging::derivatives(&img);
     drop(img);
     let put_webp = |img: &image::RgbaImage| -> Result<String> {
-        let bytes = imaging::encode_webp_lossless(img).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        let bytes = imaging::encode_webp_lossless(img)
+            .map_err(|e| ServiceError::Internal(e.to_string()))?;
         Ok(store.put_blob(&bytes, "image/webp", Some(img.dimensions()))?.hash)
     };
     Ok(StoredImages {
@@ -182,7 +195,8 @@ impl Service {
                     let fail = |e: String| ImportFailure { path: f.path.clone(), error: e };
                     let bytes = std::fs::read(&f.path).map_err(|e| fail(e.to_string()))?;
                     let img = imaging::decode(&bytes).map_err(|e| fail(e.to_string()))?;
-                    let stored = store_images(s, &bytes, &img, None).map_err(|e| fail(e.to_string()))?;
+                    let stored =
+                        store_images(s, &bytes, &img, None).map_err(|e| fail(e.to_string()))?;
                     let name = f
                         .name
                         .clone()
@@ -265,7 +279,10 @@ impl Service {
     pub async fn library_bulk_pin(&self, ids: Vec<i64>, pinned: bool) -> Result<()> {
         self.blocking(move |s| {
             for id in ids {
-                s.update_asset_meta(id, &AssetPatch { pinned: Some(pinned), ..Default::default() })?;
+                s.update_asset_meta(
+                    id,
+                    &AssetPatch { pinned: Some(pinned), ..Default::default() },
+                )?;
             }
             Ok(())
         })
@@ -276,7 +293,11 @@ impl Service {
         self.blocking(move |s| Ok(s.link_assets(&ids, LinkTarget::Session(&session_id))?)).await
     }
 
-    pub async fn library_bulk_link_campaign(&self, ids: Vec<i64>, campaign_id: String) -> Result<()> {
+    pub async fn library_bulk_link_campaign(
+        &self,
+        ids: Vec<i64>,
+        campaign_id: String,
+    ) -> Result<()> {
         self.blocking(move |s| Ok(s.link_assets(&ids, LinkTarget::Campaign(&campaign_id))?)).await
     }
 
@@ -291,7 +312,12 @@ impl Service {
 
     /// Writes one of the asset's files to `path`. If `path` is a directory, a
     /// file name is derived from the asset name.
-    pub async fn library_export(&self, id: i64, what: ExportWhat, path: PathBuf) -> Result<PathBuf> {
+    pub async fn library_export(
+        &self,
+        id: i64,
+        what: ExportWhat,
+        path: PathBuf,
+    ) -> Result<PathBuf> {
         self.blocking(move |s| {
             let a = s.get_asset(id)?;
             let hash = match what {
@@ -366,8 +392,10 @@ fn write_png(s: &Store, hash: &str, target: &Path) -> Result<()> {
     if meta.mime == "image/png" {
         std::fs::copy(s.blob_file(hash)?, target)?;
     } else {
-        let img = imaging::decode(&s.read_blob(hash)?).map_err(|e| ServiceError::Internal(e.to_string()))?;
-        let png = imaging::encode_png(&img.to_rgba8()).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        let img = imaging::decode(&s.read_blob(hash)?)
+            .map_err(|e| ServiceError::Internal(e.to_string()))?;
+        let png = imaging::encode_png(&img.to_rgba8())
+            .map_err(|e| ServiceError::Internal(e.to_string()))?;
         std::fs::write(target, png)?;
     }
     Ok(())
@@ -381,7 +409,8 @@ pub(crate) mod tests {
     use crate::temp_service;
 
     pub(crate) fn write_test_png(dir: &Path, name: &str, w: u32, h: u32) -> PathBuf {
-        let img = RgbaImage::from_fn(w, h, |x, y| Rgba([(x % 256) as u8, (y % 256) as u8, 128, 255]));
+        let img =
+            RgbaImage::from_fn(w, h, |x, y| Rgba([(x % 256) as u8, (y % 256) as u8, 128, 255]));
         let p = dir.join(name);
         img.save(&p).unwrap();
         p
@@ -395,7 +424,12 @@ pub(crate) mod tests {
         std::fs::write(&bad, b"nope").unwrap();
         let report = svc
             .library_import(vec![
-                ImportFile { path: good, name: None, kind: "token".into(), size: Some("Large (2 inch)".into()) },
+                ImportFile {
+                    path: good,
+                    name: None,
+                    kind: "token".into(),
+                    size: Some("Large (2 inch)".into()),
+                },
                 ImportFile { path: bad.clone(), name: None, kind: "map".into(), size: None },
             ])
             .await
@@ -405,12 +439,18 @@ pub(crate) mod tests {
         assert_eq!(report.failed[0].path, bad);
 
         let a = svc.library_get(report.imported[0]).await.unwrap();
-        assert_eq!((a.name.as_str(), a.kind.as_str(), a.size_label.as_str()), ("Goblin King", "token", "Large"));
+        assert_eq!(
+            (a.name.as_str(), a.kind.as_str(), a.size_label.as_str()),
+            ("Goblin King", "token", "Large")
+        );
         assert_eq!(a.original_blob, a.rendered_blob, "imports are unprocessed");
         let store = svc.store();
         let thumb = store.blob_meta(a.thumb_blob.as_ref().unwrap()).unwrap();
         let preview = store.blob_meta(a.preview_blob.as_ref().unwrap()).unwrap();
-        assert_eq!((thumb.mime.as_str(), thumb.width, thumb.height), ("image/webp", Some(256), Some(128)));
+        assert_eq!(
+            (thumb.mime.as_str(), thumb.width, thumb.height),
+            ("image/webp", Some(256), Some(128))
+        );
         assert_eq!((preview.width, preview.height), (Some(2048), Some(1024)));
     }
 
@@ -418,7 +458,12 @@ pub(crate) mod tests {
     async fn validation_of_kind_and_size() {
         let (_d, svc) = temp_service();
         let err = svc
-            .library_import(vec![ImportFile { path: "x.png".into(), name: None, kind: "spell".into(), size: None }])
+            .library_import(vec![ImportFile {
+                path: "x.png".into(),
+                name: None,
+                kind: "spell".into(),
+                size: None,
+            }])
             .await
             .unwrap_err();
         assert_eq!(err.code(), crate::ErrorCode::InvalidInput);
@@ -432,27 +477,44 @@ pub(crate) mod tests {
         let p = write_test_png(d.path(), "a.png", 40, 40);
         let ids = svc
             .library_import(vec![
-                ImportFile { path: p.clone(), name: Some("Orc/Chief?".into()), kind: "token".into(), size: None },
-                ImportFile { path: p, name: Some("Orc/Chief?".into()), kind: "cutout".into(), size: None },
+                ImportFile {
+                    path: p.clone(),
+                    name: Some("Orc/Chief?".into()),
+                    kind: "token".into(),
+                    size: None,
+                },
+                ImportFile {
+                    path: p,
+                    name: Some("Orc/Chief?".into()),
+                    kind: "cutout".into(),
+                    size: None,
+                },
             ])
             .await
             .unwrap()
             .imported;
         assert_eq!(ids.len(), 2, "identical files import twice");
         let a = svc
-            .library_update(ids[0], AssetPatch { size_label: Some("huge".into()), ..Default::default() })
+            .library_update(
+                ids[0],
+                AssetPatch { size_label: Some("huge".into()), ..Default::default() },
+            )
             .await
             .unwrap();
         assert_eq!(a.size_label, "Huge", "size labels normalized");
         svc.library_bulk_tag(ids.clone(), "orc".into()).await.unwrap();
         svc.library_bulk_pin(ids.clone(), true).await.unwrap();
-        let pinned = svc.library_search(AssetQuery { pinned_only: true, ..Default::default() }).await.unwrap();
+        let pinned = svc
+            .library_search(AssetQuery { pinned_only: true, ..Default::default() })
+            .await
+            .unwrap();
         assert_eq!(pinned.total, 2);
         assert!(pinned.items.iter().all(|a| a.tags == ["orc"]));
 
         let out = d.path().join("out");
         let files = svc.library_export_many(ids.clone(), out.clone()).await.unwrap();
-        let names: Vec<_> = files.iter().map(|f| f.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        let names: Vec<_> =
+            files.iter().map(|f| f.file_name().unwrap().to_string_lossy().into_owned()).collect();
         assert_eq!(names, ["Orc_Chief__token.png", "Orc_Chief__cutout.png"]);
         let single = svc.library_export(ids[0], ExportWhat::Original, out.clone()).await.unwrap();
         assert!(single.exists());

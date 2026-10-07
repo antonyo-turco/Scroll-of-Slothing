@@ -62,10 +62,21 @@ fn convert(store: &Store, a: &LegacyAsset) -> Result<NewAsset> {
         Some(pdf) if !pdf.is_empty() => Some(store.put_blob(pdf, "application/pdf", None)?.hash),
         _ => None,
     };
-    let aliases = a.aliases.replace(',', "\n").lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n");
+    let aliases = a
+        .aliases
+        .replace(',', "\n")
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
     Ok(NewAsset {
         kind,
-        name: if a.name.trim().is_empty() { format!("Asset {}", a.id) } else { a.name.trim().to_string() },
+        name: if a.name.trim().is_empty() {
+            format!("Asset {}", a.id)
+        } else {
+            a.name.trim().to_string()
+        },
         aliases,
         size_label: SizeLabel::parse(&a.size).unwrap_or_default().as_str().into(),
         original_blob: stored.original_blob,
@@ -80,14 +91,19 @@ fn convert(store: &Store, a: &LegacyAsset) -> Result<NewAsset> {
 }
 
 /// Runs the import synchronously (call from a blocking context).
-pub(crate) fn run(store: &Store, opts: &LegacyImportOptions, ctx: Option<&JobCtx>) -> Result<LegacyImportReport> {
+pub(crate) fn run(
+    store: &Store,
+    opts: &LegacyImportOptions,
+    ctx: Option<&JobCtx>,
+) -> Result<LegacyImportReport> {
     let progress = |p: f32, m: String| {
         if let Some(c) = ctx {
             c.progress(p, m);
         }
     };
     let check = || ctx.map(JobCtx::check).unwrap_or(Ok(()));
-    let legacy = LegacyDb::open(&opts.db_path).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+    let legacy =
+        LegacyDb::open(&opts.db_path).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
     let lerr = |e: sleuth_legacy::LegacyError| ServiceError::Io(e.to_string());
     let mut report = LegacyImportReport::default();
 
@@ -102,7 +118,13 @@ pub(crate) fn run(store: &Store, opts: &LegacyImportOptions, ctx: Option<&JobCtx
     let existing_s: Vec<String> = store.list_sessions(None)?.into_iter().map(|s| s.id).collect();
     for s in legacy.sessions().map_err(lerr)? {
         if !existing_s.contains(&s.id) {
-            store.create_session_with_id(&s.id, &s.campaign_id, &s.name, &s.notes, Some(&s.created))?;
+            store.create_session_with_id(
+                &s.id,
+                &s.campaign_id,
+                &s.name,
+                &s.notes,
+                Some(&s.created),
+            )?;
             report.sessions += 1;
         }
     }
@@ -132,22 +154,33 @@ pub(crate) fn run(store: &Store, opts: &LegacyImportOptions, ctx: Option<&JobCtx
         let rows: Vec<std::result::Result<LegacyAsset, LegacyFailure>> = chunk
             .iter()
             .map(|lid| {
-                legacy.asset(*lid).map_err(|e| LegacyFailure { legacy_id: *lid, name: String::new(), error: e.to_string() })
+                legacy.asset(*lid).map_err(|e| LegacyFailure {
+                    legacy_id: *lid,
+                    name: String::new(),
+                    error: e.to_string(),
+                })
             })
             .collect();
-        let converted: Vec<std::result::Result<(i64, NewAsset), LegacyFailure>> = pool.install(|| {
-            rows.into_par_iter()
-                .map(|r| {
-                    let a = r?;
-                    let out = convert(store, &a)
-                        .map(|n| (a.id, n))
-                        .map_err(|e| LegacyFailure { legacy_id: a.id, name: a.name.clone(), error: e.to_string() });
-                    let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-                    progress(0.05 + 0.85 * n as f32 / total, format!("{} ({n}/{})", a.name, total as usize));
-                    out
-                })
-                .collect()
-        });
+        let converted: Vec<std::result::Result<(i64, NewAsset), LegacyFailure>> =
+            pool.install(|| {
+                rows.into_par_iter()
+                    .map(|r| {
+                        let a = r?;
+                        let out =
+                            convert(store, &a).map(|n| (a.id, n)).map_err(|e| LegacyFailure {
+                                legacy_id: a.id,
+                                name: a.name.clone(),
+                                error: e.to_string(),
+                            });
+                        let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                        progress(
+                            0.05 + 0.85 * n as f32 / total,
+                            format!("{} ({n}/{})", a.name, total as usize),
+                        );
+                        out
+                    })
+                    .collect()
+            });
         for c in converted {
             match c {
                 Ok((lid, asset)) => {
@@ -196,13 +229,18 @@ pub(crate) fn run(store: &Store, opts: &LegacyImportOptions, ctx: Option<&JobCtx
         let dir = store.root().join("legacy");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join("music.json");
-        std::fs::write(&path, serde_json::to_vec_pretty(&Value::Object(music)).map_err(|e| ServiceError::Internal(e.to_string()))?)?;
+        std::fs::write(
+            &path,
+            serde_json::to_vec_pretty(&Value::Object(music))
+                .map_err(|e| ServiceError::Internal(e.to_string()))?,
+        )?;
         report.music_json = Some(path);
     }
 
     if let Some(p) = &opts.settings_path {
         let raw = std::fs::read_to_string(p)?;
-        let v: Value = serde_json::from_str(&raw).map_err(|e| ServiceError::InvalidInput(format!("app_settings.json: {e}")))?;
+        let v: Value = serde_json::from_str(&raw)
+            .map_err(|e| ServiceError::InvalidInput(format!("app_settings.json: {e}")))?;
         store.save_settings(&Settings::from_legacy_json(&v))?;
         report.settings_imported = true;
     }
@@ -228,7 +266,10 @@ impl Service {
     }
 
     /// Runs the import to completion (CLI / tests).
-    pub async fn legacy_import_blocking(&self, opts: LegacyImportOptions) -> Result<LegacyImportReport> {
+    pub async fn legacy_import_blocking(
+        &self,
+        opts: LegacyImportOptions,
+    ) -> Result<LegacyImportReport> {
         self.blocking(move |s| run(s, &opts, None)).await
     }
 }
@@ -247,10 +288,15 @@ mod tests {
         let db = d.path().join("creatures.db");
         sleuth_legacy::fixture::build(&db, &png);
         let settings = d.path().join("app_settings.json");
-        std::fs::write(&settings, r#"{"start_tab": "Card Printer", "map_overlap_in": "0.5"}"#).unwrap();
+        std::fs::write(&settings, r#"{"start_tab": "Card Printer", "map_overlap_in": "0.5"}"#)
+            .unwrap();
         let aoe = d.path().join("aoe_presets.json");
         std::fs::write(&aoe, r#"{"10 ft cube": {"shape": "square", "a_ft": 10.0}}"#).unwrap();
-        let opts = LegacyImportOptions { db_path: db, settings_path: Some(settings), aoe_presets_path: Some(aoe) };
+        let opts = LegacyImportOptions {
+            db_path: db,
+            settings_path: Some(settings),
+            aoe_presets_path: Some(aoe),
+        };
         (d, svc, opts)
     }
 
@@ -277,8 +323,10 @@ mod tests {
         assert!(map.pdf_blob.is_some());
         let lamp = all.items.iter().find(|a| a.name == "Lamp").unwrap();
         assert_eq!(lamp.size_label, "Tiny");
-        let by_campaign =
-            svc.library_search(AssetQuery { campaign_id: Some("c1".into()), ..Default::default() }).await.unwrap();
+        let by_campaign = svc
+            .library_search(AssetQuery { campaign_id: Some("c1".into()), ..Default::default() })
+            .await
+            .unwrap();
         assert_eq!(by_campaign.total, 2, "map (direct) + zombie (via session)");
 
         let st = svc.settings_get().await.unwrap();
@@ -298,7 +346,11 @@ mod tests {
         let db = d.path().join("creatures.db");
         sleuth_legacy::fixture::build(&db, b"not an image");
         let r = svc
-            .legacy_import_blocking(LegacyImportOptions { db_path: db, settings_path: None, aoe_presets_path: None })
+            .legacy_import_blocking(LegacyImportOptions {
+                db_path: db,
+                settings_path: None,
+                aoe_presets_path: None,
+            })
             .await
             .unwrap();
         assert_eq!(r.failed.len(), 3);

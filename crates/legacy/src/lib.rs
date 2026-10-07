@@ -74,7 +74,9 @@ impl LegacyDb {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let conn = Connection::open_with_flags(
             path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX | OpenFlags::SQLITE_OPEN_URI,
+            OpenFlags::SQLITE_OPEN_READ_ONLY
+                | OpenFlags::SQLITE_OPEN_NO_MUTEX
+                | OpenFlags::SQLITE_OPEN_URI,
         )?;
         let db = LegacyDb { creature_cols: HashSet::new(), conn };
         if !db.has_table("creatures")? {
@@ -87,7 +89,11 @@ impl LegacyDb {
     fn has_table(&self, name: &str) -> Result<bool> {
         Ok(self
             .conn
-            .query_row("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1", [name], |_| Ok(()))
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                [name],
+                |_| Ok(()),
+            )
             .optional()?
             .is_some())
     }
@@ -98,15 +104,23 @@ impl LegacyDb {
     }
 
     fn col_or(&self, col: &str, fallback: &str) -> String {
-        if self.creature_cols.contains(col) { col.to_string() } else { format!("{fallback} AS {col}") }
+        if self.creature_cols.contains(col) {
+            col.to_string()
+        } else {
+            format!("{fallback} AS {col}")
+        }
     }
 
     pub fn campaigns(&self) -> Result<Vec<LegacyCampaign>> {
         if !self.has_table("music_campaigns")? {
             return Ok(vec![]);
         }
-        let mut st = self.conn.prepare("SELECT id, name, created_at FROM music_campaigns ORDER BY created_at")?;
-        let rows = st.query_map([], |r| Ok(LegacyCampaign { id: r.get(0)?, name: r.get(1)?, created: r.get(2)? }))?;
+        let mut st = self
+            .conn
+            .prepare("SELECT id, name, created_at FROM music_campaigns ORDER BY created_at")?;
+        let rows = st.query_map([], |r| {
+            Ok(LegacyCampaign { id: r.get(0)?, name: r.get(1)?, created: r.get(2)? })
+        })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
@@ -226,7 +240,8 @@ impl LegacyDb {
     pub fn counts(&self) -> Result<LegacyCounts> {
         let mut c = LegacyCounts::default();
         let kind = self.col_or("kind", "'token'");
-        let mut st = self.conn.prepare(&format!("SELECT {kind}, count(*) FROM creatures GROUP BY 1"))?;
+        let mut st =
+            self.conn.prepare(&format!("SELECT {kind}, count(*) FROM creatures GROUP BY 1"))?;
         for row in st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? {
             let (k, n) = row?;
             c.assets_by_kind.insert(k, n as u64);
@@ -235,7 +250,10 @@ impl LegacyDb {
             if !self.has_table(t)? {
                 return Ok(0);
             }
-            Ok(self.conn.query_row(&format!("SELECT count(*) FROM \"{t}\""), [], |r| r.get::<_, i64>(0))? as u64)
+            Ok(self
+                .conn
+                .query_row(&format!("SELECT count(*) FROM \"{t}\""), [], |r| r.get::<_, i64>(0))?
+                as u64)
         };
         c.tags = count("asset_tags")?;
         c.campaigns = count("music_campaigns")?;
@@ -274,12 +292,33 @@ pub mod fixture {
              INSERT INTO music_tracks (id, url, title, campaign_id, added_at) VALUES ('t1', 'https://youtu.be/x', 'Crypt', 'c1', 'now');",
         )
         .unwrap();
-        let ins = "INSERT INTO creatures (id, name, original, token, size, kind, aliases, pdf, pinned)
+        let ins =
+            "INSERT INTO creatures (id, name, original, token, size, kind, aliases, pdf, pinned)
                    VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, ?7, ?8)";
-        c.execute(ins, params![1, "Zombie", png, "Medium (1 inch)", "token", "walker", None::<Vec<u8>>, 1]).unwrap();
-        c.execute(ins, params![2, "Crypt Map", png, "Medium (1 inch)", "map", "", Some(b"%PDF-1.4 fake".to_vec()), 0])
-            .unwrap();
-        c.execute(ins, params![3, "Lamp", png, "Tiny (0.5 inch)", "cutout", "", None::<Vec<u8>>, 0]).unwrap();
+        c.execute(
+            ins,
+            params![1, "Zombie", png, "Medium (1 inch)", "token", "walker", None::<Vec<u8>>, 1],
+        )
+        .unwrap();
+        c.execute(
+            ins,
+            params![
+                2,
+                "Crypt Map",
+                png,
+                "Medium (1 inch)",
+                "map",
+                "",
+                Some(b"%PDF-1.4 fake".to_vec()),
+                0
+            ],
+        )
+        .unwrap();
+        c.execute(
+            ins,
+            params![3, "Lamp", png, "Tiny (0.5 inch)", "cutout", "", None::<Vec<u8>>, 0],
+        )
+        .unwrap();
         c.execute_batch(
             "INSERT INTO asset_tag_links VALUES (1, 1), (1, 2), (2, 1);
              INSERT INTO session_assets VALUES ('s1', 1);
@@ -308,7 +347,10 @@ mod tests {
         assert_eq!(db.sessions().unwrap()[0].campaign_id, "c1");
         assert_eq!(db.asset_ids().unwrap(), vec![1, 2, 3]);
         let z = db.asset(1).unwrap();
-        assert_eq!((z.name.as_str(), z.kind.as_str(), z.pinned, z.aliases.as_str()), ("Zombie", "token", true, "walker"));
+        assert_eq!(
+            (z.name.as_str(), z.kind.as_str(), z.pinned, z.aliases.as_str()),
+            ("Zombie", "token", true, "walker")
+        );
         assert_eq!(db.asset(2).unwrap().pdf.as_deref(), Some(&b"%PDF-1.4 fake"[..]));
         assert_eq!(db.asset_tags().unwrap().len(), 3);
         assert_eq!(db.session_assets().unwrap(), vec![(1, "s1".to_string())]);

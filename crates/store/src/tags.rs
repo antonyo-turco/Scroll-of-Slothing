@@ -64,12 +64,15 @@ impl Store {
         }
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        let exists: Option<i64> = tx.query_row("SELECT id FROM tags WHERE id = ?1", [id], |r| r.get(0)).optional()?;
+        let exists: Option<i64> =
+            tx.query_row("SELECT id FROM tags WHERE id = ?1", [id], |r| r.get(0)).optional()?;
         exists.ok_or_else(|| StoreError::NotFound(format!("tag {id}")))?;
         let clash: Option<i64> = tx
-            .query_row("SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE AND id != ?2", params![new_name, id], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE AND id != ?2",
+                params![new_name, id],
+                |r| r.get(0),
+            )
             .optional()?;
         let outcome = if let Some(dst) = clash {
             merge_in_tx(&tx, id, dst)?;
@@ -94,7 +97,8 @@ impl Store {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         for t in [src, dst] {
-            let e: Option<i64> = tx.query_row("SELECT id FROM tags WHERE id = ?1", [t], |r| r.get(0)).optional()?;
+            let e: Option<i64> =
+                tx.query_row("SELECT id FROM tags WHERE id = ?1", [t], |r| r.get(0)).optional()?;
             e.ok_or_else(|| StoreError::NotFound(format!("tag {t}")))?;
         }
         merge_in_tx(&tx, src, dst)?;
@@ -121,8 +125,8 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use crate::assets::tests::new_asset;
     use crate::assets::AssetQuery;
+    use crate::assets::tests::new_asset;
     use crate::temp_store;
 
     fn tag(s: &crate::Store, name: &str) -> i64 {
@@ -137,7 +141,10 @@ mod tests {
         s.set_asset_tags(a, &["Undead".into()]).unwrap();
         s.set_asset_tags(b, &["undead".into(), "boss".into()]).unwrap();
         let tags = s.list_tags().unwrap();
-        assert_eq!(tags.iter().map(|t| (t.name.as_str(), t.count)).collect::<Vec<_>>(), [("boss", 1), ("Undead", 2)]);
+        assert_eq!(
+            tags.iter().map(|t| (t.name.as_str(), t.count)).collect::<Vec<_>>(),
+            [("boss", 1), ("Undead", 2)]
+        );
     }
 
     #[test]
@@ -147,7 +154,8 @@ mod tests {
         s.set_asset_tags(a, &["foo".into()]).unwrap();
         let out = s.rename_tag(tag(&s, "foo"), "bar").unwrap();
         assert_eq!(out.merged_into, None);
-        let hits = s.search_assets(&AssetQuery { q: Some("bar".into()), ..Default::default() }).unwrap();
+        let hits =
+            s.search_assets(&AssetQuery { q: Some("bar".into()), ..Default::default() }).unwrap();
         assert_eq!(hits.total, 1);
     }
 
@@ -163,7 +171,11 @@ mod tests {
         assert_eq!(out.merged_into, Some(dst));
         let tags = s.list_tags().unwrap();
         assert_eq!(tags.len(), 1);
-        assert_eq!((tags[0].name.as_str(), tags[0].count), ("goblin", 2), "duplicate link on `a` collapsed");
+        assert_eq!(
+            (tags[0].name.as_str(), tags[0].count),
+            ("goblin", 2),
+            "duplicate link on `a` collapsed"
+        );
     }
 
     #[test]

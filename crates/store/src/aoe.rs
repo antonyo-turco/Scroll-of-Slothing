@@ -8,7 +8,8 @@ use crate::{Result, Store, StoreError, changes, now};
 impl Store {
     pub fn list_aoe_presets(&self) -> Result<Vec<(String, Value)>> {
         let conn = self.conn();
-        let mut st = conn.prepare("SELECT name, config_json FROM aoe_presets ORDER BY name COLLATE NOCASE")?;
+        let mut st =
+            conn.prepare("SELECT name, config_json FROM aoe_presets ORDER BY name COLLATE NOCASE")?;
         let rows = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
         let mut out = Vec::new();
         for row in rows {
@@ -59,8 +60,13 @@ mod tests {
     fn upsert_list_delete() {
         let (_d, s) = temp_store();
         assert!(!s.upsert_aoe_preset("10 ft cube", &json!({"shape": "square"})).unwrap());
-        assert!(s.upsert_aoe_preset("10 ft cube", &json!({"shape": "square", "a_ft": 10})).unwrap());
-        assert_eq!(s.list_aoe_presets().unwrap(), vec![("10 ft cube".into(), json!({"shape": "square", "a_ft": 10}))]);
+        assert!(
+            s.upsert_aoe_preset("10 ft cube", &json!({"shape": "square", "a_ft": 10})).unwrap()
+        );
+        assert_eq!(
+            s.list_aoe_presets().unwrap(),
+            vec![("10 ft cube".into(), json!({"shape": "square", "a_ft": 10}))]
+        );
         s.delete_aoe_preset("10 ft cube").unwrap();
         assert!(s.delete_aoe_preset("10 ft cube").is_err());
         assert!(s.upsert_aoe_preset(" ", &json!({})).is_err());

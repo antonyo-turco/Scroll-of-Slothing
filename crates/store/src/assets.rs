@@ -1,7 +1,10 @@
 //! Assets (tokens, cut-outs, maps): CRUD, search (FTS5) and link management.
 //! Spec: docs/features/library.md, docs/data-model.md.
 
-use rusqlite::{Connection, OptionalExtension, Row, Transaction, params, params_from_iter, types::Value as SqlValue};
+use rusqlite::{
+    Connection, OptionalExtension, Row, Transaction, params, params_from_iter,
+    types::Value as SqlValue,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{Result, Store, StoreError, changes, now};
@@ -178,7 +181,8 @@ fn load_links(conn: &Connection, asset: &mut Asset) -> Result<()> {
     let mut st = conn.prepare_cached(
         "SELECT campaign_id FROM asset_campaigns WHERE asset_id = ?1 ORDER BY campaign_id",
     )?;
-    asset.campaign_ids = st.query_map([asset.id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+    asset.campaign_ids =
+        st.query_map([asset.id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
     let mut st = conn.prepare_cached(
         "SELECT session_id FROM asset_sessions WHERE asset_id = ?1 ORDER BY session_id",
     )?;
@@ -226,7 +230,11 @@ impl Store {
     pub fn get_asset(&self, id: i64) -> Result<Asset> {
         let conn = self.conn();
         let mut asset = conn
-            .query_row(&format!("SELECT {ASSET_COLS} FROM assets WHERE id = ?1"), [id], row_to_asset)
+            .query_row(
+                &format!("SELECT {ASSET_COLS} FROM assets WHERE id = ?1"),
+                [id],
+                row_to_asset,
+            )
             .optional()?
             .ok_or_else(|| StoreError::NotFound(format!("asset {id}")))?;
         load_links(&conn, &mut asset)?;
@@ -276,7 +284,8 @@ impl Store {
         if q.pinned_only {
             wh.push("a.pinned = 1".into());
         }
-        let where_sql = if wh.is_empty() { String::new() } else { format!("WHERE {}", wh.join(" AND ")) };
+        let where_sql =
+            if wh.is_empty() { String::new() } else { format!("WHERE {}", wh.join(" AND ")) };
         let order = match q.sort {
             AssetSort::Newest => "a.id DESC",
             AssetSort::Oldest => "a.id ASC",
@@ -302,8 +311,9 @@ impl Store {
             ASSET_COLS.split(", ").map(|c| format!("a.{c}")).collect::<Vec<_>>().join(", ")
         );
         let mut st = conn.prepare(&sql)?;
-        let mut items: Vec<Asset> =
-            st.query_map(params_from_iter(args.iter()), row_to_asset)?.collect::<rusqlite::Result<_>>()?;
+        let mut items: Vec<Asset> = st
+            .query_map(params_from_iter(args.iter()), row_to_asset)?
+            .collect::<rusqlite::Result<_>>()?;
         for a in &mut items {
             load_links(&conn, a)?;
         }
@@ -384,7 +394,10 @@ impl Store {
         tx.execute("DELETE FROM asset_tags WHERE asset_id = ?1", [id])?;
         for n in names.iter().filter(|n| !n.trim().is_empty()) {
             let t = tag_id(&tx, n)?;
-            tx.execute("INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?1, ?2)", params![id, t])?;
+            tx.execute(
+                "INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?1, ?2)",
+                params![id, t],
+            )?;
         }
         touch(&tx, id)?;
         reindex(&tx, id)?;
@@ -400,7 +413,10 @@ impl Store {
         let t = tag_id(&tx, name)?;
         for id in ids {
             ensure_exists(&tx, *id)?;
-            tx.execute("INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?1, ?2)", params![id, t])?;
+            tx.execute(
+                "INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?1, ?2)",
+                params![id, t],
+            )?;
             touch(&tx, *id)?;
             reindex(&tx, *id)?;
             changes::record(&tx, "asset", &id.to_string(), "update")?;
@@ -423,15 +439,18 @@ impl Store {
         ensure_exists(&tx, id)?;
         tx.execute(&format!("DELETE FROM {table} WHERE asset_id = ?1"), [id])?;
         for t in targets {
-            tx.execute(&format!("INSERT OR IGNORE INTO {table} (asset_id, {col}) VALUES (?1, ?2)"), params![id, t])
-                .map_err(|e| match e {
-                    rusqlite::Error::SqliteFailure(f, _)
-                        if f.code == rusqlite::ErrorCode::ConstraintViolation =>
-                    {
-                        StoreError::NotFound(format!("{col} {t}"))
-                    }
-                    other => other.into(),
-                })?;
+            tx.execute(
+                &format!("INSERT OR IGNORE INTO {table} (asset_id, {col}) VALUES (?1, ?2)"),
+                params![id, t],
+            )
+            .map_err(|e| match e {
+                rusqlite::Error::SqliteFailure(f, _)
+                    if f.code == rusqlite::ErrorCode::ConstraintViolation =>
+                {
+                    StoreError::NotFound(format!("{col} {t}"))
+                }
+                other => other.into(),
+            })?;
         }
         touch(&tx, id)?;
         changes::record(&tx, "asset", &id.to_string(), "update")?;
@@ -449,8 +468,11 @@ impl Store {
         let tx = conn.transaction()?;
         for id in ids {
             ensure_exists(&tx, *id)?;
-            tx.execute(&format!("INSERT OR IGNORE INTO {table} (asset_id, {col}) VALUES (?1, ?2)"), params![id, val])
-                .map_err(|_| StoreError::NotFound(format!("{col} {val}")))?;
+            tx.execute(
+                &format!("INSERT OR IGNORE INTO {table} (asset_id, {col}) VALUES (?1, ?2)"),
+                params![id, val],
+            )
+            .map_err(|_| StoreError::NotFound(format!("{col} {val}")))?;
             changes::record(&tx, "asset", &id.to_string(), "update")?;
         }
         tx.commit()?;
@@ -463,7 +485,10 @@ impl Store {
             LinkTarget::Session(s) => ("asset_sessions", "session_id", s),
         };
         let conn = self.conn();
-        conn.execute(&format!("DELETE FROM {table} WHERE asset_id = ?1 AND {col} = ?2"), params![id, val])?;
+        conn.execute(
+            &format!("DELETE FROM {table} WHERE asset_id = ?1 AND {col} = ?2"),
+            params![id, val],
+        )?;
         changes::record(&conn, "asset", &id.to_string(), "update")?;
         Ok(())
     }
@@ -530,11 +555,16 @@ pub(crate) mod tests {
         let g = new_asset(&s, "token", "Goblin Boss");
         let o = new_asset(&s, "token", "Orc");
         new_asset(&s, "map", "Dungeon");
-        s.update_asset_meta(o, &AssetPatch { aliases: Some("Grishnak\nbrute".into()), ..Default::default() })
-            .unwrap();
+        s.update_asset_meta(
+            o,
+            &AssetPatch { aliases: Some("Grishnak\nbrute".into()), ..Default::default() },
+        )
+        .unwrap();
         s.set_asset_tags(g, &["Goblinoid".into(), "boss".into()]).unwrap();
 
-        let q = |text: &str| s.search_assets(&AssetQuery { q: Some(text.into()), ..Default::default() }).unwrap();
+        let q = |text: &str| {
+            s.search_assets(&AssetQuery { q: Some(text.into()), ..Default::default() }).unwrap()
+        };
         assert_eq!(names(&q("gob")), ["Goblin Boss"]);
         assert_eq!(names(&q("grish")), ["Orc"], "aliases are searchable");
         assert_eq!(names(&q("goblinoid")), ["Goblin Boss"], "tags are searchable");
@@ -553,10 +583,17 @@ pub(crate) mod tests {
         s.set_asset_tags(a, &["x".into(), "y".into()]).unwrap();
         s.set_asset_tags(b, &["X".into()]).unwrap();
         s.update_asset_meta(c, &AssetPatch { pinned: Some(true), ..Default::default() }).unwrap();
-        s.update_asset_meta(b, &AssetPatch { size_label: Some("Tiny".into()), ..Default::default() }).unwrap();
+        s.update_asset_meta(
+            b,
+            &AssetPatch { size_label: Some("Tiny".into()), ..Default::default() },
+        )
+        .unwrap();
 
         let run = |q: AssetQuery| s.search_assets(&q).unwrap();
-        assert_eq!(names(&run(AssetQuery { kinds: vec!["map".into()], ..Default::default() })), ["gamma"]);
+        assert_eq!(
+            names(&run(AssetQuery { kinds: vec!["map".into()], ..Default::default() })),
+            ["gamma"]
+        );
         assert_eq!(
             names(&run(AssetQuery { tags: vec!["x".into(), "Y".into()], ..Default::default() })),
             ["beta"],
@@ -588,9 +625,13 @@ pub(crate) mod tests {
         s.set_asset_campaigns(direct, std::slice::from_ref(&c.id)).unwrap();
         s.link_assets(&[via], LinkTarget::Session(&sess.id)).unwrap();
 
-        let by_c = s.search_assets(&AssetQuery { campaign_id: Some(c.id.clone()), ..Default::default() }).unwrap();
+        let by_c = s
+            .search_assets(&AssetQuery { campaign_id: Some(c.id.clone()), ..Default::default() })
+            .unwrap();
         assert_eq!(names(&by_c), ["via session", "direct"]);
-        let by_s = s.search_assets(&AssetQuery { session_id: Some(sess.id.clone()), ..Default::default() }).unwrap();
+        let by_s = s
+            .search_assets(&AssetQuery { session_id: Some(sess.id.clone()), ..Default::default() })
+            .unwrap();
         assert_eq!(names(&by_s), ["via session"]);
         assert_eq!(s.get_asset(via).unwrap().session_ids, vec![sess.id.clone()]);
     }
@@ -608,9 +649,12 @@ pub(crate) mod tests {
         let a = new_asset(&s, "token", "Zombie");
         s.set_asset_tags(a, &["undead".into()]).unwrap();
         assert_eq!(s.delete_assets(&[a, 12345]).unwrap(), 1);
-        let n: i64 = s.conn().query_row("SELECT count(*) FROM asset_tags", [], |r| r.get(0)).unwrap();
+        let n: i64 =
+            s.conn().query_row("SELECT count(*) FROM asset_tags", [], |r| r.get(0)).unwrap();
         assert_eq!(n, 0);
-        let q = s.search_assets(&AssetQuery { q: Some("zombie".into()), ..Default::default() }).unwrap();
+        let q = s
+            .search_assets(&AssetQuery { q: Some("zombie".into()), ..Default::default() })
+            .unwrap();
         assert_eq!(q.total, 0);
     }
 
@@ -618,7 +662,10 @@ pub(crate) mod tests {
     fn empty_name_rejected_and_writes_are_logged() {
         let (_d, s) = temp_store();
         let a = new_asset(&s, "token", "x");
-        assert!(s.update_asset_meta(a, &AssetPatch { name: Some("  ".into()), ..Default::default() }).is_err());
+        assert!(
+            s.update_asset_meta(a, &AssetPatch { name: Some("  ".into()), ..Default::default() })
+                .is_err()
+        );
         let before = s.latest_change_seq().unwrap();
         s.add_tag_to_assets(&[a], "new").unwrap();
         assert!(s.latest_change_seq().unwrap() > before);

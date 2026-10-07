@@ -26,7 +26,11 @@ pub struct Session {
 
 fn non_empty(s: &str, what: &str) -> Result<String> {
     let t = s.trim();
-    if t.is_empty() { Err(StoreError::Invalid(format!("{what} must not be empty"))) } else { Ok(t.to_string()) }
+    if t.is_empty() {
+        Err(StoreError::Invalid(format!("{what} must not be empty")))
+    } else {
+        Ok(t.to_string())
+    }
 }
 
 impl Store {
@@ -65,11 +69,19 @@ impl Store {
     }
 
     /// Creates a campaign with a caller-chosen id (used by the legacy importer to keep uuids).
-    pub fn create_campaign_with_id(&self, id: &str, name: &str, created: Option<&str>) -> Result<Campaign> {
+    pub fn create_campaign_with_id(
+        &self,
+        id: &str,
+        name: &str,
+        created: Option<&str>,
+    ) -> Result<Campaign> {
         let name = non_empty(name, "campaign name")?;
         let ts = created.map(str::to_string).unwrap_or_else(now);
         let conn = self.conn();
-        conn.execute("INSERT INTO campaigns (id, name, created) VALUES (?1, ?2, ?3)", params![id, name, ts])?;
+        conn.execute(
+            "INSERT INTO campaigns (id, name, created) VALUES (?1, ?2, ?3)",
+            params![id, name, ts],
+        )?;
         changes::record(&conn, "campaign", id, "insert")?;
         drop(conn);
         self.get_campaign(id)
@@ -131,8 +143,9 @@ impl Store {
         let name = non_empty(name, "session name")?;
         let ts = created.map(str::to_string).unwrap_or_else(now);
         let conn = self.conn();
-        let exists: Option<String> =
-            conn.query_row("SELECT id FROM campaigns WHERE id = ?1", [campaign_id], |r| r.get(0)).optional()?;
+        let exists: Option<String> = conn
+            .query_row("SELECT id FROM campaigns WHERE id = ?1", [campaign_id], |r| r.get(0))
+            .optional()?;
         exists.ok_or_else(|| StoreError::NotFound(format!("campaign {campaign_id}")))?;
         conn.execute(
             "INSERT INTO sessions (id, campaign_id, name, notes, created) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -151,11 +164,15 @@ impl Store {
 
     pub fn update_session(&self, id: &str, name: Option<&str>, notes: Option<&str>) -> Result<()> {
         let conn = self.conn();
-        let exists: Option<String> =
-            conn.query_row("SELECT id FROM sessions WHERE id = ?1", [id], |r| r.get(0)).optional()?;
+        let exists: Option<String> = conn
+            .query_row("SELECT id FROM sessions WHERE id = ?1", [id], |r| r.get(0))
+            .optional()?;
         exists.ok_or_else(|| StoreError::NotFound(format!("session {id}")))?;
         if let Some(n) = name {
-            conn.execute("UPDATE sessions SET name = ?2 WHERE id = ?1", params![id, non_empty(n, "session name")?])?;
+            conn.execute(
+                "UPDATE sessions SET name = ?2 WHERE id = ?1",
+                params![id, non_empty(n, "session name")?],
+            )?;
         }
         if let Some(n) = notes {
             conn.execute("UPDATE sessions SET notes = ?2 WHERE id = ?1", params![id, n])?;
@@ -178,13 +195,17 @@ impl Store {
     pub fn set_session_assets(&self, session_id: &str, asset_ids: &[i64]) -> Result<()> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        let exists: Option<String> =
-            tx.query_row("SELECT id FROM sessions WHERE id = ?1", [session_id], |r| r.get(0)).optional()?;
+        let exists: Option<String> = tx
+            .query_row("SELECT id FROM sessions WHERE id = ?1", [session_id], |r| r.get(0))
+            .optional()?;
         exists.ok_or_else(|| StoreError::NotFound(format!("session {session_id}")))?;
         tx.execute("DELETE FROM asset_sessions WHERE session_id = ?1", [session_id])?;
         for a in asset_ids {
-            tx.execute("INSERT OR IGNORE INTO asset_sessions (asset_id, session_id) VALUES (?1, ?2)", params![a, session_id])
-                .map_err(|_| StoreError::NotFound(format!("asset {a}")))?;
+            tx.execute(
+                "INSERT OR IGNORE INTO asset_sessions (asset_id, session_id) VALUES (?1, ?2)",
+                params![a, session_id],
+            )
+            .map_err(|_| StoreError::NotFound(format!("asset {a}")))?;
         }
         changes::record(&tx, "session", session_id, "update")?;
         tx.commit()?;
