@@ -1,0 +1,34 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node / frontend
+node_modules/
+app/ui/dist/
+app/ui/.svelte-kit/
+*.log
+
+# Tauri
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# Local data / secrets
+.env
+*.db
+*.db-wal
+*.db-shm
+/data/
+!crates/legacy/tests/fixtures/*.db
+
+# Python (parity tools)
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.claude/worktrees/
