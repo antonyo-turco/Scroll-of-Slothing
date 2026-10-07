@@ -20,6 +20,13 @@ class AppState {
   toasts = $state<Toast[]>([]);
   paletteOpen = $state(false);
   ready = $state(false);
+  /** Global campaign context (persisted in workspace `ui.campaign`). */
+  campaignId = $state<string | null>(null);
+  /** Bumped (debounced) whenever persistent data changes; views refetch on change. */
+  dataVersion = $state(0);
+  /** One-shot filter handed to the Library when navigating there (e.g. from a session). */
+  libraryPreset = $state<{ sessionId?: string; campaignId?: string } | null>(null);
+  #bumpTimer: ReturnType<typeof setTimeout> | null = null;
   #toastSeq = 0;
   #unlisten: (() => void) | null = null;
 
@@ -35,6 +42,7 @@ class AppState {
     this.applyTheme();
     this.#unlisten = await api.onEvent((e) => this.onEvent(e));
     this.jobs = await api.jobsList().catch(() => []);
+    this.campaignId = await api.workspaceGet<string>('ui.campaign').catch(() => null);
     window.addEventListener('hashchange', () => {
       const id = location.hash.replace(/^#\/?/, '');
       if (isRoute(id)) this.route = id;
@@ -93,7 +101,23 @@ class AppState {
         this.settings = s;
         this.applyTheme();
       });
+    } else if (e.type === 'store_changed') {
+      this.bumpData();
     }
+  }
+
+  /** Signals views to refetch; coalesces bursts (e.g. a bulk import) into one refresh. */
+  bumpData(): void {
+    if (this.#bumpTimer) return;
+    this.#bumpTimer = setTimeout(() => {
+      this.#bumpTimer = null;
+      this.dataVersion++;
+    }, 150);
+  }
+
+  async setCampaign(id: string | null): Promise<void> {
+    this.campaignId = id;
+    await api.workspaceSet('ui.campaign', id).catch((e) => this.error('Could not save campaign', e));
   }
 
   toast(kind: Toast['kind'], text: string, detail?: string): void {
