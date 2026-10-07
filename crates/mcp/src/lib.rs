@@ -12,9 +12,11 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{ErrorData, ServerHandler, schemars, tool, tool_handler, tool_router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use sleuth_core::token::TokenParams;
+use sleuth_core::units::PageFormat;
 use sleuth_service::{
     AssetPatch, AssetQuery, AssetSort, ExportWhat, ImportFile, LegacyImportOptions, Service,
-    ServiceError,
+    ServiceError, SheetItemPatch,
 };
 
 type ToolResult = Result<CallToolResult, ErrorData>;
@@ -189,6 +191,75 @@ pub struct LegacyImportParams {
     pub db_path: String,
     pub settings_path: Option<String>,
     pub aoe_presets_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct BorderAddParams {
+    pub path: String,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TokenComposeParams {
+    /// Image file to make a token from (absolute path)...
+    pub source_path: Option<String>,
+    /// ...or an existing library asset (re-edit; its saved framing is the starting point).
+    pub asset_id: Option<i64>,
+    /// Border id from token_borders_list (default: first border).
+    pub border: Option<String>,
+    /// "#rrggbb" fill behind the image, or "none" for transparent.
+    pub background: Option<String>,
+    /// Ring thickness: inset of the image circle, % of radius (0-50).
+    pub ring_inset_pct: Option<f64>,
+    /// Zoom on top of cover-fit (0.1-10).
+    pub zoom: Option<f64>,
+    /// Pan in border pixels (positive = view moves right / down over the image).
+    pub pan_x: Option<f64>,
+    pub pan_y: Option<f64>,
+    pub name: Option<String>,
+    /// Tiny | Small | Medium | Large | Huge | Gargantuan
+    pub size: Option<String>,
+    #[serde(default)]
+    pub save_to_library: bool,
+    /// With asset_id + save_to_library: replace that asset instead of creating a new one.
+    #[serde(default)]
+    pub update_existing: bool,
+    #[serde(default)]
+    pub add_to_sheet: bool,
+    /// Also write the token PNG here.
+    pub out_png: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SheetAddParams {
+    #[serde(default)]
+    pub asset_ids: Vec<i64>,
+    /// Image files (absolute paths) added as tokens.
+    #[serde(default)]
+    pub paths: Vec<String>,
+    /// Size for added files (default Medium).
+    pub size: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SheetUpdateParams {
+    pub id: String,
+    pub label: Option<String>,
+    pub size: Option<String>,
+    pub copies: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SheetOptionsParams {
+    /// Letter | A4
+    pub format: Option<String>,
+    pub cut_border: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PathParams {
+    /// Absolute output path.
+    pub path: String,
 }
 
 // ── server ──────────────────────────────────────────────────────────────────
@@ -423,6 +494,204 @@ impl SleuthServer {
             aoe_presets_path: p.aoe_presets_path.map(Into::into),
         });
         ok(&serde_json::json!({ "job_id": job_id }))
+    }
+
+    // ── tokens ──
+    #[tool(description = "List token borders (built-in and user-added) with their ids.")]
+    async fn token_borders_list(&self) -> ToolResult {
+        done(self.svc.token_borders_list().await)
+    }
+
+    #[tool(description = "Add a border image (PNG with a transparent centre) from a file path.")]
+    async fn token_borders_add(&self, Parameters(p): Parameters<BorderAddParams>) -> ToolResult {
+        done(self.svc.token_borders_add(PathBuf::from(p.path), p.name).await)
+    }
+
+    #[tool(
+        description = "Make a round token from an image (file path or library asset) inside a border ring. \
+        Optionally save it to the library, add it to the token sheet, and/or write a PNG. Returns the result plus the token image."
+    )]
+    async fn token_compose(&self, Parameters(p): Parameters<TokenComposeParams>) -> ToolResult {
+        match self.token_compose_inner(p).await {
+            Ok((summary, png)) => Ok(CallToolResult::success(vec![
+                ContentBlock::json(&summary)?,
+                ContentBlock::image(
+                    base64::engine::general_purpose::STANDARD.encode(png),
+                    "image/png",
+                ),
+            ])),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(
+        description = "Get the token sheet: items (id, label, size, copies), page format and cut-border option."
+    )]
+    async fn token_sheet_list(&self) -> ToolResult {
+        done(self.svc.token_sheet_get().await)
+    }
+
+    #[tool(
+        description = "Add library assets (asset_ids) and/or image files (paths) to the token sheet."
+    )]
+    async fn token_sheet_add(&self, Parameters(p): Parameters<SheetAddParams>) -> ToolResult {
+        if !p.asset_ids.is_empty()
+            && let Err(e) = self.svc.token_sheet_add_assets(p.asset_ids).await
+        {
+            return fail(&e);
+        }
+        if !p.paths.is_empty() {
+            return done(
+                self.svc
+                    .token_sheet_add_files(p.paths.into_iter().map(PathBuf::from).collect(), p.size)
+                    .await,
+            );
+        }
+        done(self.svc.token_sheet_get().await)
+    }
+
+    #[tool(description = "Change a sheet item's label, size or copies (1-99).")]
+    async fn token_sheet_update(&self, Parameters(p): Parameters<SheetUpdateParams>) -> ToolResult {
+        let patch = SheetItemPatch { label: p.label, size: p.size, copies: p.copies };
+        done(self.svc.token_sheet_update(p.id, patch).await)
+    }
+
+    #[tool(description = "Remove one item from the token sheet.")]
+    async fn token_sheet_remove(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.token_sheet_remove(p.id).await)
+    }
+
+    #[tool(description = "Remove all items from the token sheet.")]
+    async fn token_sheet_clear(&self) -> ToolResult {
+        done(self.svc.token_sheet_clear().await)
+    }
+
+    #[tool(description = "Set the token sheet page format (Letter|A4) and/or cut-border circles.")]
+    async fn token_sheet_set_options(
+        &self,
+        Parameters(p): Parameters<SheetOptionsParams>,
+    ) -> ToolResult {
+        let format = match p.format.as_deref().map(PageFormat::parse) {
+            Some(None) => {
+                return fail(&ServiceError::InvalidInput("format must be Letter or A4".into()));
+            }
+            Some(f) => f,
+            None => None,
+        };
+        done(self.svc.token_sheet_set_options(format, p.cut_border).await)
+    }
+
+    #[tool(
+        description = "Compute the token sheet pages: placements in PDF points (bottom-left origin) and skipped items."
+    )]
+    async fn token_sheet_layout(&self) -> ToolResult {
+        done(self.svc.token_sheet_layout().await)
+    }
+
+    #[tool(
+        description = "Export the token sheet as a PDF to `path`. Returns a job_id (poll jobs_status)."
+    )]
+    async fn token_sheet_export_pdf(&self, Parameters(p): Parameters<PathParams>) -> ToolResult {
+        ok(&serde_json::json!({ "job_id": self.svc.token_sheet_export_pdf(PathBuf::from(p.path)) }))
+    }
+}
+
+impl SleuthServer {
+    async fn token_compose_inner(
+        &self,
+        p: TokenComposeParams,
+    ) -> Result<(Value, Vec<u8>), ServiceError> {
+        let (source, mut params, name, size, asset_id) = match (p.asset_id, p.source_path) {
+            (Some(id), _) => {
+                let d = self.svc.token_open_asset(id).await?;
+                (d.source.hash, d.params, d.name, d.size, Some(id))
+            }
+            (None, Some(path)) => {
+                let src = self.svc.image_source_from_path(PathBuf::from(&path)).await?;
+                let stem = std::path::Path::new(&path)
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "Token".into());
+                (src.hash, TokenParams::default(), stem, "Medium".to_string(), None)
+            }
+            (None, None) => {
+                return Err(ServiceError::InvalidInput("give source_path or asset_id".into()));
+            }
+        };
+        if let Some(b) = p.border {
+            params.border = b;
+        }
+        if params.border.is_empty() {
+            params.border = self
+                .svc
+                .token_borders_list()
+                .await?
+                .first()
+                .map(|b| b.id.clone())
+                .unwrap_or_default();
+        }
+        if let Some(bg) = p.background {
+            params.bg = if bg.trim().is_empty() || bg == "none" {
+                None
+            } else {
+                Some(
+                    sleuth_core::settings::HexColor::parse(&bg)
+                        .ok_or_else(|| {
+                            ServiceError::InvalidInput(format!("background {bg:?} is not #rrggbb"))
+                        })?
+                        .0,
+                )
+            };
+        }
+        if let Some(v) = p.ring_inset_pct {
+            params.ring_inset_pct = v;
+        }
+        if let Some(v) = p.zoom {
+            params.zoom = v;
+        }
+        if let Some(v) = p.pan_x {
+            params.pan[0] = v;
+        }
+        if let Some(v) = p.pan_y {
+            params.pan[1] = v;
+        }
+        let params = params.clamped();
+        let name = p.name.unwrap_or(name);
+        let size = p.size.unwrap_or(size);
+        let mut summary = serde_json::json!({ "params": params, "name": name, "size": size });
+        if p.save_to_library {
+            let update = if p.update_existing { asset_id } else { None };
+            let a = self
+                .svc
+                .token_save_to_library(
+                    source.clone(),
+                    params.clone(),
+                    name.clone(),
+                    size.clone(),
+                    update,
+                )
+                .await?;
+            summary["asset_id"] = a.id.into();
+        }
+        if p.add_to_sheet {
+            let sheet = self
+                .svc
+                .token_sheet_add_composed(
+                    source.clone(),
+                    params.clone(),
+                    name.clone(),
+                    size.clone(),
+                )
+                .await?;
+            summary["sheet_items"] = sheet.items.len().into();
+        }
+        if let Some(out) = p.out_png {
+            let path =
+                self.svc.token_save_png(source.clone(), params.clone(), PathBuf::from(out)).await?;
+            summary["png_path"] = serde_json::to_value(path).unwrap_or_default();
+        }
+        let png = self.svc.token_render(source, params, false).await?;
+        Ok((summary, png))
     }
 }
 

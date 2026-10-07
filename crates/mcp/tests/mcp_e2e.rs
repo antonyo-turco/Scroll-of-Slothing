@@ -112,3 +112,80 @@ fn tools_are_documented() {
         .collect();
     assert!(missing.is_empty(), "tools missing from docs/mcp-tools.md: {missing:?}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn token_workflow_over_mcp() {
+    let dir = tempfile::tempdir().unwrap();
+    let svc = Service::open(dir.path().join("data")).unwrap();
+    let png = dir.path().join("Hobgoblin.png");
+    image::RgbaImage::from_fn(300, 200, |x, _| image::Rgba([(x % 255) as u8, 40, 90, 255]))
+        .save(&png)
+        .unwrap();
+    let (server_io, client_io) = tokio::io::duplex(1 << 22);
+    tokio::spawn(async move {
+        SleuthServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
+    });
+    let client = Client.serve(client_io).await.unwrap();
+    let call = |name: &'static str, a: Value| {
+        let client = &client;
+        async move {
+            client
+                .call_tool(CallToolRequestParams::new(name).with_arguments(args(a)))
+                .await
+                .unwrap()
+        }
+    };
+
+    let r = call("token_borders_list", json!({})).await;
+    assert_eq!(json_of(&r)[0]["id"], "builtin:roll20");
+
+    let out_png = dir.path().join("hob_token.png");
+    let r = call(
+        "token_compose",
+        json!({"source_path": png.to_string_lossy(), "zoom": 1.4, "background": "#203040", "size": "Large",
+               "save_to_library": true, "add_to_sheet": true, "out_png": out_png.to_string_lossy()}),
+    )
+    .await;
+    assert_ne!(r.is_error, Some(true), "{:?}", r.content);
+    let summary = json_of(&r);
+    assert_eq!(summary["name"], "Hobgoblin");
+    assert!(summary["asset_id"].is_i64());
+    assert_eq!(summary["sheet_items"], 1);
+    assert!(r.content[1].as_image().is_some(), "the model gets to see the token");
+    assert!(out_png.exists());
+
+    // Re-edit from the library keeps the saved framing.
+    let r =
+        call("token_compose", json!({"asset_id": summary["asset_id"], "ring_inset_pct": 20})).await;
+    let again = json_of(&r);
+    assert_eq!(again["params"]["zoom"], 1.4);
+    assert_eq!(again["params"]["bg"], json!([32, 48, 64]));
+
+    let r = call("token_sheet_list", json!({})).await;
+    let item_id = json_of(&r)["items"][0]["id"].as_str().unwrap().to_string();
+    call("token_sheet_update", json!({"id": item_id, "copies": 12})).await;
+    call("token_sheet_set_options", json!({"format": "A4", "cut_border": true})).await;
+    let r = call("token_sheet_layout", json!({})).await;
+    let layout = json_of(&r);
+    assert_eq!(layout["pages"][0].as_array().unwrap().len(), 12);
+    assert_eq!(layout["pages"][0][0]["w"], 144.0, "Large = 2 in");
+
+    let pdf = dir.path().join("sheet.pdf");
+    let r = call("token_sheet_export_pdf", json!({"path": pdf.to_string_lossy()})).await;
+    let job = json_of(&r)["job_id"].as_str().unwrap().to_string();
+    let mut state = Value::Null;
+    for _ in 0..400 {
+        let r = call("jobs_status", json!({"job_id": job})).await;
+        state = json_of(&r)["state"].clone();
+        if state != "running" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(state, "done");
+    assert!(std::fs::read(&pdf).unwrap().starts_with(b"%PDF"));
+
+    let r = call("token_sheet_set_options", json!({"format": "Legal"})).await;
+    assert_eq!(r.is_error, Some(true));
+    client.cancel().await.unwrap();
+}
