@@ -1,0 +1,26 @@
+[package]
+name = "sleuth-service"
+description = "Application service layer: the single API used by the UI, MCP and CLI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "sleuth_service"
+
+[dependencies]
+sleuth-core.workspace = true
+sleuth-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true
