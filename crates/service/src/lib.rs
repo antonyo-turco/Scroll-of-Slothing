@@ -6,6 +6,8 @@ mod blobs;
 mod error;
 mod events;
 mod jobs;
+mod library;
+mod organize;
 mod settings;
 
 use std::path::Path;
@@ -17,6 +19,8 @@ use tokio::sync::broadcast;
 pub use error::{ErrorCode, ServiceError};
 pub use events::Event;
 pub use jobs::{JobCtx, JobId, JobState, JobStatus};
+pub use library::{ASSET_KINDS, BulkAction, ExportWhat, ImportFailure, ImportFile, ImportReport};
+pub use sleuth_store::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome, Session, TagCount};
 pub use settings::SettingsUpdate;
 
 pub type Result<T> = std::result::Result<T, ServiceError>;
