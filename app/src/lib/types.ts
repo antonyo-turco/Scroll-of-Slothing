@@ -248,3 +248,50 @@ export interface SheetItemPatch {
   size?: string | null;
   copies?: number | null;
 }
+
+// ── cut-outs (crates/core/src/cutout.rs, crates/service/src/cutouts.rs, object_sheet.rs) ──
+
+export type LassoMode = 'polygon' | 'freehand';
+
+export interface CutoutParams {
+  mode: LassoMode;
+  points: [number, number][];
+  outline_rgb: [number, number, number];
+  outline_px: number;
+}
+
+export interface CutoutDraft {
+  source: SourceImage;
+  params: CutoutParams;
+  name: string;
+  size: string;
+  asset_id: number | null;
+}
+
+export type SheetMode = 'flat' | 'standee';
+
+export interface ObjectItem {
+  id: string;
+  label: string;
+  size: string;
+  scale: number;
+  copies: number;
+  image: string;
+  thumb: string;
+  w_px: number;
+  h_px: number;
+  asset_id: number | null;
+}
+
+export interface ObjectSheet {
+  items: ObjectItem[];
+  format: PageFormat;
+  mode: SheetMode;
+}
+
+export interface ObjectItemPatch {
+  label?: string | null;
+  size?: string | null;
+  scale?: number | null;
+  copies?: number | null;
+}

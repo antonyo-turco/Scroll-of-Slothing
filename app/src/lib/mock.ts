@@ -6,7 +6,8 @@ import {
   DEFAULT_SETTINGS, SIZE_INCHES, SIZE_LABELS,
   type Asset, type AssetQuery, type Border, type Campaign, type PageFormat, type PlacedItem,
   type ServiceEvent, type Session, type Settings, type SheetItem, type SheetItemPatch, type SheetLayout,
-  type SizeLabel, type TokenParams, type TokenSheet,
+  type SizeLabel, type TokenParams, type TokenSheet, type CutoutParams, type ObjectItem,
+  type ObjectItemPatch, type ObjectSheet, type SheetMode,
 } from './types';
 
 export interface Backend {
@@ -516,6 +517,151 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
       if (!getSheet().items.length) throw invalid('the token sheet is empty');
       const id = `mock-job-${++seq}`;
       const job = { id, kind: 'token sheet export', state: 'done' as const, progress: 1, message: '', result: { pages: layoutSheet().pages.length }, error: null };
+      setTimeout(() => listeners.forEach((l) => l({ type: 'job', ...job })), 10);
+      return id;
+    },
+  });
+
+  // ── cut-outs & object sheet ──
+  const cutoutParams = new Map<number, CutoutParams>();
+  let objects: ObjectSheet | null = null;
+  const getObjects = () => (objects ??= { items: [], format: settings.object_page_format, mode: 'flat' });
+  const objectItem = (label: string, size: string, image: string, asset_id: number | null): ObjectItem => ({
+    id: `mock-obj-${++seq}`, label: label.trim() || 'Cut-Out', size, scale: 100, copies: 1, image, thumb: image,
+    w_px: 120, h_px: 200, asset_id,
+  });
+  const checkCut = (p: CutoutParams) => {
+    if (p.points.length < 3) throw invalid('trace at least 3 points around the object');
+  };
+  const cutoutSvg = (p: CutoutParams) => {
+    const xs = p.points.map((q) => q[0]);
+    const ys = p.points.map((q) => q[1]);
+    const [x0, y0] = [Math.min(...xs), Math.min(...ys)];
+    const pts = p.points.map(([x, y]) => `${x - x0 + p.outline_px},${y - y0 + p.outline_px}`).join(' ');
+    const w = Math.max(...xs) - x0 + 2 * p.outline_px + 1;
+    const h = Math.max(...ys) - y0 + 2 * p.outline_px + 1;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+      <polygon points="${pts}" fill="#8a6" stroke="rgb(${p.outline_rgb.join(',')})" stroke-width="${p.outline_px * 2}" stroke-linejoin="round" paint-order="stroke"/></svg>`;
+  };
+  /** Shelf packer (mirror of crates/core/src/pack/shelf.rs). */
+  const layoutObjects = (): SheetLayout => {
+    const s = getObjects();
+    const [pw, ph] = s.format === 'A4' ? [595.2756, 841.8898] : [612, 792];
+    const rects: { id: string; w: number; h: number }[] = [];
+    for (const it of s.items) {
+      const longest = (SIZE_INCHES[it.size as SizeLabel] * 72 * (it.scale || 100)) / 100;
+      const k = longest / Math.max(it.w_px, it.h_px);
+      const h = (s.mode === 'standee' ? 2 : 1) * it.h_px * k;
+      for (let c = 0; c < it.copies; c++) rects.push({ id: it.id, w: it.w_px * k, h });
+    }
+    rects.sort((a, b) => b.h - a.h);
+    const [left, right, top0, bottom] = [18, pw - 18, 18, ph - 18];
+    const pages: PlacedItem[][] = [];
+    const skipped: string[] = [];
+    let [x, top, shelf] = [left, top0, 0];
+    for (const r of rects) {
+      if (r.w > right - left || r.h > bottom - top0) {
+        if (!skipped.includes(r.id)) skipped.push(r.id);
+        continue;
+      }
+      if (!pages.length) pages.push([]);
+      if (x + r.w > right) [x, top, shelf] = [left, top + shelf + 8, 0];
+      if (top + r.h > bottom) {
+        pages.push([]);
+        [x, top, shelf] = [left, top0, 0];
+      }
+      pages[pages.length - 1].push({ id: r.id, x, y: ph - top - r.h, w: r.w, h: r.h });
+      x += r.w + 8;
+      shelf = Math.max(shelf, r.h);
+    }
+    return { page_w: pw, page_h: ph, pages, skipped };
+  };
+
+  Object.assign(handlers, {
+    cutout_render: ({ params }: Record<string, unknown>) => {
+      checkCut(params as CutoutParams);
+      return cutoutSvg(params as CutoutParams);
+    },
+    cutout_save_png: ({ path }: Record<string, unknown>) => path,
+    cutout_save_to_library: ({ source, params, name, size, update }: Record<string, unknown>) => {
+      checkCut(params as CutoutParams);
+      if (!(name as string).trim()) throw invalid('please enter a name');
+      const s = checkSize(size as string);
+      let a: Asset;
+      if (update != null) {
+        a = getAsset(update as number);
+        a.name = (name as string).trim();
+        a.size_label = s;
+      } else {
+        a = newAsset((name as string).trim(), 'cutout', s, []);
+        assets.push(a);
+      }
+      a.original_blob = source as string;
+      cutoutParams.set(a.id, structuredClone(params as CutoutParams));
+      return a;
+    },
+    cutout_open_asset: ({ id }: Record<string, unknown>) => {
+      const a = getAsset(id as number);
+      const params = cutoutParams.get(a.id) ?? { mode: 'polygon', points: [], outline_rgb: [255, 255, 255], outline_px: 6 };
+      return { source: { hash: a.original_blob, ...(sources.get(a.original_blob) ?? { width: 640, height: 400 }) }, params, name: a.name, size: a.size_label, asset_id: a.id };
+    },
+
+    object_sheet_get: () => getObjects(),
+    object_sheet_add_assets: ({ ids }: Record<string, unknown>) => {
+      for (const id of ids as number[]) {
+        const a = getAsset(id);
+        getObjects().items.push(objectItem(a.name, a.size_label, a.rendered_blob, a.id));
+      }
+      return getObjects();
+    },
+    object_sheet_add_files: ({ paths, size }: Record<string, unknown>) => {
+      const s = checkSize((size as string) ?? 'Medium');
+      for (const p of paths as string[]) getObjects().items.push(objectItem(String(p).split(/[\\/]/).pop()!.replace(/\.[^.]+$/, ''), s, `mock-file-${++seq}`, null));
+      return getObjects();
+    },
+    object_sheet_add_composed: ({ params, label, size }: Record<string, unknown>) => {
+      checkCut(params as CutoutParams);
+      getObjects().items.push(objectItem(label as string, checkSize(size as string), `mock-cut-${++seq}`, null));
+      return getObjects();
+    },
+    object_sheet_update: ({ id, patch }: Record<string, unknown>) => {
+      const it = getObjects().items.find((i) => i.id === id);
+      if (!it) throw notFound(`sheet item ${id}`);
+      const p = patch as ObjectItemPatch;
+      if (p.label != null) it.label = p.label;
+      if (p.size != null) it.size = checkSize(p.size);
+      if (p.scale != null) {
+        if (p.scale < 10 || p.scale > 400) throw invalid('scale must be 10–400 %');
+        it.scale = p.scale;
+      }
+      if (p.copies != null) {
+        if (p.copies < 1 || p.copies > 99) throw invalid('copies must be 1–99');
+        it.copies = p.copies;
+      }
+      return getObjects();
+    },
+    object_sheet_remove: ({ id }: Record<string, unknown>) => {
+      const s = getObjects();
+      const n = s.items.length;
+      s.items = s.items.filter((i) => i.id !== id);
+      if (s.items.length === n) throw notFound(`sheet item ${id}`);
+      return s;
+    },
+    object_sheet_clear: () => {
+      getObjects().items = [];
+      return getObjects();
+    },
+    object_sheet_set_options: ({ format, mode }: Record<string, unknown>) => {
+      const s = getObjects();
+      if (format != null) s.format = format as PageFormat;
+      if (mode != null) s.mode = mode as SheetMode;
+      return s;
+    },
+    object_sheet_layout: () => layoutObjects(),
+    object_sheet_export_pdf: () => {
+      if (!getObjects().items.length) throw invalid('the object sheet is empty');
+      const id = `mock-job-${++seq}`;
+      const job = { id, kind: 'object sheet export', state: 'done' as const, progress: 1, message: '', result: { pages: layoutObjects().pages.length }, error: null };
       setTimeout(() => listeners.forEach((l) => l({ type: 'job', ...job })), 10);
       return id;
     },

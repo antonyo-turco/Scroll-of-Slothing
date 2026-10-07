@@ -34,8 +34,8 @@ export const DESTINATIONS: Destination[] = [
     { id: 'tokens.sheet', label: 'Sheet', phase: 2, load: () => import('../routes/tokens/TokenSheet.svelte') },
   ] },
   { id: 'cutouts', label: 'Cut-outs', icon: 'scissors', views: [
-    { id: 'cutouts.cutter', label: 'Cutter', phase: 3, load: placeholder },
-    { id: 'cutouts.sheet', label: 'Sheet', phase: 3, load: placeholder },
+    { id: 'cutouts.cutter', label: 'Cutter', phase: 3, load: () => import('../routes/cutouts/ObjectCutter.svelte') },
+    { id: 'cutouts.sheet', label: 'Sheet', phase: 3, load: () => import('../routes/cutouts/ObjectSheet.svelte') },
   ] },
   { id: 'cards', label: 'Cards', icon: 'cards',
     views: [{ id: 'cards', label: 'Cards', phase: 4, load: placeholder }] },

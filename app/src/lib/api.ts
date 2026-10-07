@@ -6,6 +6,7 @@ import type {
   AppInfo, Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, ExportWhat, ImportFile,
   ImportReport, JobStatus, PageFormat, RenameOutcome, ServiceEvent, Session, Settings, SettingsUpdate,
   SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenParams, TokenSheet,
+  CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -128,6 +129,30 @@ export const api = {
     call<TokenSheet>('token_sheet_set_options', { format, cutBorder }),
   tokenSheetLayout: () => call<SheetLayout>('token_sheet_layout'),
   tokenSheetExportPdf: (path: string) => call<string>('token_sheet_export_pdf', { path }),
+
+  /** Renders a cut-out; resolves to an image Blob (PNG in the app, SVG in the mock). */
+  cutoutRender: async (source: string, params: CutoutParams, fast = true): Promise<Blob> => {
+    const r = await call<ArrayBuffer | string>('cutout_render', { source, params, fast });
+    return typeof r === 'string' ? new Blob([r], { type: 'image/svg+xml' }) : new Blob([r], { type: 'image/png' });
+  },
+  cutoutSavePng: (source: string, params: CutoutParams, path: string) =>
+    call<string>('cutout_save_png', { source, params, path }),
+  cutoutSaveToLibrary: (source: string, params: CutoutParams, name: string, size: string, update: number | null) =>
+    call<Asset>('cutout_save_to_library', { source, params, name, size, update }),
+  cutoutOpenAsset: (id: number) => call<CutoutDraft>('cutout_open_asset', { id }),
+
+  objectSheetGet: () => call<ObjectSheet>('object_sheet_get'),
+  objectSheetAddAssets: (ids: number[]) => call<ObjectSheet>('object_sheet_add_assets', { ids }),
+  objectSheetAddFiles: (paths: string[], size?: string | null) => call<ObjectSheet>('object_sheet_add_files', { paths, size }),
+  objectSheetAddComposed: (source: string, params: CutoutParams, label: string, size: string) =>
+    call<ObjectSheet>('object_sheet_add_composed', { source, params, label, size }),
+  objectSheetUpdate: (id: string, patch: ObjectItemPatch) => call<ObjectSheet>('object_sheet_update', { id, patch }),
+  objectSheetRemove: (id: string) => call<ObjectSheet>('object_sheet_remove', { id }),
+  objectSheetClear: () => call<ObjectSheet>('object_sheet_clear'),
+  objectSheetSetOptions: (format?: PageFormat | null, mode?: SheetMode | null) =>
+    call<ObjectSheet>('object_sheet_set_options', { format, mode }),
+  objectSheetLayout: () => call<SheetLayout>('object_sheet_layout'),
+  objectSheetExportPdf: (path: string) => call<string>('object_sheet_export_pdf', { path }),
 };
 
 // ── native dialogs (no-ops returning null outside Tauri) ──
