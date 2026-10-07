@@ -49,13 +49,20 @@ impl Store {
         if !path.exists() {
             let dir = path.parent().expect("blob path has a parent");
             std::fs::create_dir_all(dir)?;
-            let tmp = dir.join(format!(".{hash}.tmp"));
+            // Unique temp name: concurrent writers of the same content must not collide.
+            let tmp = dir.join(format!(".{hash}.{}.tmp", uuid::Uuid::new_v4().simple()));
             {
                 let mut f = std::fs::File::create(&tmp)?;
                 f.write_all(data)?;
                 f.sync_all()?;
             }
-            std::fs::rename(&tmp, &path)?;
+            if let Err(e) = std::fs::rename(&tmp, &path) {
+                let _ = std::fs::remove_file(&tmp);
+                // Another writer stored identical bytes first: that's success.
+                if !path.exists() {
+                    return Err(e.into());
+                }
+            }
         }
         let meta = BlobMeta {
             hash: hash.clone(),
@@ -121,6 +128,19 @@ mod tests {
         assert_eq!(s.read_blob(&a.hash).unwrap(), b"hello");
         let meta = s.blob_meta(&a.hash).unwrap();
         assert_eq!((meta.width, meta.height, meta.bytes), (Some(1), Some(2), 5));
+    }
+
+    #[test]
+    fn concurrent_puts_of_identical_content_succeed() {
+        let (_d, s) = temp_store();
+        let data = vec![7u8; 1 << 20];
+        let hashes: Vec<String> = std::thread::scope(|sc| {
+            let hs: Vec<_> =
+                (0..8).map(|_| sc.spawn(|| s.put_blob(&data, "image/png", None).unwrap().hash)).collect();
+            hs.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        assert!(hashes.windows(2).all(|w| w[0] == w[1]));
+        assert_eq!(s.read_blob(&hashes[0]).unwrap(), data);
     }
 
     #[test]

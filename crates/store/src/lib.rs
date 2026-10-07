@@ -4,10 +4,13 @@
 //! `Store` is synchronous and cheap to share (`Arc<Store>`); the service layer
 //! calls it from `spawn_blocking`.
 
+mod assets;
 mod blobs;
+mod campaigns;
 mod changes;
 mod migrate;
 mod settings;
+mod tags;
 mod workspaces;
 
 use std::path::{Path, PathBuf};
@@ -15,7 +18,10 @@ use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::Connection;
 
+pub use assets::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, LinkTarget, NewAsset};
 pub use blobs::{BlobMeta, BlobRef};
+pub use campaigns::{Campaign, Session};
+pub use tags::{RenameOutcome, TagCount};
 pub use changes::Change;
 
 #[derive(Debug, thiserror::Error)]
