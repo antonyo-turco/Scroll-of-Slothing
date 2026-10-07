@@ -16,6 +16,7 @@ tauri-build = { version = "2", features = [] }
 sleuth-core.workspace = true
 sleuth-service.workspace = true
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
