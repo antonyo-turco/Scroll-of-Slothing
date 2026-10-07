@@ -1,5 +1,6 @@
 <script lang="ts">
   import { blobUrl } from '../../lib/api';
+  import { portal } from '../../lib/portal';
   import { KIND_LABELS, SIZE_LABELS, type Asset, type AssetKind } from '../../lib/types';
 
   let {
@@ -21,10 +22,23 @@
   } = $props();
 
   let hover = $state(false);
+  let pos = $state({ left: 0, top: 0 });
   let timer: ReturnType<typeof setTimeout> | null = null;
+  const PREVIEW_W = 336;
+  const PREVIEW_H = 360;
 
-  function enter() {
-    timer = setTimeout(() => (hover = true), 350);
+  // Fixed-position popover beside the card (right if it fits, else left), so it
+  // is never clipped by the scrolling grid and never covers the hovered card.
+  function enter(e: MouseEvent) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    timer = setTimeout(() => {
+      const right = r.right + 8 + PREVIEW_W <= window.innerWidth;
+      pos = {
+        left: right ? r.right + 8 : Math.max(8, r.left - 8 - PREVIEW_W),
+        top: Math.min(Math.max(8, r.top), window.innerHeight - PREVIEW_H - 8),
+      };
+      hover = true;
+    }, 350);
   }
   function leave() {
     if (timer) clearTimeout(timer);
@@ -62,7 +76,7 @@
     {/if}
   </div>
   {#if hover && asset.preview_blob}
-    <div class="preview card" aria-hidden="true">
+    <div use:portal class="preview card" aria-hidden="true" style:left="{pos.left}px" style:top="{pos.top}px">
       <img src={blobUrl(asset.preview_blob)} alt="" />
       {#if asset.aliases}<div class="muted aka">aka {asset.aliases.split('\n').join(', ')}</div>{/if}
     </div>
@@ -185,11 +199,8 @@
     text-overflow: ellipsis;
   }
   .preview {
-    position: absolute;
-    z-index: 20;
-    left: 50%;
-    top: -8px;
-    transform: translate(-50%, -100%);
+    position: fixed;
+    z-index: 30;
     width: 336px;
     padding: 8px;
     box-shadow: var(--shadow);

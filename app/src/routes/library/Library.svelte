@@ -295,8 +295,9 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    min-width: 240px;
-    flex: 0 1 320px;
+    min-width: 160px;
+    flex: 1 1 200px;
+    max-width: 360px;
     min-height: 32px;
     padding: 0 var(--space-2);
     border: 1px solid var(--border);
