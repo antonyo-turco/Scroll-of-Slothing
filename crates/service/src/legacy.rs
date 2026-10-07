@@ -25,9 +25,9 @@ const IMPORT_THREADS: usize = 3;
 pub struct LegacyImportOptions {
     /// Path to the old `db/creatures.db` (opened read-only).
     pub db_path: PathBuf,
-    /// Optional old `app_settings.json`.
+    /// Optional old `app_settings.json` (ignored if the file does not exist).
     pub settings_path: Option<PathBuf>,
-    /// Optional old `aoe_presets.json`.
+    /// Optional old `aoe_presets.json` (ignored if the file does not exist).
     pub aoe_presets_path: Option<PathBuf>,
 }
 
@@ -237,14 +237,14 @@ pub(crate) fn run(
         report.music_json = Some(path);
     }
 
-    if let Some(p) = &opts.settings_path {
+    if let Some(p) = opts.settings_path.as_ref().filter(|p| p.exists()) {
         let raw = std::fs::read_to_string(p)?;
         let v: Value = serde_json::from_str(&raw)
             .map_err(|e| ServiceError::InvalidInput(format!("app_settings.json: {e}")))?;
         store.save_settings(&Settings::from_legacy_json(&v))?;
         report.settings_imported = true;
     }
-    if let Some(p) = &opts.aoe_presets_path {
+    if let Some(p) = opts.aoe_presets_path.as_ref().filter(|p| p.exists()) {
         for (name, cfg) in sleuth_legacy::read_aoe_presets(&std::fs::read_to_string(p)?) {
             store.upsert_aoe_preset(&name, &cfg)?;
             report.aoe_presets += 1;
