@@ -106,10 +106,10 @@ Assets imported from the old app have no params. They open with default framing,
 - [x] Pin star; Pinned + session view (tagged mode), via the "★ Pinned" toggle plus the session filter
 - [x] Size select with immediate save (`update_creature_size`), on the card and in the inspector
 - [x] Edit dialog: name, aliases, tags, campaigns, sessions (inspector panel)
-- [ ] Open-in-editor: routes by kind now; loading the asset into the editor lands with each editor (Phases 2, 3, 5)
+- [ ] Open-in-editor: tokens open in the Token Cutter with their saved framing (Phase 2). Cut-outs and maps follow in Phases 3 and 5.
 - [x] Export: original, rendered, clipboard, map PDF (`utils.copy_image_to_clipboard`)
 - [x] Bulk actions: delete, add tag, pin, unpin, add to session, add to campaign, export to folder
-- [ ] Bulk "add to sheet": lands with the sheets in Phases 2 and 3
+- [ ] Bulk "add to sheet": tokens go to the token sheet (non-tokens are skipped and counted). The object sheet follows in Phase 3.
 - [x] Import dialog with kind and size per row (`ui/asset_import_dialog.py`), plus drop-to-import
 - [ ] Re-edit routing by kind (`app.py:539-561`), with editor state restore in Phases 2, 3, 5
 

@@ -11,7 +11,7 @@ Phases are **not** promoted individually. `master` receives the rewrite only onc
 |---|---|---|
 | 0 | Bootstrap: repo, docs/specs, CLAUDE.md, workspace + Tauri/Svelte scaffold, parity fixture tooling, app shell, Settings | done |
 | 1 | Store + blobs, Library, tags, campaigns/sessions, legacy importer, MCP v0, CLI | done (pending review) |
-| 2 | Token Cutter + Token Sheet | planned |
+| 2 | Token Cutter + Token Sheet | done (pending review) |
 | 3 | Object Cutter + Object Sheet | planned |
 | 4 | Cards | planned |
 | 5 | Map Paginator + filters + AoE templates | planned |

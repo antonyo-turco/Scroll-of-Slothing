@@ -84,10 +84,18 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 - `token_sheet_export_pdf {path, format?, cut_border?}`
 
 ## Parity checklist (Python `ui/token_sheet_panel.py`, `pdf_generator.py`, `image_manager.py`)
-- [ ] Upload, list, thumbnails, size, copies, remove, clear
-- [ ] Letter/A4 and cut border defaults from settings
-- [ ] First-fit packing, largest first, centred grid (golden fixture `token_pack.json`)
-- [ ] New page on overflow; items that can't fit are reported
-- [ ] Paged preview with Prev/Next
-- [ ] PDF export; the cut circle in the cut-line style
-- [ ] Add from Cutter and Library, single and batch (`app.py:518-534`)
+- [x] Upload, list, thumbnails, size, copies, remove, clear (clear asks for confirmation)
+- [x] Letter/A4 and cut border defaults from settings
+- [x] First-fit packing, largest first, centred grid (golden fixture `token_pack.json`, exact match in Legacy mode)
+- [x] New page on overflow; items that can't fit are reported
+- [x] Paged preview with Prev/Next
+- [x] PDF export (background job); the cut circle in the cut-line style
+- [x] Add from Cutter and Library, single and batch (`app.py:518-534`)
+
+## Intentional changes
+- Half-inch packing grid: Tiny and Small print at their true size (see "Size change from Python" above).
+- An item that can never fit is reported once and creates no pages (Python opened an empty page per copy).
+- Images are embedded as PNG with transparency (Python wrote a temporary JPEG per token, flattened on white).
+- Non-square images are fitted inside their cell, centred, in both the preview and the PDF. Python stretched them to a square.
+- The sheet is autosaved and survives restarts.
+- Clear all asks for confirmation.
