@@ -7,8 +7,10 @@ import {
   type Asset, type AssetQuery, type Border, type Campaign, type PageFormat, type PlacedItem,
   type ServiceEvent, type Session, type Settings, type SheetItem, type SheetItemPatch, type SheetLayout,
   type SizeLabel, type TokenParams, type TokenSheet, type CutoutParams, type ObjectItem,
-  type ObjectItemPatch, type ObjectSheet, type SheetMode,
+  type ObjectItemPatch, type ObjectSheet, type SheetMode, type CardOp, type CardOptions, type Deck,
+  type DeckLayout,
 } from './types';
+import cardTemplates from '../../../assets/cards/templates.json';
 
 export interface Backend {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -665,6 +667,81 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
       setTimeout(() => listeners.forEach((l) => l({ type: 'job', ...job })), 10);
       return id;
     },
+  });
+
+  // ── cards (simplified layout; the Rust engine is the reference) ──
+  const decks: Deck[] = [];
+  const mockCards = (md: string) =>
+    md
+      .split(/\n---+\n/)
+      .map((b) => b.trim())
+      .filter(Boolean)
+      .map((b) => {
+        const title = (b.split('\n').find((l) => l.startsWith('#')) ?? '').replace(/^#+/, '').trim();
+        const copies = Math.max(1, parseInt(/\*\*Copies:\*\*\s*(\S+)/i.exec(b)?.[1] ?? '1', 10) || 1);
+        const kind = /\*\*Type:\*\*\s*(.*)/i.exec(b)?.[1]?.trim() ?? '';
+        const body = b.split(/\n\s*\n/).slice(1).join(' ');
+        return { title, copies, kind, long: body.length > 600 };
+      });
+  const mockLayout = (md: string, opts: CardOptions): DeckLayout => {
+    const [pw, ph] = opts.format === 'A4' ? [595.2756, 841.8898] : [612, 792];
+    const [mx, my] = [(pw - 540) / 2, (ph - 756) / 2];
+    const cards = mockCards(md).flatMap((c) => Array(c.copies).fill(c));
+    const overflow = cards.filter((c) => c.long).map((c) => c.title);
+    const backs = opts.double_sided && overflow.length > 0;
+    const pages: DeckLayout['pages'] = [];
+    for (let p = 0; p < cards.length; p += 9) {
+      const ops: CardOp[] = cards.slice(p, p + 9).flatMap((c, i) => {
+        const x = mx + (i % 3) * 180;
+        const y = ph - my - (Math.floor(i / 3) + 1) * 252;
+        return [
+          { op: 'rect', x, y, w: 180, h: 252, width: 0.75, rgb: [0.3, 0.3, 0.3] },
+          { op: 'fill', x, y: y + 234, w: 180, h: 18, rgb: [0.5, 0.2, 0.7] },
+          { op: 'text', x: x + 6, y: y + 239, text: (c.kind || 'CARD').toUpperCase(), style: 'bold', size: 8, rgb: [1, 1, 1] },
+          { op: 'text', x: x + 6, y: y + 218, text: c.title || 'Untitled', style: 'bold', size: 11, rgb: [0, 0, 0] },
+        ] as CardOp[];
+      });
+      pages.push({ back: false, ops });
+      if (backs) pages.push({ back: true, ops: [] });
+    }
+    return { page_w: pw, page_h: ph, margin_x: mx, margin_y: my, pages, cards: cards.length, overflow, backs };
+  };
+
+  Object.assign(handlers, {
+    cards_templates: () => cardTemplates,
+    cards_layout: ({ markdown, opts }: Record<string, unknown>) => mockLayout(markdown as string, opts as CardOptions),
+    cards_export_pdf: ({ markdown, opts }: Record<string, unknown>) => {
+      const l = mockLayout(markdown as string, opts as CardOptions);
+      if (!l.cards) throw invalid('the deck has no cards');
+      const id = `mock-job-${++seq}`;
+      const job = { id, kind: 'card export', state: 'done' as const, progress: 1, message: '', result: { pages: l.pages.length }, error: null };
+      setTimeout(() => listeners.forEach((fn) => fn({ type: 'job', ...job })), 10);
+      return id;
+    },
+    decks_list: () => decks.map(({ id, name, updated }) => ({ id, name, updated })),
+    decks_get: ({ id }: Record<string, unknown>) => {
+      const d = decks.find((x) => x.id === id);
+      if (!d) throw notFound(`deck ${id}`);
+      return d;
+    },
+    decks_save: ({ id, name, markdown, opts }: Record<string, unknown>) => {
+      if (!(name as string).trim()) throw invalid('deck name must not be empty');
+      let d = decks.find((x) => x.id === id);
+      if (id != null && !d) throw notFound(`deck ${id}`);
+      if (!d) {
+        d = { id: ++seq, name: '', markdown: '', settings_json: '{}', created: now(), updated: now() };
+        decks.unshift(d);
+      }
+      Object.assign(d, { name: (name as string).trim(), markdown, settings_json: JSON.stringify(opts ?? null), updated: now() });
+      return d;
+    },
+    decks_delete: ({ id }: Record<string, unknown>) => {
+      const i = decks.findIndex((x) => x.id === id);
+      if (i < 0) throw notFound(`deck ${id}`);
+      decks.splice(i, 1);
+    },
+    deck_read_file: () => '# From file\n**Type:** Item\n\nLoaded.',
+    deck_write_file: ({ path }: Record<string, unknown>) => path,
   });
 
   return {

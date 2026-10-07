@@ -7,6 +7,7 @@ import type {
   ImportReport, JobStatus, PageFormat, RenameOutcome, ServiceEvent, Session, Settings, SettingsUpdate,
   SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenParams, TokenSheet,
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
+  CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -153,6 +154,18 @@ export const api = {
     call<ObjectSheet>('object_sheet_set_options', { format, mode }),
   objectSheetLayout: () => call<SheetLayout>('object_sheet_layout'),
   objectSheetExportPdf: (path: string) => call<string>('object_sheet_export_pdf', { path }),
+
+  cardsTemplates: () => call<CardTemplates>('cards_templates'),
+  cardsLayout: (markdown: string, opts: CardOptions) => call<DeckLayout>('cards_layout', { markdown, opts }),
+  cardsExportPdf: (markdown: string, opts: CardOptions, path: string) =>
+    call<string>('cards_export_pdf', { markdown, opts, path }),
+  decksList: () => call<DeckSummary[]>('decks_list'),
+  decksGet: (id: number) => call<Deck>('decks_get', { id }),
+  decksSave: (id: number | null, name: string, markdown: string, opts: CardOptions | null) =>
+    call<Deck>('decks_save', { id, name, markdown, opts }),
+  decksDelete: (id: number) => call<void>('decks_delete', { id }),
+  deckReadFile: (path: string) => call<string>('deck_read_file', { path }),
+  deckWriteFile: (markdown: string, path: string) => call<string>('deck_write_file', { markdown, path }),
 };
 
 // ── native dialogs (no-ops returning null outside Tauri) ──

@@ -295,3 +295,49 @@ export interface ObjectItemPatch {
   scale?: number | null;
   copies?: number | null;
 }
+
+// ── cards (crates/core/src/cards.rs, crates/service/src/cards.rs) ──
+
+export type Flip = 'long' | 'short';
+export type FontStyleName = 'regular' | 'bold' | 'italic' | 'bold_italic';
+export type Rgb = [number, number, number];
+
+export interface CardOptions {
+  format: PageFormat;
+  double_sided: boolean;
+  flip: Flip;
+}
+
+export type CardOp =
+  | { op: 'rect'; x: number; y: number; w: number; h: number; width: number; rgb: Rgb }
+  | { op: 'fill'; x: number; y: number; w: number; h: number; rgb: Rgb }
+  | { op: 'line'; x1: number; y1: number; x2: number; y2: number; width: number; rgb: Rgb; dash: [number, number] | null }
+  | { op: 'text'; x: number; y: number; text: string; style: FontStyleName; size: number; rgb: Rgb };
+
+export interface DeckLayout {
+  page_w: number;
+  page_h: number;
+  margin_x: number;
+  margin_y: number;
+  pages: { back: boolean; ops: CardOp[] }[];
+  cards: number;
+  overflow: string[];
+  backs: boolean;
+}
+
+export interface DeckSummary {
+  id: number;
+  name: string;
+  updated: string;
+}
+
+export interface Deck extends DeckSummary {
+  markdown: string;
+  settings_json: string;
+  created: string;
+}
+
+export interface CardTemplates {
+  templates: Record<string, string>;
+  reference: string;
+}
