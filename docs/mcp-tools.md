@@ -32,9 +32,10 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `tags_merge` | 1 | Merge src into dst |
 | `tags_delete` | 1 | Delete a tag |
 | `campaigns_list` / `campaigns_create` / `campaigns_rename` / `campaigns_delete` | 1 | Campaign CRUD |
-| `sessions_list` / `sessions_create` / `sessions_rename` / `sessions_delete` | 1 | Session CRUD |
+| `sessions_list` / `sessions_create` / `sessions_update` / `sessions_delete` | 1 | Session CRUD (`sessions_update` changes name and/or notes) |
 | `sessions_set_assets` | 1 | Replace a session's assets |
 | `jobs_status` / `jobs_cancel` | 1 | Background jobs |
+| `legacy_import` | 1 | Import from Orb of Many Functions (job; idempotent; source read-only) |
 | `token_borders_list` / `token_borders_add` | 2 | Border set |
 | `token_compose` | 2 | Make a token (optionally save or add to sheet) |
 | `token_sheet_list` / `_add` / `_update` / `_remove` / `_clear` | 2 | Token sheet items |

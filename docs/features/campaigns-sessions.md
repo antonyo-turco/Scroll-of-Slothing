@@ -29,7 +29,7 @@ In Python, campaigns lived in `music_campaigns`, but assets used them too. In th
 - `campaigns_list`
 - `campaigns_create {name}`, `campaigns_rename`, `campaigns_delete`
 - `sessions_list {campaign_id?}`
-- `sessions_create {campaign_id, name, notes?}`, `sessions_rename`, `sessions_delete`
+- `sessions_create {campaign_id, name, notes?}`, `sessions_update {id, name?, notes?}`, `sessions_delete`
 - `sessions_set_assets {session_id, asset_ids}`
 
 ## Parity checklist
