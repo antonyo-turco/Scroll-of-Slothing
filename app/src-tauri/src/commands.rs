@@ -7,12 +7,16 @@ use std::path::PathBuf;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use sleuth_core::settings::Settings;
+use sleuth_core::token::TokenParams;
+use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    Asset, AssetPage, AssetPatch, AssetQuery, Campaign, ExportWhat, ImportFile, ImportReport,
-    JobId, JobStatus, LegacyImportOptions, RenameOutcome, Service, ServiceError, Session,
-    SettingsUpdate, TagCount,
+    Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, ExportWhat, ImportFile,
+    ImportReport, JobId, JobStatus, LegacyImportOptions, RenameOutcome, Service, ServiceError,
+    Session, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft,
+    TokenSheet,
 };
 use tauri::State;
+use tauri::ipc::Response;
 
 type Res<T> = Result<T, ServiceError>;
 type Svc<'a> = State<'a, Service>;
@@ -240,4 +244,144 @@ pub async fn sessions_delete(svc: Svc<'_>, id: String) -> Res<()> {
 #[tauri::command]
 pub async fn sessions_set_assets(svc: Svc<'_>, id: String, asset_ids: Vec<i64>) -> Res<()> {
     svc.sessions_set_assets(id, asset_ids).await
+}
+
+// ── tokens ──
+
+#[tauri::command]
+pub async fn token_borders_list(svc: Svc<'_>) -> Res<Vec<Border>> {
+    svc.token_borders_list().await
+}
+
+#[tauri::command]
+pub async fn token_borders_add(svc: Svc<'_>, path: PathBuf, name: Option<String>) -> Res<Border> {
+    svc.token_borders_add(path, name).await
+}
+
+#[tauri::command]
+pub async fn token_borders_remove(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.token_borders_remove(id).await
+}
+
+#[tauri::command]
+pub async fn image_source_from_path(svc: Svc<'_>, path: PathBuf) -> Res<SourceImage> {
+    svc.image_source_from_path(path).await
+}
+
+#[tauri::command]
+pub async fn image_source_from_clipboard(svc: Svc<'_>) -> Res<SourceImage> {
+    svc.image_source_from_clipboard().await
+}
+
+#[tauri::command]
+pub async fn image_source_info(svc: Svc<'_>, hash: String) -> Res<SourceImage> {
+    svc.image_source_info(hash).await
+}
+
+/// Returns raw PNG bytes (binary IPC, no base64).
+#[tauri::command]
+pub async fn token_render(
+    svc: Svc<'_>,
+    source: String,
+    params: TokenParams,
+    fast: Option<bool>,
+) -> Res<Response> {
+    Ok(Response::new(svc.token_render(source, params, fast.unwrap_or(true)).await?))
+}
+
+#[tauri::command]
+pub async fn token_save_png(
+    svc: Svc<'_>,
+    source: String,
+    params: TokenParams,
+    path: PathBuf,
+) -> Res<PathBuf> {
+    svc.token_save_png(source, params, path).await
+}
+
+#[tauri::command]
+pub async fn token_save_to_library(
+    svc: Svc<'_>,
+    source: String,
+    params: TokenParams,
+    name: String,
+    size: String,
+    update: Option<i64>,
+) -> Res<Asset> {
+    svc.token_save_to_library(source, params, name, size, update).await
+}
+
+#[tauri::command]
+pub async fn token_open_asset(svc: Svc<'_>, id: i64) -> Res<TokenDraft> {
+    svc.token_open_asset(id).await
+}
+
+// ── token sheet ──
+
+#[tauri::command]
+pub async fn token_sheet_get(svc: Svc<'_>) -> Res<TokenSheet> {
+    svc.token_sheet_get().await
+}
+
+#[tauri::command]
+pub async fn token_sheet_add_assets(svc: Svc<'_>, ids: Vec<i64>) -> Res<TokenSheet> {
+    svc.token_sheet_add_assets(ids).await
+}
+
+#[tauri::command]
+pub async fn token_sheet_add_files(
+    svc: Svc<'_>,
+    paths: Vec<PathBuf>,
+    size: Option<String>,
+) -> Res<TokenSheet> {
+    svc.token_sheet_add_files(paths, size).await
+}
+
+#[tauri::command]
+pub async fn token_sheet_add_composed(
+    svc: Svc<'_>,
+    source: String,
+    params: TokenParams,
+    label: String,
+    size: String,
+) -> Res<TokenSheet> {
+    svc.token_sheet_add_composed(source, params, label, size).await
+}
+
+#[tauri::command]
+pub async fn token_sheet_update(
+    svc: Svc<'_>,
+    id: String,
+    patch: SheetItemPatch,
+) -> Res<TokenSheet> {
+    svc.token_sheet_update(id, patch).await
+}
+
+#[tauri::command]
+pub async fn token_sheet_remove(svc: Svc<'_>, id: String) -> Res<TokenSheet> {
+    svc.token_sheet_remove(id).await
+}
+
+#[tauri::command]
+pub async fn token_sheet_clear(svc: Svc<'_>) -> Res<TokenSheet> {
+    svc.token_sheet_clear().await
+}
+
+#[tauri::command]
+pub async fn token_sheet_set_options(
+    svc: Svc<'_>,
+    format: Option<PageFormat>,
+    cut_border: Option<bool>,
+) -> Res<TokenSheet> {
+    svc.token_sheet_set_options(format, cut_border).await
+}
+
+#[tauri::command]
+pub async fn token_sheet_layout(svc: Svc<'_>) -> Res<SheetLayout> {
+    svc.token_sheet_layout().await
+}
+
+#[tauri::command]
+pub fn token_sheet_export_pdf(svc: Svc<'_>, path: PathBuf) -> JobId {
+    svc.token_sheet_export_pdf(path)
 }
