@@ -24,7 +24,7 @@ anyhow = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 rusqlite = { version = "0.40", features = ["bundled", "blob"] }
 blake3 = "1"
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp", "gif"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp", "gif", "rayon"] }
 fast_image_resize = { version = "6", features = ["image"] }
 imageproc = { version = "0.27", default-features = false }
 rustfft = "6"
@@ -41,6 +41,7 @@ proptest = "1"
 insta = { version = "1", features = ["json"] }
 lopdf = "0.45"
 tempfile = "3"
+arboard = { version = "3", default-features = false, features = ["image-data"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
