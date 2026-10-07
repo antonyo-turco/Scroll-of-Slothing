@@ -107,6 +107,20 @@ pub fn run() {
             commands::token_sheet_set_options,
             commands::token_sheet_layout,
             commands::token_sheet_export_pdf,
+            commands::cutout_render,
+            commands::cutout_save_png,
+            commands::cutout_save_to_library,
+            commands::cutout_open_asset,
+            commands::object_sheet_get,
+            commands::object_sheet_add_assets,
+            commands::object_sheet_add_files,
+            commands::object_sheet_add_composed,
+            commands::object_sheet_update,
+            commands::object_sheet_remove,
+            commands::object_sheet_clear,
+            commands::object_sheet_set_options,
+            commands::object_sheet_layout,
+            commands::object_sheet_export_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

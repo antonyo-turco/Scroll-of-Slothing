@@ -6,14 +6,16 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use serde_json::{Map, Value};
+use sleuth_core::cutout::CutoutParams;
+use sleuth_core::pack::shelf::SheetMode;
 use sleuth_core::settings::Settings;
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, ExportWhat, ImportFile,
-    ImportReport, JobId, JobStatus, LegacyImportOptions, RenameOutcome, Service, ServiceError,
-    Session, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft,
-    TokenSheet,
+    Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, CutoutDraft, ExportWhat,
+    ImportFile, ImportReport, JobId, JobStatus, LegacyImportOptions, ObjectItemPatch, ObjectSheet,
+    RenameOutcome, Service, ServiceError, Session, SettingsUpdate, SheetItemPatch, SheetLayout,
+    SourceImage, TagCount, TokenDraft, TokenSheet,
 };
 use tauri::State;
 use tauri::ipc::Response;
@@ -384,4 +386,113 @@ pub async fn token_sheet_layout(svc: Svc<'_>) -> Res<SheetLayout> {
 #[tauri::command]
 pub fn token_sheet_export_pdf(svc: Svc<'_>, path: PathBuf) -> JobId {
     svc.token_sheet_export_pdf(path)
+}
+
+// ── cut-outs ──
+
+#[tauri::command]
+pub async fn cutout_render(
+    svc: Svc<'_>,
+    source: String,
+    params: CutoutParams,
+    fast: Option<bool>,
+) -> Res<Response> {
+    Ok(Response::new(svc.cutout_render(source, params, fast.unwrap_or(true)).await?))
+}
+
+#[tauri::command]
+pub async fn cutout_save_png(
+    svc: Svc<'_>,
+    source: String,
+    params: CutoutParams,
+    path: PathBuf,
+) -> Res<PathBuf> {
+    svc.cutout_save_png(source, params, path).await
+}
+
+#[tauri::command]
+pub async fn cutout_save_to_library(
+    svc: Svc<'_>,
+    source: String,
+    params: CutoutParams,
+    name: String,
+    size: String,
+    update: Option<i64>,
+) -> Res<Asset> {
+    svc.cutout_save_to_library(source, params, name, size, update).await
+}
+
+#[tauri::command]
+pub async fn cutout_open_asset(svc: Svc<'_>, id: i64) -> Res<CutoutDraft> {
+    svc.cutout_open_asset(id).await
+}
+
+// ── object sheet ──
+
+#[tauri::command]
+pub async fn object_sheet_get(svc: Svc<'_>) -> Res<ObjectSheet> {
+    svc.object_sheet_get().await
+}
+
+#[tauri::command]
+pub async fn object_sheet_add_assets(svc: Svc<'_>, ids: Vec<i64>) -> Res<ObjectSheet> {
+    svc.object_sheet_add_assets(ids).await
+}
+
+#[tauri::command]
+pub async fn object_sheet_add_files(
+    svc: Svc<'_>,
+    paths: Vec<PathBuf>,
+    size: Option<String>,
+) -> Res<ObjectSheet> {
+    svc.object_sheet_add_files(paths, size).await
+}
+
+#[tauri::command]
+pub async fn object_sheet_add_composed(
+    svc: Svc<'_>,
+    source: String,
+    params: CutoutParams,
+    label: String,
+    size: String,
+) -> Res<ObjectSheet> {
+    svc.object_sheet_add_composed(source, params, label, size).await
+}
+
+#[tauri::command]
+pub async fn object_sheet_update(
+    svc: Svc<'_>,
+    id: String,
+    patch: ObjectItemPatch,
+) -> Res<ObjectSheet> {
+    svc.object_sheet_update(id, patch).await
+}
+
+#[tauri::command]
+pub async fn object_sheet_remove(svc: Svc<'_>, id: String) -> Res<ObjectSheet> {
+    svc.object_sheet_remove(id).await
+}
+
+#[tauri::command]
+pub async fn object_sheet_clear(svc: Svc<'_>) -> Res<ObjectSheet> {
+    svc.object_sheet_clear().await
+}
+
+#[tauri::command]
+pub async fn object_sheet_set_options(
+    svc: Svc<'_>,
+    format: Option<PageFormat>,
+    mode: Option<SheetMode>,
+) -> Res<ObjectSheet> {
+    svc.object_sheet_set_options(format, mode).await
+}
+
+#[tauri::command]
+pub async fn object_sheet_layout(svc: Svc<'_>) -> Res<SheetLayout> {
+    svc.object_sheet_layout().await
+}
+
+#[tauri::command]
+pub fn object_sheet_export_pdf(svc: Svc<'_>, path: PathBuf) -> JobId {
+    svc.object_sheet_export_pdf(path)
 }
