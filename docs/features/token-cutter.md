@@ -1,0 +1,70 @@
+# Token Cutter
+
+Frames any image inside a circular token border and outputs a token image. The output size equals the border's pixel size.
+
+## Inputs
+- Drop a file onto the view, browse for one, paste with Ctrl+V, or "Open in editor" from the Library.
+- Accepted formats: png, jpg, jpeg, bmp, gif, webp.
+- Paste accepts any of these, tried in order:
+  1. an image on the clipboard;
+  2. a file list on the clipboard;
+  3. clipboard text that is a path to an image.
+
+## Controls (inspector)
+| Section | Control | Default | Range |
+|---|---|---|---|
+| Border | thumbnail strip of the border set | first border | bundled `roll20.png` (442²), `roll20_greyscale.png` (256²), plus user-added borders |
+| Background | none (transparent) / colour picker / eyedropper | none | the eyedropper samples the source image |
+| Ring | ring thickness (content inset) | 0 % | 0–50 % of the radius |
+| Info | name, size | "", Medium | the size labels |
+| Framing | pan (drag), zoom (wheel ×1.1 per notch), reset | centred, ×1 | zoom 0.1–10 |
+
+**Actions**
+- Save PNG…
+- Save to Library: if the token was opened from the Library, asks Update existing / Save as new / Cancel.
+- Add to Token Sheet
+
+## Algorithm (core::token)
+Reference: Python `ui/token_compositing.py`.
+
+1. **Fit with transform.**
+   - Cover scale: `base = max(tw/iw, th/ih)`, multiplied by the zoom.
+   - Resize to `iw*base` × `ih*base`, centred, then offset by the pan.
+   - Pan is stored in border-pixel units: `pan -= drag / (display/max(bw,bh))`.
+   - Crop and paste onto a transparent RGBA canvas the size of the border.
+2. **Content mask.** An ellipse inset by `ring_inset_pct/100 * radius`. Multiply it into the base image's alpha.
+3. **Background.** If a background colour is set, fill it inside the same mask, underneath the image.
+4. **Composite.** Alpha-composite the base, then the border on top.
+5. **Outer clip.** Clip to the border's outer circle. The centre comes from the alpha bounding box, and the radius is `min(w,h)/2`.
+
+The transparency checkerboard for preview uses an 8 px square in colours (204,204,204) and white.
+
+## Performance design
+- Pan and zoom are shown live as a client-side canvas transform of the preview proxy, with the border overlaid.
+- The real compose runs in Rust on the **preview proxy**, debounced (80 ms), and tagged with a generation number so stale results are dropped.
+- Export, save and add-to-sheet compose once from the full-resolution original, scaled down to the border size.
+
+## Persistence
+- `params_json = {border, bg, ring_inset_pct, pan, zoom}` is stored on the asset, so re-editing restores the exact framing.
+- The unsaved editor state is autosaved to the `workspaces` table.
+
+## MCP
+- `token_compose {source: path|asset_id, border?, bg?, ring_inset_pct?, pan?, zoom?, name?, size?, save_to_library?, add_to_sheet?, out_png?}`
+  - Returns `{asset_id?, png_path?}` and a preview image.
+- `token_borders_list`
+- `token_borders_add {path}`
+
+## Intentional changes
+- Pan and zoom are client-side. Python recomposed at full resolution on every motion event.
+- Edit params are stored, so re-editing is non-destructive.
+- Users can add their own border PNGs.
+
+## Parity checklist (Python `ui/token_generator_panel.py`, `ui/token_compositing.py`)
+- [ ] Border loading and selection (`_load_borders` :80)
+- [ ] Background: colour, eyedropper, clear
+- [ ] Ring inset 0–50 %
+- [ ] Pan by drag, zoom ×1.1 clamped to 0.1–10, reset
+- [ ] Name and size
+- [ ] Drop, browse, paste (image, file list, path text) (`_paste_image` :410)
+- [ ] Save PNG; Save to library with Update/New/Cancel (`_save_to_library` :615); Add to sheet
+- [ ] Compose output matches the Python reference (golden test)
