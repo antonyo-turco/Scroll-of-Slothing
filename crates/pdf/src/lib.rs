@@ -2,6 +2,7 @@
 //! `sleuth_core::pack` use a bottom-left origin (ReportLab convention); krilla
 //! draws top-left, so every writer converts with `top()`.
 
+pub mod cards;
 pub mod token_sheet;
 
 use krilla::color::rgb;
