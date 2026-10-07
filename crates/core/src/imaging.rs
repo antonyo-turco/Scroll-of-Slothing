@@ -88,6 +88,22 @@ pub fn encode_png(img: &RgbaImage) -> Result<Vec<u8>> {
     Ok(out.into_inner())
 }
 
+/// PNG with the fastest compression: for interactive previews (bigger, but ~5× faster).
+pub fn encode_png_fast(img: &RgbaImage) -> Result<Vec<u8>> {
+    use image::ImageEncoder;
+    use image::codecs::png::{CompressionType, FilterType, PngEncoder};
+    let mut out = Vec::new();
+    PngEncoder::new_with_quality(&mut out, CompressionType::Fast, FilterType::Sub)
+        .write_image(img.as_raw(), img.width(), img.height(), image::ExtendedColorType::Rgba8)
+        .map_err(|e| ImagingError::Encode(e.to_string()))?;
+    Ok(out)
+}
+
+/// Pixel dimensions from an encoded image header (no full decode).
+pub fn dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    image::ImageReader::new(Cursor::new(bytes)).with_guessed_format().ok()?.into_dimensions().ok()
+}
+
 /// The two cached derivatives generated for every stored image.
 pub struct Derivatives {
     pub thumb: RgbaImage,
