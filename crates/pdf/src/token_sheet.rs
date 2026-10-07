@@ -18,6 +18,14 @@ pub fn render(
     // One embedded image per item, reused for every copy.
     let embedded =
         images.iter().enumerate().map(|(i, png)| png_image(i, png)).collect::<Result<Vec<_>>>()?;
+    // Aspect ratio per item: non-square images are fitted (centred), not stretched.
+    let aspects: Vec<f64> = images
+        .iter()
+        .map(|png| {
+            sleuth_core::imaging::dimensions(png)
+                .map_or(1.0, |(w, h)| f64::from(w) / f64::from(h.max(1)))
+        })
+        .collect();
     let mut doc = Document::new();
     let pages = layout.pages.len().max(1);
     for (pi, page) in layout.pages.iter().enumerate() {
@@ -30,7 +38,15 @@ pub fn render(
                 .get(pl.item)
                 .ok_or(PdfError::Image { item: pl.item, msg: "missing".into() })?;
             let y = top(layout.page_h, pl.y, pl.h);
-            draw_image(&mut surface, img, pl.x as f32, y, pl.w as f32, pl.h as f32);
+            let (fw, fh) = fit(pl.w, pl.h, aspects[pl.item]);
+            draw_image(
+                &mut surface,
+                img,
+                (pl.x + (pl.w - fw) / 2.0) as f32,
+                y + ((pl.h - fh) / 2.0) as f32,
+                fw as f32,
+                fh as f32,
+            );
             if let Some(cut) = cut {
                 let r = (pl.w.min(pl.h) / 2.0) as f32;
                 if let Some(path) =
@@ -47,6 +63,11 @@ pub fn render(
         }
     }
     doc.finish().map_err(|e| PdfError::Write(format!("{e:?}")))
+}
+
+/// Largest `aspect`-shaped box inside `w`×`h`.
+fn fit(w: f64, h: f64, aspect: f64) -> (f64, f64) {
+    if aspect >= w / h { (w, w / aspect) } else { (h * aspect, h) }
 }
 
 #[cfg(test)]
@@ -129,6 +150,13 @@ mod tests {
         assert_eq!(strokes(&a), 0);
         assert_eq!(strokes(&b), 3, "one stroke per token:\n{b}");
         assert!(b.contains("[2 3]"), "dashed per settings:\n{b}");
+    }
+
+    #[test]
+    fn non_square_images_are_fitted_not_stretched() {
+        assert_eq!(fit(72.0, 72.0, 1.0), (72.0, 72.0));
+        assert_eq!(fit(72.0, 72.0, 2.0), (72.0, 36.0), "wide image: full width, half height");
+        assert_eq!(fit(72.0, 72.0, 0.5), (36.0, 72.0), "tall image: half width, full height");
     }
 
     #[test]
