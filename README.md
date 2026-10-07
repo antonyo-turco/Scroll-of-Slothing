@@ -13,4 +13,17 @@ It is a ground-up rewrite of *Orb of Many Functions* (Python/Tkinter).
 - **Music**: specified in `docs/features/music/`, not implemented yet
 
 ## Status
-Work in progress. See `docs/` for the specification and `CLAUDE.md` for contributor/agent notes.
+Work in progress. See `docs/roadmap.md` for the phases, `docs/` for the specification, and `CLAUDE.md` for contributor/agent notes.
+
+## Development (Windows)
+Prerequisites:
+- Rust stable
+- Visual Studio 2022 with the "Desktop development with C++" workload (MSVC and the Windows SDK)
+- Node 20+
+- WebView2, which ships with Windows 11
+
+```powershell
+cd app; npm install; cd ..
+pwsh scripts/check.ps1         # full quality gate
+cd app; npm run tauri dev      # run the desktop app
+```

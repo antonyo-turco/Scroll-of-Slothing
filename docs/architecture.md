@@ -9,7 +9,7 @@
 
 ## Layering
 ```
-            ┌──────────── app/ui (Svelte 5) ────────────┐
+            ┌─────────── app/src (Svelte 5) ────────────┐
             │ routes · inspector · canvas · jobs tray    │
             └──────────────┬─────────────────────────────┘
                  invoke()  │  events (job:*, store:changed)   sleuth:// protocol (images)
@@ -30,7 +30,7 @@
 - **pdf** turns core layouts plus pixel buffers into PDF bytes. It bundles one font (Liberation Sans, which has Helvetica metrics) for both measuring and drawing text.
 - **store** owns persistence:
   - SQLite in WAL mode with `foreign_keys=ON`;
-  - refinery migrations;
+  - a minimal forward-only migration runner (`PRAGMA user_version` + embedded `migrations/V{n}__*.sql`);
   - a blob store at `blobs/ab/cd/<blake3>.<ext>`;
   - derivative generation (a thumbnail ≤256 px and a preview ≤2048 px, both lossless WebP);
   - a `change_log`.
@@ -46,7 +46,7 @@
 ## Multi-process consistency
 The standalone MCP process and the app can both open the same data dir. SQLite WAL handles concurrent access.
 1. Every service write inserts a `change_log` row.
-2. The app polls `PRAGMA data_version` every 750 ms. When it changes, the app reads the new `change_log` rows and emits `store:changed` to the UI. The UI then refetches only the affected queries.
+2. The app polls `max(change_log.seq)` every 500 ms (`Service::spawn_change_watcher`). New rows, whether written by this process or another one, are broadcast as `StoreChanged` events and forwarded to the UI on the `sleuth://event` Tauri channel. The UI refetches only the affected queries.
 
 ## Responsiveness rules
 1. Never block a command. Pixel and PDF work goes to `spawn_blocking`/rayon.
@@ -79,7 +79,7 @@ Editor and sheet state lives in the `workspaces` table (key → JSON), autosaved
 | FFT | `rustfft` |
 | PDF | `krilla` (+ `lopdf` in tests) |
 | font metrics | `ttf-parser` |
-| DB | `rusqlite` (bundled, FTS5), `refinery` |
+| DB | `rusqlite` (bundled, FTS5) + own migration runner |
 | hashing | `blake3` |
 | MCP | `rmcp` |
 | clipboard | `arboard` |

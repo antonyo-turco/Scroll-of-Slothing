@@ -80,5 +80,5 @@ An FTS5 virtual table over `name`, `aliases` and `tags`. It is kept in sync by t
 See `features/music/data-model.md`.
 
 ## Migration policy
-- Migrations are refinery `V{n}__{name}.sql` files embedded in `crates/store`.
+- Migrations are `crates/store/migrations/V{n}__{name}.sql` files, embedded at compile time and applied in order by `crates/store/src/migrate.rs`, which tracks progress in `PRAGMA user_version`. Each migration runs in one transaction together with its version bump.
 - Never edit a migration that has already been applied. Add a new one instead.
