@@ -58,7 +58,7 @@ pub struct TokenDraft {
     pub asset_id: Option<i64>,
 }
 
-fn source_info(store: &Store, hash: &str) -> Result<SourceImage> {
+pub(crate) fn source_info(store: &Store, hash: &str) -> Result<SourceImage> {
     let meta = store.blob_meta(hash)?;
     let (width, height) = match (meta.width, meta.height) {
         (Some(w), Some(h)) => (w, h),

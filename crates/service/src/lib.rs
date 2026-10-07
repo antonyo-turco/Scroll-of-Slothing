@@ -3,12 +3,14 @@
 //! CPU / IO work runs on the blocking pool so async callers never stall.
 
 mod blobs;
+mod cutouts;
 mod error;
 mod events;
 mod imgcache;
 mod jobs;
 mod legacy;
 mod library;
+mod object_sheet;
 mod organize;
 mod settings;
 mod token_sheet;
@@ -31,6 +33,8 @@ pub use sleuth_store::{
     Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome,
     Session, TagCount,
 };
+pub use cutouts::CutoutDraft;
+pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
 pub use tokens::{Border, SourceImage, TokenDraft};
 

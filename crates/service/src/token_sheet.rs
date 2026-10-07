@@ -80,7 +80,7 @@ fn save(s: &Store, sheet: &TokenSheet) -> Result<()> {
     Ok(())
 }
 
-fn thumb_of(s: &Store, image_hash: &str) -> Result<String> {
+pub(crate) fn thumb_of(s: &Store, image_hash: &str) -> Result<String> {
     let img = imaging::decode(&s.read_blob(image_hash)?)
         .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
     let t = imaging::downscale(&img, 160);
