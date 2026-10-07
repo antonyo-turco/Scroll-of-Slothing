@@ -1,12 +1,29 @@
 <script lang="ts">
   // Settings: auto-saved on change, validated server-side (errors shown inline).
   // Spec: docs/features/settings.md
+  import { onMount } from 'svelte';
+  import { api, isTauri, pickFile } from '../lib/api';
   import { ALL_VIEWS, findView } from '../lib/nav';
   import { app } from '../lib/state.svelte';
   import type { CutLineStyle, PageFormat, Settings, Theme } from '../lib/types';
 
   let errors = $state<Record<string, string>>({});
   let confirmingReset = $state(false);
+  let dataDir = $state('');
+
+  onMount(() => void api.appInfo().then((i) => (dataDir = i.data_dir)));
+
+  async function importLegacy() {
+    if (!isTauri()) return app.toast('info', 'Legacy import is only available in the desktop app.');
+    const db = await pickFile('Select Orb of Many Functions db/creatures.db', ['db'], 'SQLite database');
+    if (!db) return;
+    // Optional siblings in the old project root (ignored by the service if absent).
+    // <root>/db/creatures.db -> <root>
+    const root = db.replace(/[\\/][^\\/]+[\\/][^\\/]+$/, '');
+    const sep = db.includes('\\') ? '\\' : '/';
+    await api.legacyImport(db, `${root}${sep}app_settings.json`, `${root}${sep}aoe_presets.json`);
+    app.toast('info', 'Import started — progress is shown bottom-right.');
+  }
 
   const FORMATS: PageFormat[] = ['Letter', 'A4'];
   const STYLES: CutLineStyle[] = ['Dashed', 'Dotted', 'Solid'];
@@ -166,6 +183,18 @@
       </div>
       {@render toggle('map_cut_border', 'Cut border on by default')}
       {@render toggle('map_align_to_grid', 'Align pages to grid')}
+    </section>
+
+    <section class="card">
+      <h2>Data</h2>
+      <p class="muted hint">Stored in <code>{dataDir}</code></p>
+      <div>
+        <button class="btn" onclick={importLegacy}>Import from Orb of Many Functions…</button>
+      </div>
+      <p class="muted hint">
+        Pick the old <code>db/creatures.db</code>. Assets, tags, campaigns, sessions, settings and AoE presets are
+        copied; the old files are only read. Running it again only adds what is missing.
+      </p>
     </section>
 
     <details class="card advanced">
