@@ -178,3 +178,73 @@ export interface Session {
   created: string;
   asset_count: number;
 }
+
+// ── tokens (crates/core/src/token.rs, crates/service/src/tokens.rs, token_sheet.rs) ──
+
+export interface TokenParams {
+  border: string;
+  bg: [number, number, number] | null;
+  ring_inset_pct: number;
+  pan: [number, number];
+  zoom: number;
+}
+
+export interface Border {
+  id: string;
+  name: string;
+  builtin: boolean;
+  blob: string;
+  width: number;
+  height: number;
+}
+
+export interface SourceImage {
+  hash: string;
+  width: number;
+  height: number;
+}
+
+export interface TokenDraft {
+  source: SourceImage;
+  params: TokenParams;
+  name: string;
+  size: string;
+  asset_id: number | null;
+}
+
+export interface SheetItem {
+  id: string;
+  label: string;
+  size: string;
+  copies: number;
+  image: string;
+  thumb: string;
+  asset_id: number | null;
+}
+
+export interface TokenSheet {
+  items: SheetItem[];
+  format: PageFormat;
+  cut_border: boolean;
+}
+
+export interface PlacedItem {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface SheetLayout {
+  page_w: number;
+  page_h: number;
+  pages: PlacedItem[][];
+  skipped: string[];
+}
+
+export interface SheetItemPatch {
+  label?: string | null;
+  size?: string | null;
+  copies?: number | null;
+}

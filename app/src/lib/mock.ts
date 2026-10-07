@@ -3,8 +3,10 @@
 // tests; the Rust implementation (and its tests) remain the source of truth.
 
 import {
-  DEFAULT_SETTINGS, SIZE_LABELS,
-  type Asset, type AssetQuery, type Campaign, type ServiceEvent, type Session, type Settings,
+  DEFAULT_SETTINGS, SIZE_INCHES, SIZE_LABELS,
+  type Asset, type AssetQuery, type Border, type Campaign, type PageFormat, type PlacedItem,
+  type ServiceEvent, type Session, type Settings, type SheetItem, type SheetItemPatch, type SheetLayout,
+  type SizeLabel, type TokenParams, type TokenSheet,
 } from './types';
 
 export interface Backend {
@@ -330,6 +332,194 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
       }
     },
   };
+
+  // ── tokens & token sheet ──
+  const borders: Border[] = [
+    { id: 'builtin:roll20', name: 'Roll20 gold', builtin: true, blob: 'mock-border-gold', width: 442, height: 442 },
+    { id: 'builtin:roll20_greyscale', name: 'Roll20 grey', builtin: true, blob: 'mock-border-grey', width: 256, height: 256 },
+  ];
+  const sources = new Map<string, { width: number; height: number }>();
+  const tokenParams = new Map<number, TokenParams>();
+  let sheet: TokenSheet = { items: [], format: settings.token_page_format, cut_border: settings.token_cut_border };
+  let sheetLoaded = false;
+  const getSheet = () => {
+    if (!sheetLoaded) {
+      sheet = { items: [], format: settings.token_page_format, cut_border: settings.token_cut_border };
+      sheetLoaded = true;
+    }
+    return sheet;
+  };
+  const sheetItem = (label: string, size: string, image: string, asset_id: number | null): SheetItem => ({
+    id: `mock-item-${++seq}`, label, size, copies: 1, image, thumb: image, asset_id,
+  });
+  const checkSize = (s: string) => {
+    const hit = SIZE_LABELS.find((x) => x.toLowerCase() === s.split(' (')[0].trim().toLowerCase());
+    if (!hit) throw invalid(`unknown size ${s}`);
+    return hit;
+  };
+  const renderSvg = (p: TokenParams) => {
+    const bg = p.bg ? `rgb(${p.bg.join(',')})` : 'transparent';
+    const inner = 200 * (1 - p.ring_inset_pct / 100);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="442" height="442" viewBox="0 0 442 442">
+      <circle cx="221" cy="221" r="${inner}" fill="${bg}"/>
+      <circle cx="${221 - p.pan[0] / 4}" cy="${221 - p.pan[1] / 4}" r="${60 * p.zoom}" fill="#7a5"/>
+      <circle cx="221" cy="221" r="210" fill="none" stroke="${p.border.includes('grey') ? '#999' : '#c93'}" stroke-width="22"/></svg>`;
+  };
+
+  /** Half-inch first-fit packer (mirror of crates/core/src/pack/token_grid.rs, HalfInch mode). */
+  const layoutSheet = (): SheetLayout => {
+    const s = getSheet();
+    const [pw, ph] = s.format === 'A4' ? [595.2756, 841.8898] : [612, 792];
+    const cell = 36;
+    const cols = Math.floor((pw - 20) / cell);
+    const rows = Math.floor((ph - 20) / cell);
+    const ox = (pw - cols * cell) / 2;
+    const oy = (ph - rows * cell) / 2;
+    const order = s.items.map((it, i) => ({ it, i, pt: SIZE_INCHES[it.size as SizeLabel] * 72 }));
+    order.sort((a, b) => b.pt - a.pt);
+    const pages: PlacedItem[][] = [];
+    const skipped: string[] = [];
+    let grid: boolean[][] = [];
+    const fresh = () => {
+      grid = Array.from({ length: rows }, () => Array(cols).fill(false));
+      pages.push([]);
+    };
+    const find = (n: number) => {
+      for (let r = 0; r + n <= rows; r++)
+        for (let c = 0; c + n <= cols; c++)
+          if (grid.slice(r, r + n).every((row) => row.slice(c, c + n).every((u) => !u))) return [r, c];
+      return null;
+    };
+    for (const { it, pt } of order) {
+      const n = Math.max(1, Math.ceil(pt / cell - 1e-9));
+      if (n > rows || n > cols) {
+        skipped.push(it.id);
+        continue;
+      }
+      for (let k = 0; k < it.copies; k++) {
+        if (!pages.length) fresh();
+        let spot = find(n);
+        if (!spot) {
+          fresh();
+          spot = find(n);
+        }
+        const [r, c] = spot!;
+        for (let y = r; y < r + n; y++) for (let x = c; x < c + n; x++) grid[y][x] = true;
+        const inset = (n * cell - pt) / 2;
+        pages[pages.length - 1].push({ id: it.id, x: ox + c * cell + inset, y: ph - oy - (r + n) * cell + inset, w: pt, h: pt });
+      }
+    }
+    return { page_w: pw, page_h: ph, pages, skipped };
+  };
+
+  Object.assign(handlers, {
+    token_borders_list: () => borders,
+    token_borders_add: ({ path, name }: Record<string, unknown>) => {
+      const b = { id: `user:${++seq}`, name: (name as string) || String(path).split(/[\\/]/).pop()!.replace(/\.[^.]+$/, ''), builtin: false, blob: `mock-border-${seq}`, width: 300, height: 300 };
+      borders.push(b);
+      return b;
+    },
+    token_borders_remove: ({ id }: Record<string, unknown>) => {
+      const i = borders.findIndex((b) => b.id === id && !b.builtin);
+      if (i < 0) throw notFound(`user border ${id}`);
+      borders.splice(i, 1);
+    },
+    image_source_from_path: ({ path }: Record<string, unknown>) => {
+      const hash = `mock-src-${String(path).length}-${++seq}`;
+      sources.set(hash, { width: 640, height: 400 });
+      return { hash, width: 640, height: 400 };
+    },
+    image_source_from_clipboard: () => {
+      throw invalid('the clipboard has no image');
+    },
+    image_source_info: ({ hash }: Record<string, unknown>) => ({ hash, ...(sources.get(hash as string) ?? { width: 512, height: 512 }) }),
+    token_render: ({ params }: Record<string, unknown>) => {
+      const p = params as TokenParams;
+      if (!borders.some((b) => b.id === p.border)) throw notFound(`border ${p.border}`);
+      return renderSvg(p);
+    },
+    token_save_png: ({ path }: Record<string, unknown>) => path,
+    token_save_to_library: ({ source, params, name, size, update }: Record<string, unknown>) => {
+      if (!(name as string).trim()) throw invalid('please enter a name');
+      const s = checkSize(size as string);
+      let a: Asset;
+      if (update != null) {
+        a = getAsset(update as number);
+        a.name = (name as string).trim();
+        a.size_label = s;
+      } else {
+        a = newAsset((name as string).trim(), 'token', s, []);
+        assets.push(a);
+      }
+      a.original_blob = source as string;
+      a.params_json = JSON.stringify(params);
+      tokenParams.set(a.id, structuredClone(params as TokenParams));
+      return a;
+    },
+    token_open_asset: ({ id }: Record<string, unknown>) => {
+      const a = getAsset(id as number);
+      const params = tokenParams.get(a.id) ?? { border: 'builtin:roll20', bg: null, ring_inset_pct: 0, pan: [0, 0], zoom: 1 };
+      sources.set(a.original_blob, sources.get(a.original_blob) ?? { width: 512, height: 512 });
+      return { source: { hash: a.original_blob, ...sources.get(a.original_blob)! }, params, name: a.name, size: a.size_label, asset_id: a.id };
+    },
+
+    token_sheet_get: () => getSheet(),
+    token_sheet_add_assets: ({ ids }: Record<string, unknown>) => {
+      for (const id of ids as number[]) {
+        const a = getAsset(id);
+        getSheet().items.push(sheetItem(a.name, a.size_label, a.rendered_blob, a.id));
+      }
+      return getSheet();
+    },
+    token_sheet_add_files: ({ paths, size }: Record<string, unknown>) => {
+      const s = checkSize((size as string) ?? 'Medium');
+      for (const p of paths as string[]) {
+        getSheet().items.push(sheetItem(String(p).split(/[\\/]/).pop()!.replace(/\.[^.]+$/, ''), s, `mock-file-${++seq}`, null));
+      }
+      return getSheet();
+    },
+    token_sheet_add_composed: ({ label, size }: Record<string, unknown>) => {
+      getSheet().items.push(sheetItem((label as string).trim() || 'Token', checkSize(size as string), `mock-composed-${++seq}`, null));
+      return getSheet();
+    },
+    token_sheet_update: ({ id, patch }: Record<string, unknown>) => {
+      const it = getSheet().items.find((i) => i.id === id);
+      if (!it) throw notFound(`sheet item ${id}`);
+      const p = patch as SheetItemPatch;
+      if (p.label != null) it.label = p.label;
+      if (p.size != null) it.size = checkSize(p.size);
+      if (p.copies != null) {
+        if (p.copies < 1 || p.copies > 99) throw invalid('copies must be 1–99');
+        it.copies = p.copies;
+      }
+      return getSheet();
+    },
+    token_sheet_remove: ({ id }: Record<string, unknown>) => {
+      const s = getSheet();
+      const n = s.items.length;
+      s.items = s.items.filter((i) => i.id !== id);
+      if (s.items.length === n) throw notFound(`sheet item ${id}`);
+      return s;
+    },
+    token_sheet_clear: () => {
+      getSheet().items = [];
+      return getSheet();
+    },
+    token_sheet_set_options: ({ format, cutBorder }: Record<string, unknown>) => {
+      const s = getSheet();
+      if (format != null) s.format = format as PageFormat;
+      if (cutBorder != null) s.cut_border = cutBorder as boolean;
+      return s;
+    },
+    token_sheet_layout: () => layoutSheet(),
+    token_sheet_export_pdf: () => {
+      if (!getSheet().items.length) throw invalid('the token sheet is empty');
+      const id = `mock-job-${++seq}`;
+      const job = { id, kind: 'token sheet export', state: 'done' as const, progress: 1, message: '', result: { pages: layoutSheet().pages.length }, error: null };
+      setTimeout(() => listeners.forEach((l) => l({ type: 'job', ...job })), 10);
+      return id;
+    },
+  });
 
   return {
     async invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {

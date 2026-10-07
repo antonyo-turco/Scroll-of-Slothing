@@ -26,6 +26,8 @@ class AppState {
   dataVersion = $state(0);
   /** One-shot filter handed to the Library when navigating there (e.g. from a session). */
   libraryPreset = $state<{ sessionId?: string; campaignId?: string } | null>(null);
+  /** One-shot request for an editor view to open a library asset. */
+  openRequest = $state<{ route: string; assetId: number } | null>(null);
   #bumpTimer: ReturnType<typeof setTimeout> | null = null;
   #toastSeq = 0;
   #unlisten: (() => void) | null = null;

@@ -87,7 +87,18 @@
 
   function openEditor() {
     const route = EDITOR_ROUTE[asset.kind];
-    if (route) app.navigate(route);
+    if (!route) return;
+    app.openRequest = { route, assetId: asset.id };
+    app.navigate(route);
+  }
+
+  async function addToSheet() {
+    try {
+      await api.tokenSheetAddAssets([asset.id]);
+      app.toast('success', `Added “${asset.name}” to the token sheet`);
+    } catch (e) {
+      app.error('Could not add to sheet', e);
+    }
   }
 </script>
 
@@ -171,6 +182,9 @@
     <button class="btn primary" onclick={openEditor} title={editorView ? `Available in phase ${editorView.phase}` : ''}>
       Open in {asset.kind === 'map' ? 'Map Paginator' : asset.kind === 'cutout' ? 'Object Cutter' : 'Token Cutter'}
     </button>
+    {#if asset.kind === 'token'}
+      <button class="btn" onclick={addToSheet}>Add to token sheet</button>
+    {/if}
     <div class="row">
       <button class="btn" onclick={() => exportFile('rendered')}>Save image…</button>
       <button class="btn" onclick={() => exportFile('original')}>Save original…</button>

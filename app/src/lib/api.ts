@@ -3,8 +3,9 @@
 // so the UI can be developed and tested without the native shell.
 
 import type {
-  AppInfo, Asset, AssetPage, AssetPatch, AssetQuery, Campaign, ExportWhat, ImportFile,
-  ImportReport, JobStatus, RenameOutcome, ServiceEvent, Session, Settings, SettingsUpdate, TagCount,
+  AppInfo, Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, ExportWhat, ImportFile,
+  ImportReport, JobStatus, PageFormat, RenameOutcome, ServiceEvent, Session, Settings, SettingsUpdate,
+  SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenParams, TokenSheet,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -97,6 +98,36 @@ export const api = {
     call<void>('sessions_update', { id, name, notes }),
   sessionsDelete: (id: string) => call<void>('sessions_delete', { id }),
   sessionsSetAssets: (id: string, assetIds: number[]) => call<void>('sessions_set_assets', { id, assetIds }),
+
+  tokenBordersList: () => call<Border[]>('token_borders_list'),
+  tokenBordersAdd: (path: string, name?: string | null) => call<Border>('token_borders_add', { path, name }),
+  tokenBordersRemove: (id: string) => call<void>('token_borders_remove', { id }),
+  imageSourceFromPath: (path: string) => call<SourceImage>('image_source_from_path', { path }),
+  imageSourceFromClipboard: () => call<SourceImage>('image_source_from_clipboard'),
+  imageSourceInfo: (hash: string) => call<SourceImage>('image_source_info', { hash }),
+  /** Renders a token; resolves to an image Blob (PNG in the app, SVG in the mock). */
+  tokenRender: async (source: string, params: TokenParams, fast = true): Promise<Blob> => {
+    const r = await call<ArrayBuffer | string>('token_render', { source, params, fast });
+    return typeof r === 'string' ? new Blob([r], { type: 'image/svg+xml' }) : new Blob([r], { type: 'image/png' });
+  },
+  tokenSavePng: (source: string, params: TokenParams, path: string) =>
+    call<string>('token_save_png', { source, params, path }),
+  tokenSaveToLibrary: (source: string, params: TokenParams, name: string, size: string, update: number | null) =>
+    call<Asset>('token_save_to_library', { source, params, name, size, update }),
+  tokenOpenAsset: (id: number) => call<TokenDraft>('token_open_asset', { id }),
+
+  tokenSheetGet: () => call<TokenSheet>('token_sheet_get'),
+  tokenSheetAddAssets: (ids: number[]) => call<TokenSheet>('token_sheet_add_assets', { ids }),
+  tokenSheetAddFiles: (paths: string[], size?: string | null) => call<TokenSheet>('token_sheet_add_files', { paths, size }),
+  tokenSheetAddComposed: (source: string, params: TokenParams, label: string, size: string) =>
+    call<TokenSheet>('token_sheet_add_composed', { source, params, label, size }),
+  tokenSheetUpdate: (id: string, patch: SheetItemPatch) => call<TokenSheet>('token_sheet_update', { id, patch }),
+  tokenSheetRemove: (id: string) => call<TokenSheet>('token_sheet_remove', { id }),
+  tokenSheetClear: () => call<TokenSheet>('token_sheet_clear'),
+  tokenSheetSetOptions: (format?: PageFormat | null, cutBorder?: boolean | null) =>
+    call<TokenSheet>('token_sheet_set_options', { format, cutBorder }),
+  tokenSheetLayout: () => call<SheetLayout>('token_sheet_layout'),
+  tokenSheetExportPdf: (path: string) => call<string>('token_sheet_export_pdf', { path }),
 };
 
 // ── native dialogs (no-ops returning null outside Tauri) ──
