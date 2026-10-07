@@ -10,6 +10,7 @@ mod legacy;
 mod library;
 mod organize;
 mod settings;
+mod workspaces;
 
 use std::path::Path;
 use std::sync::Arc;
