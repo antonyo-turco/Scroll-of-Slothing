@@ -45,7 +45,7 @@ docs/           specs (keep in sync with code)
   - Never commit to or merge into `master` without the user's explicit approval for that specific change.
   - Messages are descriptive: a summary line, a blank line, then a bullet body explaining what changed and why.
   - Never mention co-authorship or attribution (no `Co-Authored-By`, no "Generated with" lines).
-- At the end of each phase, propose promoting `dev` -> `master` and wait for approval.
+- **Nothing goes to `master` until the whole rewrite is complete and the app is fully equal to Orb of Many Functions** (every parity checklist ticked; music excepted, as agreed). Phases are not promoted one by one. Only then propose a single descriptive `master` commit or merge, and wait for explicit approval.
 
 ## Commands
 Run Rust commands from **PowerShell**, not Git Bash. Git Bash's `/usr/bin/link` shadows MSVC `link.exe`, so linking fails there.

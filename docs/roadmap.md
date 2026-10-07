@@ -5,7 +5,7 @@ Each phase is developed on `dev`. A phase is done when:
 - the parity checklists in its feature docs are ticked;
 - it has been run by hand.
 
-After that, promotion to `master` is proposed and **waits for the user's approval**.
+Phases are **not** promoted individually. `master` receives the rewrite only once all phases are complete and the app is at full parity with Orb of Many Functions, and only with the user's explicit approval.
 
 | Phase | Scope | Status |
 |---|---|---|
