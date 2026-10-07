@@ -4,6 +4,7 @@
 //! `Store` is synchronous and cheap to share (`Arc<Store>`); the service layer
 //! calls it from `spawn_blocking`.
 
+mod aoe;
 mod assets;
 mod blobs;
 mod campaigns;
