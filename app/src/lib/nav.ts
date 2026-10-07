@@ -28,7 +28,7 @@ const placeholder = () => import('../routes/Placeholder.svelte');
 
 export const DESTINATIONS: Destination[] = [
   { id: 'library', label: 'Library', icon: 'library',
-    views: [{ id: 'library', label: 'Library', phase: 1, load: placeholder }] },
+    views: [{ id: 'library', label: 'Library', phase: 1, load: () => import('../routes/library/Library.svelte') }] },
   { id: 'tokens', label: 'Tokens', icon: 'token', views: [
     { id: 'tokens.cutter', label: 'Cutter', phase: 2, load: placeholder },
     { id: 'tokens.sheet', label: 'Sheet', phase: 2, load: placeholder },
@@ -44,7 +44,7 @@ export const DESTINATIONS: Destination[] = [
     { id: 'maps.aoe', label: 'AoE templates', phase: 5, load: placeholder },
   ] },
   { id: 'campaigns', label: 'Campaigns', icon: 'flag',
-    views: [{ id: 'campaigns', label: 'Campaigns', phase: 1, load: placeholder }] },
+    views: [{ id: 'campaigns', label: 'Campaigns', phase: 1, load: () => import('../routes/Campaigns.svelte') }] },
   { id: 'music', label: 'Music', icon: 'music', views: [], disabled: true,
     hint: 'Planned — see docs/features/music' },
 ];
