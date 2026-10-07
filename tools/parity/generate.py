@@ -38,6 +38,7 @@ def main():
         ("aoe_geometry.json", gen_aoe),
         ("maxrects.json", gen_maxrects),
         ("token_compose.json", lambda: gen_token_compose(ref, out)),
+        ("cutout.json", lambda: gen_cutout(out)),
     ]
     for name, fn in gens:
         data = {"source": "orb-of-many-functions (dev)", "generator": "tools/parity/generate.py",
@@ -396,6 +397,44 @@ def gen_token_compose(ref, out):
             compose_token(src, b, **p).save(os.path.join(img_dir, name))
             cases.append({"border": border, "output": f"token/{name}", **{
                 k: (list(v) if isinstance(v, tuple) else v) for k, v in p.items()}})
+    return cases
+
+
+# ── cut-outs (images) ──────────────────────────────────────────────────────
+
+def gen_cutout(out):
+    """Lasso + outline + standee via the real Python helpers; writes PNGs."""
+    from PIL import Image
+
+    from ui.cutout_compositing import add_contour_outline, apply_lasso_mask, make_standee_block
+    img_dir = os.path.join(out, "cutout")
+    os.makedirs(img_dir, exist_ok=True)
+    w, h = 320, 240
+    src = Image.new("RGBA", (w, h))
+    px = src.load()
+    for y in range(h):
+        for x in range(w):
+            px[x, y] = (x * 255 // w, 120, y * 255 // h, 255)
+    src.save(os.path.join(img_dir, "source.png"))
+    polygons = {
+        "triangle": [(40, 30), (280, 60), (120, 210)],
+        "star": [(160, 20), (190, 95), (270, 100), (205, 145), (230, 220), (160, 175), (90, 220),
+                 (115, 145), (50, 100), (130, 95)],
+        "rect": [(20, 20), (300, 20), (300, 220), (20, 220)],
+    }
+    cases = []
+    for name, pts in polygons.items():
+        cut = apply_lasso_mask(src, pts)
+        cut.save(os.path.join(img_dir, f"{name}_cut.png"))
+        for t, col in ((6, (255, 255, 255)), (15, (20, 20, 20))):
+            o = add_contour_outline(cut, t, col)
+            fn = f"{name}_outline_{t}.png"
+            o.save(os.path.join(img_dir, fn))
+            cases.append({"polygon": name, "points": [list(p) for p in pts], "thickness": t,
+                          "color": list(col), "cut": f"cutout/{name}_cut.png", "output": f"cutout/{fn}"})
+        st = make_standee_block(cut)
+        st.save(os.path.join(img_dir, f"{name}_standee.png"))
+        cases.append({"polygon": name, "standee_of": f"cutout/{name}_cut.png", "output": f"cutout/{name}_standee.png"})
     return cases
 
 
