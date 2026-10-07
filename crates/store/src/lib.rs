@@ -9,6 +9,7 @@ mod assets;
 mod blobs;
 mod campaigns;
 mod changes;
+mod decks;
 mod migrate;
 mod settings;
 mod tags;
@@ -25,6 +26,7 @@ pub use assets::{
 pub use blobs::{BlobMeta, BlobRef};
 pub use campaigns::{Campaign, Session};
 pub use changes::Change;
+pub use decks::{Deck, DeckSummary};
 pub use tags::{RenameOutcome, TagCount};
 
 #[derive(Debug, thiserror::Error)]
