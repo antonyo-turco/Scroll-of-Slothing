@@ -43,7 +43,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `token_sheet_export_pdf` | 2 | Export the PDF (job) |
 | `cutout_create` | 3 | Lasso (polygon points) + outline from a file or library cut-out; optionally save, add to the object sheet, write PNG; returns the image |
 | `object_sheet_list` / `object_sheet_add` / `object_sheet_update` / `object_sheet_remove` / `object_sheet_clear` / `object_sheet_set_options` / `object_sheet_layout` / `object_sheet_export_pdf` | 3 | Object sheet (flat or standee) |
-| `cards_parse` / `cards_validate` / `cards_preview_page` / `cards_export_pdf` | 4 | Cards |
+| `cards_templates` / `cards_parse` / `cards_validate` / `cards_export_pdf` | 4 | Cards: format reference + templates, parse, validate (pages, overflow), export (job) |
 | `decks_list` / `decks_get` / `decks_save` / `decks_delete` | 4 | Saved decks |
 | `map_open` / `map_set_grid` / `map_set_style` / `map_set_filters` / `map_remove_grid` / `map_dewarp` / `map_set_print` / `map_set_region` / `map_toggle_page` / `map_layout` / `map_preview_page` / `map_export_pdf` / `map_save_asset` | 5 | Map paginator session |
 | `aoe_render` / `aoe_presets_list` / `aoe_presets_save` / `aoe_presets_delete` / `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_export_pdf` / `aoe_export_template_pdf` / `aoe_export_png` | 5 | AoE |

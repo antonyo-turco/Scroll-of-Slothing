@@ -12,12 +12,13 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{ErrorData, ServerHandler, schemars, tool, tool_handler, tool_router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use sleuth_core::cards::Flip;
 use sleuth_core::cutout::CutoutParams;
 use sleuth_core::pack::shelf::SheetMode;
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    AssetPatch, AssetQuery, AssetSort, ExportWhat, ImportFile, LegacyImportOptions,
+    AssetPatch, AssetQuery, AssetSort, CardOptions, ExportWhat, ImportFile, LegacyImportOptions,
     ObjectItemPatch, Service, ServiceError, SheetItemPatch,
 };
 
@@ -305,6 +306,40 @@ pub struct ObjectOptionsParams {
     pub format: Option<String>,
     /// flat | standee
     pub mode: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CardsParams {
+    /// The deck: cards separated by lines of `---` (see cards_templates for the format).
+    pub markdown: String,
+    /// Letter | A4 (default: the card_page_format setting)
+    pub format: Option<String>,
+    /// Print overflowing text on back pages (duplex).
+    #[serde(default)]
+    pub double_sided: bool,
+    /// long (default) | short: the duplex flip edge.
+    pub flip: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CardsExportParams {
+    pub markdown: Option<String>,
+    /// Use a saved deck instead of markdown.
+    pub deck_id: Option<i64>,
+    pub format: Option<String>,
+    #[serde(default)]
+    pub double_sided: bool,
+    pub flip: Option<String>,
+    /// Absolute output path for the PDF.
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct DeckSaveParams {
+    /// Omit to create a new deck.
+    pub id: Option<i64>,
+    pub name: String,
+    pub markdown: String,
 }
 
 // ── server ──────────────────────────────────────────────────────────────────
@@ -750,6 +785,101 @@ impl SleuthServer {
         ok(
             &serde_json::json!({ "job_id": self.svc.object_sheet_export_pdf(PathBuf::from(p.path)) }),
         )
+    }
+
+    // ── cards ──
+    #[tool(
+        description = "Card markdown format reference and the Spell/Feat/Item/Ability templates. Read this before writing a deck."
+    )]
+    async fn cards_templates(&self) -> ToolResult {
+        ok(&self.svc.cards_templates())
+    }
+
+    #[tool(
+        description = "Parse a card deck (markdown) into cards: title, type, stats, body, colour, copies."
+    )]
+    async fn cards_parse(&self, Parameters(p): Parameters<CardsParams>) -> ToolResult {
+        done(self.svc.cards_parse(p.markdown).await)
+    }
+
+    #[tool(
+        description = "Check a deck before printing: card count (copies expanded), pages, and which cards' text overflows \
+        the front (even at the smallest font). With double_sided, overflowing text continues on back pages."
+    )]
+    async fn cards_validate(&self, Parameters(p): Parameters<CardsParams>) -> ToolResult {
+        match self.card_opts(&p).await {
+            Ok(opts) => done(self.svc.cards_validate(p.markdown, opts).await),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(
+        description = "Export a deck (markdown, or a saved deck_id) to a PDF of 3x3 poker cards. Returns a job_id."
+    )]
+    async fn cards_export_pdf(&self, Parameters(p): Parameters<CardsExportParams>) -> ToolResult {
+        let markdown = match (p.deck_id, p.markdown) {
+            (Some(id), _) => match self.svc.decks_get(id).await {
+                Ok(d) => d.markdown,
+                Err(e) => return fail(&e),
+            },
+            (None, Some(md)) => md,
+            (None, None) => {
+                return fail(&ServiceError::InvalidInput("give markdown or deck_id".into()));
+            }
+        };
+        let cp = CardsParams {
+            markdown: markdown.clone(),
+            format: p.format,
+            double_sided: p.double_sided,
+            flip: p.flip,
+        };
+        match self.card_opts(&cp).await {
+            Ok(opts) => ok(
+                &serde_json::json!({ "job_id": self.svc.cards_export_pdf(markdown, opts, PathBuf::from(p.path)) }),
+            ),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(description = "List saved card decks.")]
+    async fn decks_list(&self) -> ToolResult {
+        done(self.svc.decks_list().await)
+    }
+
+    #[tool(description = "Get a saved deck (markdown and print settings).")]
+    async fn decks_get(&self, Parameters(p): Parameters<IdParams>) -> ToolResult {
+        done(self.svc.decks_get(p.id).await)
+    }
+
+    #[tool(description = "Save a deck: create (no id) or overwrite (id).")]
+    async fn decks_save(&self, Parameters(p): Parameters<DeckSaveParams>) -> ToolResult {
+        done(self.svc.decks_save(p.id, p.name, p.markdown, None).await)
+    }
+
+    #[tool(description = "Delete a saved deck.")]
+    async fn decks_delete(&self, Parameters(p): Parameters<IdParams>) -> ToolResult {
+        done(self.svc.decks_delete(p.id).await)
+    }
+}
+
+impl SleuthServer {
+    /// Card options from tool params, defaulting the format to the `card_page_format` setting.
+    async fn card_opts(&self, p: &CardsParams) -> Result<CardOptions, ServiceError> {
+        let format = match p.format.as_deref() {
+            Some(f) => PageFormat::parse(f)
+                .ok_or_else(|| ServiceError::InvalidInput("format must be Letter or A4".into()))?,
+            None => self.svc.settings_get().await?.card_page_format,
+        };
+        let flip = match p.flip.as_deref() {
+            None | Some("long") => Flip::Long,
+            Some("short") => Flip::Short,
+            Some(o) => {
+                return Err(ServiceError::InvalidInput(format!(
+                    "flip {o:?} must be long or short"
+                )));
+            }
+        };
+        Ok(CardOptions { format, double_sided: p.double_sided, flip })
     }
 }
 

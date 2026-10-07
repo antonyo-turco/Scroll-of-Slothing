@@ -256,3 +256,63 @@ async fn cutout_workflow_over_mcp() {
     assert_eq!(r.is_error, Some(true));
     client.cancel().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cards_workflow_over_mcp() {
+    let dir = tempfile::tempdir().unwrap();
+    let svc = Service::open(dir.path().join("data")).unwrap();
+    let (server_io, client_io) = tokio::io::duplex(1 << 20);
+    tokio::spawn(async move {
+        SleuthServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
+    });
+    let client = Client.serve(client_io).await.unwrap();
+    let call = |name: &'static str, a: Value| {
+        let client = &client;
+        async move {
+            client
+                .call_tool(CallToolRequestParams::new(name).with_arguments(args(a)))
+                .await
+                .unwrap()
+        }
+    };
+
+    let r = call("cards_templates", json!({})).await;
+    assert!(json_of(&r)["reference"].as_str().unwrap().contains("Copies"));
+
+    let long = format!("# Wall of Text\n**Type:** Spell\n\n{}", "lorem ipsum ".repeat(200));
+    let deck =
+        format!("# Bless\n**Type:** Spell\n**Copies:** 3\n\nUp to three creatures.\n---\n{long}");
+    let r = call("cards_validate", json!({"markdown": deck, "format": "A4"})).await;
+    let v = json_of(&r);
+    assert_eq!((v["cards"].as_u64(), v["pages"].as_u64()), (Some(4), Some(1)));
+    assert_eq!(v["overflow"], json!(["Wall of Text"]));
+    let r =
+        call("cards_validate", json!({"markdown": deck, "double_sided": true, "flip": "short"}))
+            .await;
+    assert_eq!(json_of(&r)["backs"], true);
+    assert_eq!(json_of(&r)["pages"], 2);
+
+    let r = call("decks_save", json!({"name": "Clerics", "markdown": deck})).await;
+    let id = json_of(&r)["id"].as_i64().unwrap();
+    let pdf = dir.path().join("cards.pdf");
+    let r = call(
+        "cards_export_pdf",
+        json!({"deck_id": id, "double_sided": true, "path": pdf.to_string_lossy()}),
+    )
+    .await;
+    let job = json_of(&r)["job_id"].as_str().unwrap().to_string();
+    let mut state = Value::Null;
+    for _ in 0..400 {
+        state = json_of(&call("jobs_status", json!({"job_id": job})).await)["state"].clone();
+        if state != "running" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(state, "done");
+    assert!(std::fs::read(&pdf).unwrap().starts_with(b"%PDF"));
+
+    let r = call("cards_validate", json!({"markdown": deck, "flip": "diagonal"})).await;
+    assert_eq!(r.is_error, Some(true));
+    client.cancel().await.unwrap();
+}
