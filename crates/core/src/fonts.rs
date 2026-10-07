@@ -59,8 +59,8 @@ impl FontStyle {
 }
 
 struct Metrics {
-    /// Advance per char in 1/1000 em.
-    widths: HashMap<char, u16>,
+    /// (glyph id, advance in 1/1000 em) per char.
+    widths: HashMap<char, (u16, u16)>,
     fallback: u16,
 }
 
@@ -80,9 +80,10 @@ fn metrics(style: FontStyle) -> &'static Metrics {
                         if let (Some(ch), Some(gid)) = (char::from_u32(cp), sub.glyph_index(cp))
                             && let Some(adv) = face.glyph_hor_advance(gid)
                         {
-                            widths
-                                .entry(ch)
-                                .or_insert((f64::from(adv) * 1000.0 / upem).round() as u16);
+                            widths.entry(ch).or_insert((
+                                gid.0,
+                                (f64::from(adv) * 1000.0 / upem).round() as u16,
+                            ));
                         }
                     });
                 }
@@ -100,8 +101,34 @@ fn metrics(style: FontStyle) -> &'static Metrics {
 pub fn width(text: &str, style: FontStyle, size: f64) -> f64 {
     let m = metrics(style);
     let units: u32 =
-        text.chars().map(|c| u32::from(*m.widths.get(&c).unwrap_or(&m.fallback))).sum();
+        text.chars().map(|c| u32::from(m.widths.get(&c).map_or(m.fallback, |w| w.1))).sum();
     f64::from(units) * size / 1000.0
+}
+
+/// One positioned glyph for unkerned text drawing.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlacedGlyph {
+    pub glyph_id: u16,
+    /// Advance in em (1/1000-em rounded, so drawing matches `width()` exactly).
+    pub advance_em: f32,
+    /// Byte range of the source character in the text.
+    pub range: std::ops::Range<usize>,
+}
+
+/// Glyphs for `text` with Helvetica-exact advances and no kerning or ligatures,
+/// so drawn text occupies exactly `width()`. Missing chars map to glyph 0.
+pub fn glyphs(text: &str, style: FontStyle) -> Vec<PlacedGlyph> {
+    let m = metrics(style);
+    text.char_indices()
+        .map(|(i, c)| {
+            let (gid, adv) = m.widths.get(&c).copied().unwrap_or((0, m.fallback));
+            PlacedGlyph {
+                glyph_id: gid,
+                advance_em: f32::from(adv) / 1000.0,
+                range: i..i + c.len_utf8(),
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
