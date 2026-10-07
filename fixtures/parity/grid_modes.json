@@ -1,0 +1,387 @@
+{
+ "cases": [
+  {
+   "cols": 14,
+   "mode": "rows_cols",
+   "out": [
+    71.42857142857143,
+    70.0,
+    0.0,
+    0.0
+   ],
+   "rows": 10,
+   "size": [
+    1000,
+    700
+   ]
+  },
+  {
+   "cols": 55,
+   "mode": "rows_cols",
+   "out": [
+    22.436363636363637,
+    22.2,
+    0.0,
+    0.0
+   ],
+   "rows": 35,
+   "size": [
+    1234,
+    777
+   ]
+  },
+  {
+   "cols": -3,
+   "mode": "rows_cols",
+   "out": [
+    50.0,
+    50.0,
+    0.0,
+    0.0
+   ],
+   "rows": 0,
+   "size": [
+    50,
+    50
+   ]
+  },
+  {
+   "mode": "reference",
+   "n": 3,
+   "out": [
+    70.0,
+    70.0,
+    10.0,
+    20.0
+   ],
+   "rect": [
+    10,
+    20,
+    220,
+    230
+   ]
+  },
+  {
+   "mode": "reference",
+   "n": 2,
+   "out": [
+    100.0,
+    125.0,
+    0.0,
+    25.0
+   ],
+   "rect": [
+    300,
+    400,
+    100,
+    150
+   ]
+  },
+  {
+   "mode": "reference",
+   "n": 1,
+   "out": [
+    70.0,
+    70.0,
+    5.5,
+    7.25
+   ],
+   "rect": [
+    5.5,
+    7.25,
+    75.5,
+    77.25
+   ]
+  },
+  {
+   "mode": "reference",
+   "n": 3,
+   "out": [
+    30.0,
+    30.0,
+    0.0,
+    20.0
+   ],
+   "rect": [
+    -30,
+    -10,
+    60,
+    80
+   ]
+  },
+  {
+   "mode": "ppi",
+   "out": [
+    70.0,
+    70.0,
+    0.0,
+    0.0
+   ],
+   "ppi": 70,
+   "square_in": 1.0
+  },
+  {
+   "mode": "ppi",
+   "out": [
+    75.0,
+    75.0,
+    0.0,
+    0.0
+   ],
+   "ppi": 150,
+   "square_in": 0.5
+  },
+  {
+   "mode": "ppi",
+   "out": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ppi": -5,
+   "square_in": 1.0
+  },
+  {
+   "mode": "cell_side",
+   "out": [
+    70.0,
+    70.0,
+    0.0,
+    0.0
+   ],
+   "side": 70
+  },
+  {
+   "mode": "cell_side",
+   "out": [
+    12.5,
+    12.5,
+    0.0,
+    0.0
+   ],
+   "side": 12.5
+  },
+  {
+   "mode": "cell_side",
+   "out": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "side": -1
+  },
+  {
+   "extent": 700,
+   "mode": "lines",
+   "offset": 0,
+   "out": [
+    0,
+    70,
+    140,
+    210,
+    280,
+    350,
+    420,
+    490,
+    560,
+    630,
+    700
+   ],
+   "step": 70
+  },
+  {
+   "extent": 700,
+   "mode": "lines",
+   "offset": 35,
+   "out": [
+    35,
+    105,
+    175,
+    245,
+    315,
+    385,
+    455,
+    525,
+    595,
+    665
+   ],
+   "step": 70
+  },
+  {
+   "extent": 510,
+   "mode": "lines",
+   "offset": -15,
+   "out": [
+    35,
+    85,
+    135,
+    185,
+    235,
+    285,
+    335,
+    385,
+    435,
+    485
+   ],
+   "step": 50
+  },
+  {
+   "extent": 400,
+   "mode": "lines",
+   "offset": 123.4,
+   "out": [
+    23.500000000000014,
+    56.80000000000001,
+    90.10000000000001,
+    123.4,
+    156.7,
+    190.0,
+    223.3,
+    256.6,
+    289.90000000000003,
+    323.20000000000005,
+    356.50000000000006,
+    389.80000000000007
+   ],
+   "step": 33.3
+  },
+  {
+   "extent": 10,
+   "mode": "lines",
+   "offset": 0,
+   "out": [],
+   "step": 0.4
+  },
+  {
+   "extent": 10,
+   "mode": "lines",
+   "offset": 0,
+   "out": [],
+   "step": 0
+  },
+  {
+   "extent": 6.9995,
+   "mode": "lines",
+   "offset": 7,
+   "out": [
+    7
+   ],
+   "step": 10
+  },
+  {
+   "cell": 70,
+   "mode": "style",
+   "out": null,
+   "style": "solid",
+   "thickness": 1
+  },
+  {
+   "cell": 12,
+   "mode": "style",
+   "out": null,
+   "style": "solid",
+   "thickness": 3
+  },
+  {
+   "cell": 200,
+   "mode": "style",
+   "out": null,
+   "style": "solid",
+   "thickness": 10
+  },
+  {
+   "cell": 70,
+   "mode": "style",
+   "out": [
+    12.6,
+    8.4
+   ],
+   "style": "dashed",
+   "thickness": 1
+  },
+  {
+   "cell": 12,
+   "mode": "style",
+   "out": [
+    2.16,
+    2.0
+   ],
+   "style": "dashed",
+   "thickness": 3
+  },
+  {
+   "cell": 200,
+   "mode": "style",
+   "out": [
+    36.0,
+    24.0
+   ],
+   "style": "dashed",
+   "thickness": 10
+  },
+  {
+   "cell": 70,
+   "mode": "style",
+   "out": [
+    1.0,
+    7.0
+   ],
+   "style": "dotted",
+   "thickness": 1
+  },
+  {
+   "cell": 12,
+   "mode": "style",
+   "out": [
+    3.0,
+    2.0
+   ],
+   "style": "dotted",
+   "thickness": 3
+  },
+  {
+   "cell": 200,
+   "mode": "style",
+   "out": [
+    10.0,
+    20.0
+   ],
+   "style": "dotted",
+   "thickness": 10
+  },
+  {
+   "cell": 70,
+   "mode": "style",
+   "out": [
+    31.5,
+    8.4
+   ],
+   "style": "broken",
+   "thickness": 1
+  },
+  {
+   "cell": 12,
+   "mode": "style",
+   "out": [
+    5.4,
+    2.0
+   ],
+   "style": "broken",
+   "thickness": 3
+  },
+  {
+   "cell": 200,
+   "mode": "style",
+   "out": [
+    90.0,
+    24.0
+   ],
+   "style": "broken",
+   "thickness": 10
+  }
+ ],
+ "generator": "tools/parity/generate.py",
+ "source": "orb-of-many-functions (dev)"
+}

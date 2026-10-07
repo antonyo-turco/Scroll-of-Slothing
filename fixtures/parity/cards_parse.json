@@ -1,0 +1,448 @@
+{
+ "cases": [
+  {
+   "cards": [
+    {
+     "body": "A bright streak flashes from your finger to a point you choose, then blossoms into a **20-foot-radius sphere** of flame.",
+     "color": [
+      0.5,
+      0.2,
+      0.7
+     ],
+     "copies": 2,
+     "stats": [
+      [
+       "Level",
+       "3rd-level"
+      ],
+      [
+       "Range",
+       "150 feet"
+      ]
+     ],
+     "title": "Fireball",
+     "type": "Spell"
+    }
+   ],
+   "markdown": "# Fireball\n**Type:** Spell\n**Level:** 3rd-level\n**Range:** 150 feet\n**Copies:** 2\n\nA bright streak flashes from your finger to a point you choose,\nthen blossoms into a **20-foot-radius sphere** of flame.\n"
+  },
+  {
+   "cards": [
+    {
+     "body": "You have *inexplicable luck* that seems to kick in at just the right moment.",
+     "color": [
+      0.2,
+      0.6,
+      0.3
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "Lucky",
+     "type": "Feat"
+    }
+   ],
+   "markdown": "# Lucky\n**Type:** Feat\n\nYou have *inexplicable luck* that seems to kick in at just the right moment."
+  },
+  {
+   "cards": [
+    {
+     "body": "A cunning goblin chieftain with __uncanny reflexes__.",
+     "color": [
+      0.5450980392156862,
+      0.0,
+      0.0
+     ],
+     "copies": 1,
+     "stats": [
+      [
+       "HP",
+       "42"
+      ],
+      [
+       "AC",
+       "15"
+      ]
+     ],
+     "title": "Boss Goblin",
+     "type": "Boss"
+    }
+   ],
+   "markdown": "# Boss Goblin\n**Type:** Boss #8B0000\n**HP:** 42\n**AC:** 15\n\nA cunning goblin chieftain with __uncanny reflexes__."
+  },
+  {
+   "cards": [
+    {
+     "body": "Just body text\nSecond paragraph _italic_ and **bold *nested* text**.",
+     "color": [
+      0.4,
+      0.4,
+      0.4
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "No stats here",
+     "type": ""
+    }
+   ],
+   "markdown": "# No stats here\nJust body text\n\nSecond paragraph _italic_ and **bold *nested* text**."
+  },
+  {
+   "cards": [
+    {
+     "body": "Untitled card body",
+     "color": [
+      0.8,
+      0.5,
+      0.1
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "",
+     "type": "item"
+    }
+   ],
+   "markdown": "**Type:** item\n\nUntitled card body"
+  },
+  {
+   "cards": [
+    {
+     "body": "Body",
+     "color": [
+      0.2,
+      0.4,
+      0.8
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "Copies junk",
+     "type": "Ability"
+    }
+   ],
+   "markdown": "# Copies junk\n**Type:** Ability\n**Copies:** many\n\nBody"
+  },
+  {
+   "cards": [
+    {
+     "body": "Body",
+     "color": [
+      0.4,
+      0.4,
+      0.4
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "Zero copies",
+     "type": "weird type words"
+    }
+   ],
+   "markdown": "# Zero copies\n**Copies:** 0\n**Type:** weird type words\n\nBody"
+  },
+  {
+   "cards": [],
+   "markdown": ""
+  },
+  {
+   "cards": [
+    {
+     "body": "",
+     "color": [
+      0.4,
+      0.4,
+      0.4
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "A",
+     "type": ""
+    },
+    {
+     "body": "body b",
+     "color": [
+      0.2,
+      0.6,
+      0.3
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "B",
+     "type": "Feat"
+    },
+    {
+     "body": "",
+     "color": [
+      0.4,
+      0.4,
+      0.4
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "C",
+     "type": ""
+    }
+   ],
+   "markdown": "# A\n---\n# B\n**Type:** Feat\n\nbody b\n\n-----\n\n# C"
+  },
+  {
+   "cards": [
+    {
+     "body": "Unclosed *star and lone _ underscore, plus a**b.",
+     "color": [
+      0.5,
+      0.2,
+      0.7
+     ],
+     "copies": 1,
+     "stats": [],
+     "title": "Stray * markers _ here",
+     "type": "Spell"
+    }
+   ],
+   "markdown": "# Stray * markers _ here\n**Type:** Spell\n\nUnclosed *star and lone _ underscore, plus a**b."
+  },
+  {
+   "cards": [
+    {
+     "body": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+     "color": [
+      0.5,
+      0.2,
+      0.7
+     ],
+     "copies": 1,
+     "stats": [
+      [
+       "Casting Time",
+       "1 action, which is a long description of the casting time that should wrap onto multiple lines"
+      ]
+     ],
+     "title": "Long",
+     "type": "Spell"
+    }
+   ],
+   "markdown": "# Long\n**Type:** Spell\n**Casting Time:** 1 action, which is a long description of the casting time that should wrap onto multiple lines\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+  },
+  {
+   "inline": true,
+   "texts": [
+    {
+     "text": "plain words here",
+     "tokens": [
+      [
+       "plain",
+       false,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "words",
+       false,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "here",
+       false,
+       false,
+       false
+      ]
+     ]
+    },
+    {
+     "text": "**bold** and *it* and __u__ and _i_",
+     "tokens": [
+      [
+       "bold",
+       true,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "and",
+       false,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "it",
+       false,
+       true,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "and",
+       false,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "u",
+       false,
+       false,
+       true
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "and",
+       false,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "i",
+       false,
+       true,
+       false
+      ]
+     ]
+    },
+    {
+     "text": "a**b",
+     "tokens": [
+      [
+       "a",
+       false,
+       false,
+       false
+      ],
+      [
+       "b",
+       false,
+       false,
+       false
+      ]
+     ]
+    },
+    {
+     "text": "*unclosed",
+     "tokens": [
+      [
+       "unclosed",
+       false,
+       false,
+       false
+      ]
+     ]
+    },
+    {
+     "text": "x_y_z",
+     "tokens": [
+      [
+       "x",
+       false,
+       false,
+       false
+      ],
+      [
+       "y",
+       false,
+       true,
+       false
+      ],
+      [
+       "z",
+       false,
+       false,
+       false
+      ]
+     ]
+    },
+    {
+     "text": "**multi word bold** tail",
+     "tokens": [
+      [
+       "multi",
+       true,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "word",
+       true,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "bold",
+       true,
+       false,
+       false
+      ],
+      [
+       " ",
+       false,
+       false,
+       false
+      ],
+      [
+       "tail",
+       false,
+       false,
+       false
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "generator": "tools/parity/generate.py",
+ "source": "orb-of-many-functions (dev)"
+}
