@@ -106,6 +106,35 @@ pub(crate) fn store_images(
     })
 }
 
+/// Stores already-encoded `original` and `rendered` images verbatim (no
+/// re-encoding) and generates derivatives from the rendered one.
+pub(crate) fn store_encoded(store: &Store, original: &[u8], rendered: &[u8]) -> Result<StoredImages> {
+    let put_raw = |bytes: &[u8]| -> Result<(String, Option<DynamicImage>)> {
+        let mime = imaging::sniff_mime(bytes)
+            .ok_or_else(|| ServiceError::InvalidInput("unsupported image format".into()))?;
+        let dims = image::ImageReader::new(std::io::Cursor::new(bytes))
+            .with_guessed_format()
+            .ok()
+            .and_then(|r| r.into_dimensions().ok());
+        Ok((store.put_blob(bytes, mime, dims)?.hash, None))
+    };
+    let (original_blob, _) = put_raw(original)?;
+    let (rendered_blob, _) = if rendered == original { (original_blob.clone(), None) } else { put_raw(rendered)? };
+    let img = imaging::decode(rendered).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+    let deriv = imaging::derivatives(&img);
+    drop(img);
+    let put_webp = |img: &image::RgbaImage| -> Result<String> {
+        let bytes = imaging::encode_webp_lossless(img).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        Ok(store.put_blob(&bytes, "image/webp", Some(img.dimensions()))?.hash)
+    };
+    Ok(StoredImages {
+        original_blob,
+        rendered_blob,
+        thumb_blob: put_webp(&deriv.thumb)?,
+        preview_blob: put_webp(&deriv.preview)?,
+    })
+}
+
 /// A filesystem-safe file stem.
 pub(crate) fn safe_file_stem(name: &str) -> String {
     let s: String = name

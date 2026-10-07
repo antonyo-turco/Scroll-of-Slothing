@@ -20,9 +20,11 @@ uuid.workspace = true
 image.workspace = true
 rayon.workspace = true
 arboard.workspace = true
+sleuth-legacy.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+sleuth-legacy = { workspace = true, features = ["fixture"] }
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
