@@ -37,6 +37,7 @@ def main():
         ("tiling.json", gen_tiling),
         ("aoe_geometry.json", gen_aoe),
         ("maxrects.json", gen_maxrects),
+        ("token_compose.json", lambda: gen_token_compose(ref, out)),
     ]
     for name, fn in gens:
         data = {"source": "orb-of-many-functions (dev)", "generator": "tools/parity/generate.py",
@@ -361,6 +362,40 @@ def gen_maxrects():
             cases.append({"format": fmt, "dpi": dpi, "gap_in": gap_in, "margin_in": margin_in,
                           "items_in": sizes_in, "page_px": [page_w, page_h], "placed": placed,
                           "skipped": skipped, "pages": len(pages)})
+    return cases
+
+
+# ── token compositing (images) ─────────────────────────────────────────────
+
+def gen_token_compose(ref, out):
+    """Renders tokens with the real Python compositor; writes PNGs next to the JSON."""
+    from PIL import Image
+
+    from ui.token_compositing import compose_token
+    img_dir = os.path.join(out, "token")
+    os.makedirs(img_dir, exist_ok=True)
+    # Deterministic, detailed source: gradients + stripes, 640x400, opaque.
+    w, h = 640, 400
+    src = Image.new("RGBA", (w, h))
+    px = src.load()
+    for y in range(h):
+        for x in range(w):
+            px[x, y] = (x * 255 // w, y * 255 // h, ((x // 20 + y // 20) % 2) * 200 + 30, 255)
+    src.save(os.path.join(img_dir, "source.png"))
+    cases = []
+    params = [
+        dict(pan_x=0, pan_y=0, zoom=1.0, ring_inset_pct=0, bg_color=None),
+        dict(pan_x=60, pan_y=-25, zoom=1.0, ring_inset_pct=0, bg_color=None),
+        dict(pan_x=0, pan_y=0, zoom=2.5, ring_inset_pct=10, bg_color=None),
+        dict(pan_x=-30, pan_y=40, zoom=0.6, ring_inset_pct=25, bg_color=(30, 90, 160)),
+    ]
+    for border in ("roll20.png", "roll20_greyscale.png"):
+        b = Image.open(os.path.join(ref, "images", "token_borders", border)).convert("RGBA")
+        for i, p in enumerate(params):
+            name = f"{border[:-4]}_{i}.png"
+            compose_token(src, b, **p).save(os.path.join(img_dir, name))
+            cases.append({"border": border, "output": f"token/{name}", **{
+                k: (list(v) if isinstance(v, tuple) else v) for k, v in p.items()}})
     return cases
 
 

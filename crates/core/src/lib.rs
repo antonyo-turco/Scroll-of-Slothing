@@ -2,5 +2,7 @@
 //! and unit/property testable. See `docs/architecture.md`.
 
 pub mod imaging;
+pub mod pack;
 pub mod settings;
+pub mod token;
 pub mod units;

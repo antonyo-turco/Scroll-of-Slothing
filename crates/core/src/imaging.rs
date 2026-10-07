@@ -62,7 +62,7 @@ pub fn resize_rgba(src: &RgbaImage, tw: u32, th: u32) -> RgbaImage {
     if (w, h) == (tw, th) {
         return src.clone();
     }
-    let src_img = FrImage::from_vec_u8(w, h, src.as_raw().clone(), fr::PixelType::U8x4)
+    let src_img = fast_image_resize::images::ImageRef::new(w, h, src.as_raw(), fr::PixelType::U8x4)
         .expect("buffer size matches dimensions");
     let mut dst = FrImage::new(tw, th, fr::PixelType::U8x4);
     let mut resizer = fr::Resizer::new();
