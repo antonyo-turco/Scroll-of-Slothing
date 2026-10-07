@@ -1,7 +1,10 @@
 //! Token compositing: frame an image inside a circular border ring.
 //! Python reference: `ui/token_compositing.py`. Spec: docs/features/token-cutter.md.
 
-use fast_image_resize::{self as fr, images::{Image as FrImage, ImageRef}};
+use fast_image_resize::{
+    self as fr,
+    images::{Image as FrImage, ImageRef},
+};
 use image::{Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +26,13 @@ pub struct TokenParams {
 
 impl Default for TokenParams {
     fn default() -> Self {
-        TokenParams { border: String::new(), bg: None, ring_inset_pct: 0.0, pan: [0.0, 0.0], zoom: 1.0 }
+        TokenParams {
+            border: String::new(),
+            bg: None,
+            ring_inset_pct: 0.0,
+            pan: [0.0, 0.0],
+            zoom: 1.0,
+        }
     }
 }
 
@@ -109,7 +118,13 @@ fn outer_ring_mask(border: &RgbaImage) -> Option<Vec<u8>> {
 /// Cover-fits `img` into `(tw, th)`, applies zoom and pan, and returns the
 /// visible window. Only the visible region of the source is resampled
 /// (Python resized the whole image first, then cropped).
-pub fn fit_with_transform(img: &RgbaImage, tw: u32, th: u32, pan: [f64; 2], zoom: f64) -> RgbaImage {
+pub fn fit_with_transform(
+    img: &RgbaImage,
+    tw: u32,
+    th: u32,
+    pan: [f64; 2],
+    zoom: f64,
+) -> RgbaImage {
     let (iw, ih) = img.dimensions();
     let mut out = RgbaImage::new(tw, th);
     if iw == 0 || ih == 0 {
@@ -240,16 +255,24 @@ mod tests {
     #[test]
     fn background_shows_through_transparent_source() {
         let border = ring(64, 30.0, 32.0);
-        let t = compose(&solid(10, 10, [0, 0, 0, 0]), &border, &TokenParams { bg: Some([1, 2, 3]), ..Default::default() });
+        let t = compose(
+            &solid(10, 10, [0, 0, 0, 0]),
+            &border,
+            &TokenParams { bg: Some([1, 2, 3]), ..Default::default() },
+        );
         assert_eq!(*t.get_pixel(32, 32), Rgba([1, 2, 3, 255]));
     }
 
     #[test]
     fn pan_moves_the_view_like_python() {
         // Left half red, right half blue; cover-fit 200x100 into 100x100 => scale 1.
-        let img = RgbaImage::from_fn(200, 100, |x, _| if x < 100 { Rgba([255, 0, 0, 255]) } else { Rgba([0, 0, 255, 255]) });
+        let img = RgbaImage::from_fn(200, 100, |x, _| {
+            if x < 100 { Rgba([255, 0, 0, 255]) } else { Rgba([0, 0, 255, 255]) }
+        });
         let border = ring(100, 49.0, 50.0);
-        let centre = |pan: [f64; 2]| *compose(&img, &border, &TokenParams { pan, ..Default::default() }).get_pixel(50, 50);
+        let centre = |pan: [f64; 2]| {
+            *compose(&img, &border, &TokenParams { pan, ..Default::default() }).get_pixel(50, 50)
+        };
         assert_eq!(centre([-40.0, 0.0]), Rgba([255, 0, 0, 255]), "pan left shows the left half");
         assert_eq!(centre([40.0, 0.0]), Rgba([0, 0, 255, 255]));
         let far = compose(&img, &border, &TokenParams { pan: [500.0, 0.0], ..Default::default() });
@@ -260,11 +283,18 @@ mod tests {
     fn zoom_scales_around_centre() {
         // A small centred white square on black: zooming in makes it cover more.
         let img = RgbaImage::from_fn(100, 100, |x, y| {
-            if (40..60).contains(&x) && (40..60).contains(&y) { Rgba([255; 4]) } else { Rgba([0, 0, 0, 255]) }
+            if (40..60).contains(&x) && (40..60).contains(&y) {
+                Rgba([255; 4])
+            } else {
+                Rgba([0, 0, 0, 255])
+            }
         });
         let border = ring(100, 49.0, 50.0);
         let white = |zoom: f64| {
-            compose(&img, &border, &TokenParams { zoom, ..Default::default() }).pixels().filter(|p| p[0] > 200).count()
+            compose(&img, &border, &TokenParams { zoom, ..Default::default() })
+                .pixels()
+                .filter(|p| p[0] > 200)
+                .count()
         };
         let (one, two) = (white(1.0), white(2.0));
         assert!((350..=450).contains(&one), "{one}");
@@ -285,7 +315,13 @@ mod tests {
 
     #[test]
     fn params_are_clamped() {
-        let p = TokenParams { ring_inset_pct: 80.0, zoom: 0.0, pan: [f64::NAN, 3.0], ..Default::default() }.clamped();
+        let p = TokenParams {
+            ring_inset_pct: 80.0,
+            zoom: 0.0,
+            pan: [f64::NAN, 3.0],
+            ..Default::default()
+        }
+        .clamped();
         assert_eq!((p.ring_inset_pct, p.zoom, p.pan), (50.0, 0.1, [0.0, 3.0]));
     }
 

@@ -81,14 +81,30 @@ fn save(s: &Store, sheet: &TokenSheet) -> Result<()> {
 }
 
 fn thumb_of(s: &Store, image_hash: &str) -> Result<String> {
-    let img = imaging::decode(&s.read_blob(image_hash)?).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+    let img = imaging::decode(&s.read_blob(image_hash)?)
+        .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
     let t = imaging::downscale(&img, 160);
-    let webp = imaging::encode_webp_lossless(&t).map_err(|e| ServiceError::Internal(e.to_string()))?;
+    let webp =
+        imaging::encode_webp_lossless(&t).map_err(|e| ServiceError::Internal(e.to_string()))?;
     Ok(s.put_blob(&webp, "image/webp", Some(t.dimensions()))?.hash)
 }
 
-fn new_item(label: String, size: String, image: String, thumb: String, asset_id: Option<i64>) -> SheetItem {
-    SheetItem { id: uuid::Uuid::new_v4().to_string(), label, size, copies: 1, image, thumb, asset_id }
+fn new_item(
+    label: String,
+    size: String,
+    image: String,
+    thumb: String,
+    asset_id: Option<i64>,
+) -> SheetItem {
+    SheetItem {
+        id: uuid::Uuid::new_v4().to_string(),
+        label,
+        size,
+        copies: 1,
+        image,
+        thumb,
+        asset_id,
+    }
 }
 
 fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
@@ -109,7 +125,13 @@ fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
             .iter()
             .map(|p| {
                 p.iter()
-                    .map(|pl| PlacedItem { id: sheet.items[pl.item].id.clone(), x: pl.x, y: pl.y, w: pl.w, h: pl.h })
+                    .map(|pl| PlacedItem {
+                        id: sheet.items[pl.item].id.clone(),
+                        x: pl.x,
+                        y: pl.y,
+                        w: pl.w,
+                        h: pl.h,
+                    })
                     .collect()
             })
             .collect(),
@@ -154,12 +176,19 @@ impl Service {
     }
 
     /// Adds image files as tokens (default size Medium, like Python's upload).
-    pub async fn token_sheet_add_files(&self, paths: Vec<PathBuf>, size: Option<String>) -> Result<TokenSheet> {
+    pub async fn token_sheet_add_files(
+        &self,
+        paths: Vec<PathBuf>,
+        size: Option<String>,
+    ) -> Result<TokenSheet> {
         let size = check_size(size.as_deref().unwrap_or("Medium"))?;
         self.sheet_mutate(move |s, sheet| {
             for p in paths {
                 let src = store_source(s, &std::fs::read(&p)?)?;
-                let label = p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Token".into());
+                let label = p
+                    .file_stem()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "Token".into());
                 let thumb = thumb_of(s, &src.hash)?;
                 sheet.items.push(new_item(label, size.clone(), src.hash, thumb, None));
             }
@@ -181,14 +210,19 @@ impl Service {
         self.sheet_mutate(move |s, sheet| {
             let img = store_source(s, &png)?;
             let thumb = thumb_of(s, &img.hash)?;
-            let label = if label.trim().is_empty() { "Token".into() } else { label.trim().to_string() };
+            let label =
+                if label.trim().is_empty() { "Token".into() } else { label.trim().to_string() };
             sheet.items.push(new_item(label, size, img.hash, thumb, None));
             Ok(())
         })
         .await
     }
 
-    pub async fn token_sheet_update(&self, id: String, patch: SheetItemPatch) -> Result<TokenSheet> {
+    pub async fn token_sheet_update(
+        &self,
+        id: String,
+        patch: SheetItemPatch,
+    ) -> Result<TokenSheet> {
         let size = patch.size.as_deref().map(check_size).transpose()?;
         self.sheet_mutate(move |_, sheet| {
             let item = sheet
@@ -264,12 +298,20 @@ impl Service {
             }
             let (layout, view) = compute_layout(&sheet);
             if !view.skipped.is_empty() {
-                return Err(ServiceError::InvalidInput(format!("{} item(s) cannot fit on a page", view.skipped.len())));
+                return Err(ServiceError::InvalidInput(format!(
+                    "{} item(s) cannot fit on a page",
+                    view.skipped.len()
+                )));
             }
             ctx.progress(0.02, "reading images");
-            let images =
-                sheet.items.iter().map(|i| png_bytes(&store, &i.image)).collect::<Result<Vec<_>>>()?;
-            let cut = sheet.cut_border.then(|| CutLine::from_settings(&store.load_settings().unwrap_or_default()));
+            let images = sheet
+                .items
+                .iter()
+                .map(|i| png_bytes(&store, &i.image))
+                .collect::<Result<Vec<_>>>()?;
+            let cut = sheet
+                .cut_border
+                .then(|| CutLine::from_settings(&store.load_settings().unwrap_or_default()));
             let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut.as_ref(), &mut |p| {
                 ctx.progress(0.05 + 0.9 * p, "rendering pages");
                 !ctx.is_cancelled()
@@ -327,7 +369,10 @@ mod tests {
         // A fresh service on the same data dir sees the same sheet (autosave).
         let again = Service::open(svc.data_dir()).unwrap().token_sheet_get().await.unwrap();
         assert_eq!(again.items.len(), 1);
-        assert_eq!((again.items[0].label.as_str(), again.items[0].size.as_str()), ("Kobold", "Small"));
+        assert_eq!(
+            (again.items[0].label.as_str(), again.items[0].size.as_str()),
+            ("Kobold", "Small")
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -335,25 +380,53 @@ mod tests {
         let (d, svc) = temp_service();
         let p = write_test_png(d.path(), "a.png", 64, 64);
         let ids = svc
-            .library_import(vec![ImportFile { path: p.clone(), name: Some("Ogre".into()), kind: "token".into(), size: Some("Large".into()) }])
+            .library_import(vec![ImportFile {
+                path: p.clone(),
+                name: Some("Ogre".into()),
+                kind: "token".into(),
+                size: Some("Large".into()),
+            }])
             .await
             .unwrap()
             .imported;
         let sheet = svc.token_sheet_add_assets(ids.clone()).await.unwrap();
-        assert_eq!((sheet.items[0].label.as_str(), sheet.items[0].size.as_str(), sheet.items[0].asset_id), ("Ogre", "Large", Some(ids[0])));
+        assert_eq!(
+            (sheet.items[0].label.as_str(), sheet.items[0].size.as_str(), sheet.items[0].asset_id),
+            ("Ogre", "Large", Some(ids[0]))
+        );
 
         let src = svc.image_source_from_path(p).await.unwrap();
-        let params = TokenParams { border: "builtin:roll20_greyscale".into(), ..Default::default() };
-        let sheet = svc.token_sheet_add_composed(src.hash, params, "Imp".into(), "Tiny".into()).await.unwrap();
+        let params =
+            TokenParams { border: "builtin:roll20_greyscale".into(), ..Default::default() };
+        let sheet = svc
+            .token_sheet_add_composed(src.hash, params, "Imp".into(), "Tiny".into())
+            .await
+            .unwrap();
         assert_eq!(sheet.items.len(), 2);
         let imp = sheet.items[1].id.clone();
 
-        svc.token_sheet_update(imp.clone(), SheetItemPatch { copies: Some(5), ..Default::default() }).await.unwrap();
-        assert!(svc.token_sheet_update(imp.clone(), SheetItemPatch { copies: Some(0), ..Default::default() }).await.is_err());
+        svc.token_sheet_update(
+            imp.clone(),
+            SheetItemPatch { copies: Some(5), ..Default::default() },
+        )
+        .await
+        .unwrap();
+        assert!(
+            svc.token_sheet_update(
+                imp.clone(),
+                SheetItemPatch { copies: Some(0), ..Default::default() }
+            )
+            .await
+            .is_err()
+        );
         let layout = svc.token_sheet_layout().await.unwrap();
         assert_eq!(layout.pages.len(), 1);
         assert_eq!(layout.pages[0].iter().filter(|p| p.id == imp).count(), 5);
-        assert_eq!(layout.pages[0].iter().find(|p| p.id == imp).unwrap().w, 36.0, "Tiny prints at 0.5 in");
+        assert_eq!(
+            layout.pages[0].iter().find(|p| p.id == imp).unwrap().w,
+            36.0,
+            "Tiny prints at 0.5 in"
+        );
 
         svc.token_sheet_remove(imp).await.unwrap();
         assert_eq!(svc.token_sheet_get().await.unwrap().items.len(), 1);
@@ -365,14 +438,21 @@ mod tests {
         let (d, svc) = temp_service();
         let p = write_test_png(d.path(), "Rat.png", 40, 40);
         let sheet = svc.token_sheet_add_files(vec![p], None).await.unwrap();
-        svc.token_sheet_update(sheet.items[0].id.clone(), SheetItemPatch { copies: Some(99), ..Default::default() })
-            .await
-            .unwrap();
+        svc.token_sheet_update(
+            sheet.items[0].id.clone(),
+            SheetItemPatch { copies: Some(99), ..Default::default() },
+        )
+        .await
+        .unwrap();
         svc.token_sheet_set_options(Some(PageFormat::Letter), Some(true)).await.unwrap();
         let out = d.path().join("sheet.pdf");
         let st = wait(&svc, &svc.token_sheet_export_pdf(out.clone())).await;
         assert_eq!(st.state, JobState::Done, "{:?}", st.error);
-        assert_eq!(st.result.unwrap()["pages"], 2, "Letter fits 8x10 one-inch tokens: 99 copies need 2 pages");
+        assert_eq!(
+            st.result.unwrap()["pages"],
+            2,
+            "Letter fits 8x10 one-inch tokens: 99 copies need 2 pages"
+        );
         let bytes = std::fs::read(out).unwrap();
         assert!(bytes.starts_with(b"%PDF"));
     }

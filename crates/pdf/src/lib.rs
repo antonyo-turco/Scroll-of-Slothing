@@ -37,7 +37,11 @@ pub struct CutLine {
 
 impl CutLine {
     pub fn from_settings(s: &Settings) -> Self {
-        CutLine { style: s.cut_line_style, color: s.cut_line_color, width: s.effective_cut_line_width() }
+        CutLine {
+            style: s.cut_line_style,
+            color: s.cut_line_color,
+            width: s.effective_cut_line_width(),
+        }
     }
 
     pub(crate) fn stroke(&self) -> Stroke {
@@ -47,8 +51,10 @@ impl CutLine {
             paint: rgb::Color::new(r, g, b).into(),
             width: self.width as f32,
             opacity: NormalizedF32::ONE,
-            dash: (!dash.is_empty())
-                .then(|| StrokeDash { array: dash.iter().map(|&d| d as f32).collect(), offset: 0.0 }),
+            dash: (!dash.is_empty()).then(|| StrokeDash {
+                array: dash.iter().map(|&d| d as f32).collect(),
+                offset: 0.0,
+            }),
             ..Default::default()
         }
     }

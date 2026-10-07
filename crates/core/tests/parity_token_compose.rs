@@ -25,15 +25,21 @@ fn on_white(p: &image::Rgba<u8>) -> [f64; 3] {
 
 #[test]
 fn compose_matches_python_within_tolerance() {
-    let json: Value =
-        serde_json::from_str(&std::fs::read_to_string(format!("{}/token_compose.json", dir())).unwrap()).unwrap();
+    let json: Value = serde_json::from_str(
+        &std::fs::read_to_string(format!("{}/token_compose.json", dir())).unwrap(),
+    )
+    .unwrap();
     let source = load("token/source.png");
     let borders = format!("{}/../../assets/token_borders", env!("CARGO_MANIFEST_DIR"));
     for case in json["cases"].as_array().unwrap() {
-        let border = image::open(format!("{borders}/{}", case["border"].as_str().unwrap())).unwrap().to_rgba8();
+        let border = image::open(format!("{borders}/{}", case["border"].as_str().unwrap()))
+            .unwrap()
+            .to_rgba8();
         let params = TokenParams {
             border: String::new(),
-            bg: case["bg_color"].as_array().map(|a| [0, 1, 2].map(|i| a[i].as_u64().unwrap() as u8)),
+            bg: case["bg_color"]
+                .as_array()
+                .map(|a| [0, 1, 2].map(|i| a[i].as_u64().unwrap() as u8)),
             ring_inset_pct: case["ring_inset_pct"].as_f64().unwrap(),
             pan: [case["pan_x"].as_f64().unwrap(), case["pan_y"].as_f64().unwrap()],
             zoom: case["zoom"].as_f64().unwrap(),
@@ -56,6 +62,10 @@ fn compose_matches_python_within_tolerance() {
         let mismatch_pct = 100.0 * f64::from(alpha_mismatch) / n;
         println!("{}: mean |Δ| = {mean:.2}, alpha mismatches = {mismatch_pct:.3}%", case["output"]);
         assert!(mean <= 3.0, "{}: mean error {mean:.2} too high", case["output"]);
-        assert!(mismatch_pct <= 1.0, "{}: alpha differs on {mismatch_pct:.2}% of pixels", case["output"]);
+        assert!(
+            mismatch_pct <= 1.0,
+            "{}: alpha differs on {mismatch_pct:.2}% of pixels",
+            case["output"]
+        );
     }
 }

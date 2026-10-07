@@ -70,9 +70,10 @@ fn source_info(store: &Store, hash: &str) -> Result<SourceImage> {
 
 /// Stores encoded image bytes (validated) and returns the source description.
 pub(crate) fn store_source(store: &Store, bytes: &[u8]) -> Result<SourceImage> {
-    let mime =
-        imaging::sniff_mime(bytes).ok_or_else(|| ServiceError::InvalidInput("unsupported image format".into()))?;
-    let (w, h) = imaging::dimensions(bytes).ok_or_else(|| ServiceError::InvalidInput("corrupt image".into()))?;
+    let mime = imaging::sniff_mime(bytes)
+        .ok_or_else(|| ServiceError::InvalidInput("unsupported image format".into()))?;
+    let (w, h) = imaging::dimensions(bytes)
+        .ok_or_else(|| ServiceError::InvalidInput("corrupt image".into()))?;
     let meta = store.put_blob(bytes, mime, Some((w, h)))?;
     Ok(SourceImage { hash: meta.hash, width: w, height: h })
 }
@@ -107,9 +108,12 @@ impl Service {
     pub async fn token_borders_add(&self, path: PathBuf, name: Option<String>) -> Result<Border> {
         self.blocking(move |s| {
             let bytes = std::fs::read(&path)?;
-            let img = imaging::decode(&bytes).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+            let img =
+                imaging::decode(&bytes).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
             if !img.color().has_alpha() {
-                return Err(ServiceError::InvalidInput("a border needs transparency (PNG/WebP with alpha)".into()));
+                return Err(ServiceError::InvalidInput(
+                    "a border needs transparency (PNG/WebP with alpha)".into(),
+                ));
             }
             let src = store_source(s, &bytes)?;
             let mut list = Self::user_borders(s)?;
@@ -170,13 +174,22 @@ impl Service {
         self.blocking(|s| {
             let mut cb = arboard::Clipboard::new().map_err(|e| ServiceError::Io(e.to_string()))?;
             if let Ok(img) = cb.get_image() {
-                let rgba = RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned())
-                    .ok_or_else(|| ServiceError::InvalidInput("clipboard image has an odd layout".into()))?;
-                let png = imaging::encode_png(&rgba).map_err(|e| ServiceError::Internal(e.to_string()))?;
+                let rgba = RgbaImage::from_raw(
+                    img.width as u32,
+                    img.height as u32,
+                    img.bytes.into_owned(),
+                )
+                .ok_or_else(|| {
+                    ServiceError::InvalidInput("clipboard image has an odd layout".into())
+                })?;
+                let png = imaging::encode_png(&rgba)
+                    .map_err(|e| ServiceError::Internal(e.to_string()))?;
                 return store_source(s, &png);
             }
             // Python also accepted a copied file path.
-            let text = cb.get_text().map_err(|_| ServiceError::InvalidInput("the clipboard has no image".into()))?;
+            let text = cb
+                .get_text()
+                .map_err(|_| ServiceError::InvalidInput("the clipboard has no image".into()))?;
             let path = PathBuf::from(text.trim().trim_matches('"'));
             if path.is_file() {
                 return store_source(s, &std::fs::read(&path)?);
@@ -193,7 +206,12 @@ impl Service {
 
     /// Renders the token (border-sized) and returns PNG bytes.
     /// `fast` trades file size for speed (live preview).
-    pub async fn token_render(&self, source: String, params: TokenParams, fast: bool) -> Result<Vec<u8>> {
+    pub async fn token_render(
+        &self,
+        source: String,
+        params: TokenParams,
+        fast: bool,
+    ) -> Result<Vec<u8>> {
         let img = self.compose_token(&source, &params).await?;
         tokio::task::spawn_blocking(move || {
             if fast { imaging::encode_png_fast(&img) } else { imaging::encode_png(&img) }
@@ -203,7 +221,11 @@ impl Service {
         .map_err(|e| ServiceError::Internal(e.to_string()))?
     }
 
-    pub(crate) async fn compose_token(&self, source: &str, params: &TokenParams) -> Result<RgbaImage> {
+    pub(crate) async fn compose_token(
+        &self,
+        source: &str,
+        params: &TokenParams,
+    ) -> Result<RgbaImage> {
         let border = self.border_image(&params.border).await?;
         let svc = self.clone();
         let (source, params) = (source.to_string(), params.clone());
@@ -215,7 +237,12 @@ impl Service {
     }
 
     /// Writes the composed token to a PNG file.
-    pub async fn token_save_png(&self, source: String, params: TokenParams, path: PathBuf) -> Result<PathBuf> {
+    pub async fn token_save_png(
+        &self,
+        source: String,
+        params: TokenParams,
+        path: PathBuf,
+    ) -> Result<PathBuf> {
         let png = self.token_render(source, params, false).await?;
         self.blocking(move |_| {
             std::fs::write(&path, png)?;
@@ -239,7 +266,8 @@ impl Service {
         }
         let size = check_size(&size)?;
         let png = self.token_render(source.clone(), params.clone(), false).await?;
-        let params_json = serde_json::to_string(&params).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        let params_json =
+            serde_json::to_string(&params).map_err(|e| ServiceError::Internal(e.to_string()))?;
         self.blocking(move |s| {
             let original = s.read_blob(&source)?;
             let stored = store_encoded(s, &original, &png)?;
@@ -258,7 +286,11 @@ impl Service {
                     )?;
                     s.update_asset_meta(
                         id,
-                        &AssetPatch { name: Some(name), size_label: Some(size), ..Default::default() },
+                        &AssetPatch {
+                            name: Some(name),
+                            size_label: Some(size),
+                            ..Default::default()
+                        },
                     )?;
                     id
                 }
@@ -317,7 +349,10 @@ mod tests {
 
     async fn setup() -> (tempfile::TempDir, Service, SourceImage, TokenParams) {
         let (d, svc) = temp_service();
-        let src = svc.image_source_from_path(write_test_png(d.path(), "orc.png", 300, 200)).await.unwrap();
+        let src = svc
+            .image_source_from_path(write_test_png(d.path(), "orc.png", 300, 200))
+            .await
+            .unwrap();
         let params = TokenParams { border: "builtin:roll20".into(), ..Default::default() };
         (d, svc, src, params)
     }
@@ -326,10 +361,10 @@ mod tests {
     async fn builtin_borders_are_listed_with_sizes() {
         let (_d, svc) = temp_service();
         let b = svc.token_borders_list().await.unwrap();
-        assert_eq!(b.iter().map(|b| (b.id.as_str(), b.width)).collect::<Vec<_>>(), [
-            ("builtin:roll20", 442),
-            ("builtin:roll20_greyscale", 256)
-        ]);
+        assert_eq!(
+            b.iter().map(|b| (b.id.as_str(), b.width)).collect::<Vec<_>>(),
+            [("builtin:roll20", 442), ("builtin:roll20_greyscale", 256)]
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -348,7 +383,13 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn save_new_then_update_existing_and_reopen_with_params() {
         let (_d, svc, src, params) = setup().await;
-        let p = TokenParams { pan: [12.0, -4.0], zoom: 1.5, ring_inset_pct: 10.0, bg: Some([1, 2, 3]), ..params };
+        let p = TokenParams {
+            pan: [12.0, -4.0],
+            zoom: 1.5,
+            ring_inset_pct: 10.0,
+            bg: Some([1, 2, 3]),
+            ..params
+        };
         let a = svc
             .token_save_to_library(src.hash.clone(), p.clone(), "Orc".into(), "Large".into(), None)
             .await
@@ -364,13 +405,21 @@ mod tests {
 
         let p2 = TokenParams { zoom: 2.0, ..p };
         let b = svc
-            .token_save_to_library(src.hash.clone(), p2.clone(), "Orc Chief".into(), "Huge".into(), Some(a.id))
+            .token_save_to_library(
+                src.hash.clone(),
+                p2.clone(),
+                "Orc Chief".into(),
+                "Huge".into(),
+                Some(a.id),
+            )
             .await
             .unwrap();
         assert_eq!(b.id, a.id, "updated in place");
         assert_eq!((b.name.as_str(), b.size_label.as_str()), ("Orc Chief", "Huge"));
         assert_eq!(svc.token_open_asset(a.id).await.unwrap().params, p2);
-        assert!(svc.token_save_to_library(src.hash, p2, " ".into(), "Huge".into(), None).await.is_err());
+        assert!(
+            svc.token_save_to_library(src.hash, p2, " ".into(), "Huge".into(), None).await.is_err()
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -378,7 +427,12 @@ mod tests {
         let (d, svc) = temp_service();
         let path = write_test_png(d.path(), "goblin.png", 64, 64);
         let id = svc
-            .library_import(vec![crate::ImportFile { path, name: None, kind: "token".into(), size: None }])
+            .library_import(vec![crate::ImportFile {
+                path,
+                name: None,
+                kind: "token".into(),
+                size: None,
+            }])
             .await
             .unwrap()
             .imported[0];

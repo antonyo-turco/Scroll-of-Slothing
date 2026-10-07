@@ -31,7 +31,9 @@ impl ImageCache {
         // Decode outside the lock.
         let bytes = store.read_blob(hash)?;
         let img = Arc::new(
-            imaging::decode(&bytes).map_err(|e| ServiceError::InvalidInput(e.to_string()))?.to_rgba8(),
+            imaging::decode(&bytes)
+                .map_err(|e| ServiceError::InvalidInput(e.to_string()))?
+                .to_rgba8(),
         );
         let mut e = self.entries.lock().unwrap_or_else(|p| p.into_inner());
         e.retain(|(h, _)| h != hash);
@@ -54,7 +56,9 @@ mod tests {
         let cache = ImageCache::default();
         let mut hashes = vec![];
         for i in 0..(CAPACITY as u8 + 1) {
-            let png = imaging::encode_png(&RgbaImage::from_pixel(2, 2, image::Rgba([i, 0, 0, 255]))).unwrap();
+            let png =
+                imaging::encode_png(&RgbaImage::from_pixel(2, 2, image::Rgba([i, 0, 0, 255])))
+                    .unwrap();
             hashes.push(store.put_blob(&png, "image/png", Some((2, 2))).unwrap().hash);
         }
         let a = cache.get(&store, &hashes[0]).unwrap();

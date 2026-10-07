@@ -161,7 +161,11 @@ mod tests {
 
     #[test]
     fn half_inch_mode_prints_true_sizes() {
-        let l = pack(&[item(SizeLabel::Tiny, 1), item(SizeLabel::Small, 1)], PageFormat::A4, GridMode::HalfInch);
+        let l = pack(
+            &[item(SizeLabel::Tiny, 1), item(SizeLabel::Small, 1)],
+            PageFormat::A4,
+            GridMode::HalfInch,
+        );
         let mut sizes: Vec<f64> = l.pages[0].iter().map(|p| p.w).collect();
         sizes.sort_by(f64::total_cmp);
         assert_eq!(sizes, vec![36.0, 57.6]);
@@ -170,7 +174,10 @@ mod tests {
         let (pw, _) = PageFormat::A4.size_pt();
         let off_x = (pw - ((pw - 2.0 * MARGIN_PT) / 36.0).floor() * 36.0) / 2.0;
         let cells_from_origin = (small.x - 7.2 - off_x) / 36.0;
-        assert!((cells_from_origin - cells_from_origin.round()).abs() < 1e-9, "inset (72-57.6)/2 from a cell line");
+        assert!(
+            (cells_from_origin - cells_from_origin.round()).abs() < 1e-9,
+            "inset (72-57.6)/2 from a cell line"
+        );
     }
 
     #[test]
@@ -196,7 +203,9 @@ mod tests {
     #[test]
     fn empty_input_has_no_pages() {
         assert!(pack(&[], PageFormat::A4, GridMode::HalfInch).pages.is_empty());
-        assert!(pack(&[item(SizeLabel::Huge, 0)], PageFormat::A4, GridMode::HalfInch).pages.is_empty());
+        assert!(
+            pack(&[item(SizeLabel::Huge, 0)], PageFormat::A4, GridMode::HalfInch).pages.is_empty()
+        );
     }
 
     proptest! {
