@@ -21,6 +21,7 @@ image.workspace = true
 rayon.workspace = true
 arboard.workspace = true
 sleuth-legacy.workspace = true
+sleuth-pdf.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -4424,6 +4424,7 @@ dependencies = [
  "serde_json",
  "sleuth-core",
  "sleuth-legacy",
+ "sleuth-pdf",
  "sleuth-store",
  "tempfile",
  "thiserror 2.0.21",

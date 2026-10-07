@@ -9,7 +9,10 @@ mod jobs;
 mod legacy;
 mod library;
 mod organize;
+mod imgcache;
 mod settings;
+mod token_sheet;
+mod tokens;
 mod workspaces;
 
 use std::path::Path;
@@ -24,6 +27,8 @@ pub use jobs::{JobCtx, JobId, JobState, JobStatus};
 pub use legacy::{LegacyFailure, LegacyImportOptions, LegacyImportReport};
 pub use library::{ASSET_KINDS, BulkAction, ExportWhat, ImportFailure, ImportFile, ImportReport};
 pub use settings::SettingsUpdate;
+pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
+pub use tokens::{Border, SourceImage, TokenDraft};
 pub use sleuth_store::{
     Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome,
     Session, TagCount,
@@ -57,6 +62,7 @@ struct Inner {
     store: Arc<Store>,
     events: broadcast::Sender<Event>,
     jobs: jobs::Jobs,
+    images: imgcache::ImageCache,
 }
 
 impl Service {
@@ -64,7 +70,7 @@ impl Service {
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self> {
         let store = Arc::new(Store::open(data_dir)?);
         let (events, _) = broadcast::channel(256);
-        Ok(Service { inner: Arc::new(Inner { store, events, jobs: jobs::Jobs::default() }) })
+        Ok(Service { inner: Arc::new(Inner { store, events, jobs: jobs::Jobs::default(), images: imgcache::ImageCache::default() }) })
     }
 
     /// Subscribes to service events (job progress, store changes).
