@@ -47,7 +47,7 @@ The sheet is autosaved in `workspaces` under the key `object_sheet`.
 - The preview caches scaled images.
 
 ## Parity checklist (Python `ui/object_sheet_panel.py`, `cutout_sheet_generator.py`)
-- [ ] Item list with size, scale, copies, remove, clear
-- [ ] Flat and standee modes (`make_standee_block`, cutout_compositing.py:64)
-- [ ] Shelf packer constants and order (`_layout` :79-140), checked against the golden fixture `shelf_pack.json`
-- [ ] Letter/A4 output, paged preview, PDF export
+- [x] Item list with size, scale, copies, remove, clear
+- [x] Flat and standee modes (`make_standee_block`, cutout_compositing.py:64). The standee block matches Python exactly (golden test).
+- [x] Shelf packer constants and order (`_layout` :79-140): exact match on all 20 cases of the golden fixture `shelf_pack.json`
+- [x] Letter/A4 output, paged preview (the standee preview shows the mirrored half and the fold line), PDF export (background job)

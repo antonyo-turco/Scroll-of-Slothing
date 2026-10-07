@@ -57,16 +57,23 @@ Python reference: `ui/cutout_compositing.py`.
 - Export uses full resolution.
 
 ## Persistence
-`params_json = {mode, points, outline:{rgb, px}}`. Re-editing restores the trace. **Python only reloaded the original image**, so the user had to trace again.
+`params_json = {mode, points: [[x, y]…], outline_rgb, outline_px}`. Re-editing restores the trace. **Python only reloaded the original image**, so the user had to trace again.
 
 ## MCP
 `cutout_create {source: path|asset_id, points:[[x,y],...], outline_px?, outline_rgb?, name?, size?, save_to_library?, add_to_sheet?, out_png?}`
 
+## Intentional changes
+- The lasso edge is anti-aliased; PIL's polygon fill is hard. Pixel coverage follows PIL's convention (a pixel is the point at its integer coordinate), so the crop box is identical and interior pixels are untouched. Only edge pixels differ: 0.007 % (rectangle), 0.35 % (triangle) and 0.49 % (star) of the crop in the golden cases.
+- The outline dilation is a separable O(n) square dilation instead of `thickness` passes of a 3×3 max filter. It is mathematically identical: a property test checks it against the naive version, and the golden outputs match Python **exactly**.
+- The trace (mode, points) and outline settings are saved with the asset, so re-editing restores them. Python reloaded only the image.
+- The cutter draft is autosaved and restored after a restart.
+- Keyboard: Enter closes the polygon, Esc resets, Ctrl+Z undoes a point, Ctrl+V pastes. Space+drag pans, alongside the middle-drag from Python.
+
 ## Parity checklist (Python `ui/object_cutter_panel.py`, `ui/cutout_compositing.py`)
-- [ ] Polygon and freehand modes; close via double-click, right-click or Enter; undo; reset
-- [ ] Zoom at cursor (`_zoom_at` :416-455), buttons, Fit, clamped 0.25–10
-- [ ] Middle-drag pan
-- [ ] Outline colour and thickness 0–40 (default 6, white)
-- [ ] Lasso mask and crop are pixel-identical to Python (golden test)
-- [ ] Outline matches Python's MaxFilter dilation (golden test)
-- [ ] Export PNG, Save to Library (with Update/New/Cancel), Add to Object Sheet
+- [x] Polygon and freehand modes; close via double-click, right-click or Enter; undo; reset
+- [x] Zoom at cursor (`_zoom_at` :416-455), buttons, Fit, clamped 0.25–10
+- [x] Middle-drag pan
+- [x] Outline colour and thickness 0–40 (default 6, white)
+- [x] Lasso crop identical to Python, interior pixels identical, edges anti-aliased (golden test `parity_cutout.rs`)
+- [x] Outline matches Python's MaxFilter dilation exactly (golden test)
+- [x] Export PNG, Save to Library (with Update/New/Cancel), Add to Object Sheet

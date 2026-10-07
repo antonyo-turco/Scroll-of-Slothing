@@ -39,7 +39,7 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 
 **params_json by kind**
 - **token:** `{border, bg:[r,g,b]\|null, ring_inset_pct, pan:[x,y], zoom}`
-- **cutout:** `{mode, points:[[x,y]...], outline:{rgb, px}}`
+- **cutout:** `{mode, points:[[x,y]...], outline_rgb, outline_px}`
 - **map:** `{grid:{mode, ...}, style, remove_grid, filters:[...], dewarp_quad, region, page_offset, excluded_pages, print:{...}}`
 
 ### tags / asset_tags
