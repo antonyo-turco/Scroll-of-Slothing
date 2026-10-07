@@ -73,6 +73,18 @@
 
   const ids = () => [...lib.selected];
 
+  async function bulkAddToSheet() {
+    const tokens = lib.items.filter((a) => lib.selected.has(a.id) && a.kind === 'token').map((a) => a.id);
+    const skipped = lib.selected.size - tokens.length;
+    if (!tokens.length) return app.toast('info', 'Only tokens can go on the token sheet.');
+    try {
+      await api.tokenSheetAddAssets(tokens);
+      app.toast('success', `Added ${tokens.length} token(s) to the sheet` + (skipped ? ` · skipped ${skipped} non-token(s)` : ''));
+    } catch (e) {
+      app.error('Could not add to sheet', e);
+    }
+  }
+
   async function bulkExport() {
     const dir = await pickDirectory('Export to folder');
     if (!dir) return;
@@ -211,6 +223,7 @@
           <option value="">Add to campaign…</option>
           {#each lib.campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
         </select>
+        <button class="btn" onclick={bulkAddToSheet}>Add to token sheet</button>
         <button class="btn" onclick={bulkExport}>Export…</button>
         {#if confirmBulkDelete}
           <button class="btn danger" onclick={() => act('Delete failed', () => api.libraryDelete(ids()), 'Deleted').then(() => (confirmBulkDelete = false))}>
