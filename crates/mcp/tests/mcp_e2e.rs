@@ -189,3 +189,70 @@ async fn token_workflow_over_mcp() {
     assert_eq!(r.is_error, Some(true));
     client.cancel().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cutout_workflow_over_mcp() {
+    let dir = tempfile::tempdir().unwrap();
+    let svc = Service::open(dir.path().join("data")).unwrap();
+    let png = dir.path().join("Statue.png");
+    image::RgbaImage::from_fn(200, 300, |x, y| {
+        image::Rgba([(x % 255) as u8, (y % 255) as u8, 60, 255])
+    })
+    .save(&png)
+    .unwrap();
+    let (server_io, client_io) = tokio::io::duplex(1 << 22);
+    tokio::spawn(async move {
+        SleuthServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
+    });
+    let client = Client.serve(client_io).await.unwrap();
+    let call = |name: &'static str, a: Value| {
+        let client = &client;
+        async move {
+            client
+                .call_tool(CallToolRequestParams::new(name).with_arguments(args(a)))
+                .await
+                .unwrap()
+        }
+    };
+
+    let r = call(
+        "cutout_create",
+        json!({"source_path": png.to_string_lossy(), "points": [[10, 10], [5, 5]]}),
+    )
+    .await;
+    assert_eq!(r.is_error, Some(true), "fewer than 3 points is an error");
+
+    let r = call(
+        "cutout_create",
+        json!({"source_path": png.to_string_lossy(), "points": [[20, 20], [180, 20], [100, 280]],
+               "outline_px": 8, "outline_color": "#000000", "size": "Large",
+               "save_to_library": true, "add_to_sheet": true}),
+    )
+    .await;
+    assert_ne!(r.is_error, Some(true), "{:?}", r.content);
+    let s = json_of(&r);
+    assert_eq!(s["name"], "Statue");
+    let id = s["asset_id"].as_i64().unwrap();
+    assert_eq!(s["sheet_items"], 1);
+    assert!(r.content[1].as_image().is_some());
+
+    let r = call("cutout_create", json!({"asset_id": id})).await;
+    assert_eq!(json_of(&r)["params"]["outline_px"], 8, "re-edit restores the trace and outline");
+    assert_eq!(json_of(&r)["params"]["points"].as_array().unwrap().len(), 3);
+
+    let r = call("object_sheet_list", json!({})).await;
+    let item = json_of(&r)["items"][0]["id"].as_str().unwrap().to_string();
+    call("object_sheet_update", json!({"id": item, "copies": 4, "scale": 50})).await;
+    call("object_sheet_set_options", json!({"mode": "standee"})).await;
+    let r = call("object_sheet_layout", json!({})).await;
+    let pages = json_of(&r)["pages"].clone();
+    assert_eq!(pages[0].as_array().unwrap().len(), 4);
+    let p = &pages[0][0];
+    // Large = 144pt at 50% → longest side (height) 72pt; a standee doubles it.
+    assert_eq!(p["h"], 144.0, "standee is twice as tall: {p}");
+    assert!(p["w"].as_f64().unwrap() < 72.0);
+
+    let r = call("object_sheet_set_options", json!({"mode": "sideways"})).await;
+    assert_eq!(r.is_error, Some(true));
+    client.cancel().await.unwrap();
+}

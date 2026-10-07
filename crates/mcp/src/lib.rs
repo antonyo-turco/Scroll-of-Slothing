@@ -12,11 +12,13 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{ErrorData, ServerHandler, schemars, tool, tool_handler, tool_router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use sleuth_core::cutout::CutoutParams;
+use sleuth_core::pack::shelf::SheetMode;
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    AssetPatch, AssetQuery, AssetSort, ExportWhat, ImportFile, LegacyImportOptions, Service,
-    ServiceError, SheetItemPatch,
+    AssetPatch, AssetQuery, AssetSort, ExportWhat, ImportFile, LegacyImportOptions,
+    ObjectItemPatch, Service, ServiceError, SheetItemPatch,
 };
 
 type ToolResult = Result<CallToolResult, ErrorData>;
@@ -260,6 +262,49 @@ pub struct SheetOptionsParams {
 pub struct PathParams {
     /// Absolute output path.
     pub path: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CutoutCreateParams {
+    /// Image file to cut from (absolute path)...
+    pub source_path: Option<String>,
+    /// ...or an existing library cut-out (re-edit; its saved trace is the starting point).
+    pub asset_id: Option<i64>,
+    /// Selection polygon [[x, y], ...] in source-image pixels (at least 3 points).
+    pub points: Option<Vec<[f64; 2]>>,
+    /// Outline thickness in pixels (0-40, default 6).
+    pub outline_px: Option<u32>,
+    /// Outline colour "#rrggbb" (default white).
+    pub outline_color: Option<String>,
+    pub name: Option<String>,
+    /// Tiny | Small | Medium | Large | Huge | Gargantuan (longest side when printed)
+    pub size: Option<String>,
+    #[serde(default)]
+    pub save_to_library: bool,
+    #[serde(default)]
+    pub update_existing: bool,
+    /// Add to the object sheet.
+    #[serde(default)]
+    pub add_to_sheet: bool,
+    pub out_png: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ObjectUpdateParams {
+    pub id: String,
+    pub label: Option<String>,
+    pub size: Option<String>,
+    /// 10-400 %
+    pub scale: Option<u32>,
+    pub copies: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ObjectOptionsParams {
+    /// Letter | A4
+    pub format: Option<String>,
+    /// flat | standee
+    pub mode: Option<String>,
 }
 
 // ── server ──────────────────────────────────────────────────────────────────
@@ -593,6 +638,191 @@ impl SleuthServer {
     )]
     async fn token_sheet_export_pdf(&self, Parameters(p): Parameters<PathParams>) -> ToolResult {
         ok(&serde_json::json!({ "job_id": self.svc.token_sheet_export_pdf(PathBuf::from(p.path)) }))
+    }
+
+    // ── cut-outs ──
+    #[tool(
+        description = "Cut an object out of an image with a polygon (points in source-image pixels, at least 3) and an \
+        optional sticker outline. Optionally save to the library, add to the object sheet and/or write a PNG. Returns the result plus the image."
+    )]
+    async fn cutout_create(&self, Parameters(p): Parameters<CutoutCreateParams>) -> ToolResult {
+        match self.cutout_inner(p).await {
+            Ok((summary, png)) => Ok(CallToolResult::success(vec![
+                ContentBlock::json(&summary)?,
+                ContentBlock::image(
+                    base64::engine::general_purpose::STANDARD.encode(png),
+                    "image/png",
+                ),
+            ])),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(
+        description = "Get the object sheet: items (id, label, size, scale %, copies), page format and mode (flat|standee)."
+    )]
+    async fn object_sheet_list(&self) -> ToolResult {
+        done(self.svc.object_sheet_get().await)
+    }
+
+    #[tool(
+        description = "Add library assets (asset_ids) and/or image files (paths) to the object sheet."
+    )]
+    async fn object_sheet_add(&self, Parameters(p): Parameters<SheetAddParams>) -> ToolResult {
+        if !p.asset_ids.is_empty()
+            && let Err(e) = self.svc.object_sheet_add_assets(p.asset_ids).await
+        {
+            return fail(&e);
+        }
+        if !p.paths.is_empty() {
+            return done(
+                self.svc
+                    .object_sheet_add_files(
+                        p.paths.into_iter().map(PathBuf::from).collect(),
+                        p.size,
+                    )
+                    .await,
+            );
+        }
+        done(self.svc.object_sheet_get().await)
+    }
+
+    #[tool(
+        description = "Change an object sheet item's label, size, scale (10-400 %) or copies (1-99)."
+    )]
+    async fn object_sheet_update(
+        &self,
+        Parameters(p): Parameters<ObjectUpdateParams>,
+    ) -> ToolResult {
+        let patch =
+            ObjectItemPatch { label: p.label, size: p.size, scale: p.scale, copies: p.copies };
+        done(self.svc.object_sheet_update(p.id, patch).await)
+    }
+
+    #[tool(description = "Remove one item from the object sheet.")]
+    async fn object_sheet_remove(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.object_sheet_remove(p.id).await)
+    }
+
+    #[tool(description = "Remove all items from the object sheet.")]
+    async fn object_sheet_clear(&self) -> ToolResult {
+        done(self.svc.object_sheet_clear().await)
+    }
+
+    #[tool(
+        description = "Set the object sheet page format (Letter|A4) and/or mode (flat|standee: fold-over, mirrored copy on top)."
+    )]
+    async fn object_sheet_set_options(
+        &self,
+        Parameters(p): Parameters<ObjectOptionsParams>,
+    ) -> ToolResult {
+        let format = match p.format.as_deref().map(PageFormat::parse) {
+            Some(None) => {
+                return fail(&ServiceError::InvalidInput("format must be Letter or A4".into()));
+            }
+            Some(f) => f,
+            None => None,
+        };
+        let mode = match p.mode.as_deref() {
+            None => None,
+            Some("flat") => Some(SheetMode::Flat),
+            Some("standee") => Some(SheetMode::Standee),
+            Some(other) => {
+                return fail(&ServiceError::InvalidInput(format!(
+                    "mode {other:?} must be flat or standee"
+                )));
+            }
+        };
+        done(self.svc.object_sheet_set_options(format, mode).await)
+    }
+
+    #[tool(
+        description = "Compute the object sheet pages: placements in PDF points (bottom-left origin) and skipped items."
+    )]
+    async fn object_sheet_layout(&self) -> ToolResult {
+        done(self.svc.object_sheet_layout().await)
+    }
+
+    #[tool(
+        description = "Export the object sheet as a PDF to `path`. Returns a job_id (poll jobs_status)."
+    )]
+    async fn object_sheet_export_pdf(&self, Parameters(p): Parameters<PathParams>) -> ToolResult {
+        ok(
+            &serde_json::json!({ "job_id": self.svc.object_sheet_export_pdf(PathBuf::from(p.path)) }),
+        )
+    }
+}
+
+impl SleuthServer {
+    async fn cutout_inner(&self, p: CutoutCreateParams) -> Result<(Value, Vec<u8>), ServiceError> {
+        let (source, mut params, name, size, asset_id) = match (p.asset_id, p.source_path) {
+            (Some(id), _) => {
+                let d = self.svc.cutout_open_asset(id).await?;
+                (d.source.hash, d.params, d.name, d.size, Some(id))
+            }
+            (None, Some(path)) => {
+                let src = self.svc.image_source_from_path(PathBuf::from(&path)).await?;
+                let stem = std::path::Path::new(&path)
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "Cut-Out".into());
+                (src.hash, CutoutParams::default(), stem, "Medium".to_string(), None)
+            }
+            (None, None) => {
+                return Err(ServiceError::InvalidInput("give source_path or asset_id".into()));
+            }
+        };
+        if let Some(pts) = p.points {
+            params.points = pts;
+        }
+        if let Some(px) = p.outline_px {
+            params.outline_px = px.min(40);
+        }
+        if let Some(c) = p.outline_color {
+            params.outline_rgb = sleuth_core::settings::HexColor::parse(&c)
+                .ok_or_else(|| {
+                    ServiceError::InvalidInput(format!("outline_color {c:?} is not #rrggbb"))
+                })?
+                .0;
+        }
+        let name = p.name.unwrap_or(name);
+        let size = p.size.unwrap_or(size);
+        let mut summary = serde_json::json!({ "params": params, "name": name, "size": size });
+        if p.save_to_library {
+            let update = if p.update_existing { asset_id } else { None };
+            let a = self
+                .svc
+                .cutout_save_to_library(
+                    source.clone(),
+                    params.clone(),
+                    name.clone(),
+                    size.clone(),
+                    update,
+                )
+                .await?;
+            summary["asset_id"] = a.id.into();
+        }
+        if p.add_to_sheet {
+            let sheet = self
+                .svc
+                .object_sheet_add_composed(
+                    source.clone(),
+                    params.clone(),
+                    name.clone(),
+                    size.clone(),
+                )
+                .await?;
+            summary["sheet_items"] = sheet.items.len().into();
+        }
+        if let Some(out) = p.out_png {
+            let path = self
+                .svc
+                .cutout_save_png(source.clone(), params.clone(), PathBuf::from(out))
+                .await?;
+            summary["png_path"] = serde_json::to_value(path).unwrap_or_default();
+        }
+        let png = self.svc.cutout_render(source, params, false).await?;
+        Ok((summary, png))
     }
 }
 
