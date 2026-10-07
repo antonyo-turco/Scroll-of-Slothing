@@ -8,9 +8,9 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use sleuth_core::settings::Settings;
 use sleuth_service::{
-    Asset, AssetPage, AssetPatch, AssetQuery, Campaign, ExportWhat, ImportFile, ImportReport, JobId,
-    JobStatus, LegacyImportOptions, RenameOutcome, Service, ServiceError, Session, SettingsUpdate,
-    TagCount,
+    Asset, AssetPage, AssetPatch, AssetQuery, Campaign, ExportWhat, ImportFile, ImportReport,
+    JobId, JobStatus, LegacyImportOptions, RenameOutcome, Service, ServiceError, Session,
+    SettingsUpdate, TagCount,
 };
 use tauri::State;
 
@@ -120,7 +120,12 @@ pub async fn library_import(svc: Svc<'_>, files: Vec<ImportFile>) -> Res<ImportR
 }
 
 #[tauri::command]
-pub async fn library_export(svc: Svc<'_>, id: i64, what: ExportWhat, path: PathBuf) -> Res<PathBuf> {
+pub async fn library_export(
+    svc: Svc<'_>,
+    id: i64,
+    what: ExportWhat,
+    path: PathBuf,
+) -> Res<PathBuf> {
     svc.library_export(id, what, path).await
 }
 
