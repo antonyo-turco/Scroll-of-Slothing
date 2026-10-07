@@ -4367,9 +4367,11 @@ dependencies = [
  "fast_image_resize",
  "image",
  "proptest",
+ "regex",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "ttf-parser",
 ]
 
 [[package]]
