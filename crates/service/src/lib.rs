@@ -3,6 +3,7 @@
 //! CPU / IO work runs on the blocking pool so async callers never stall.
 
 mod blobs;
+mod cards;
 mod cutouts;
 mod error;
 mod events;
@@ -23,6 +24,7 @@ use std::sync::Arc;
 use sleuth_store::Store;
 use tokio::sync::broadcast;
 
+pub use cards::{CardOptions, CardSummary};
 pub use cutouts::CutoutDraft;
 pub use error::{ErrorCode, ServiceError};
 pub use events::Event;
@@ -35,6 +37,7 @@ pub use sleuth_store::{
     Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome,
     Session, TagCount,
 };
+pub use sleuth_store::{Deck, DeckSummary};
 pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
 pub use tokens::{Border, SourceImage, TokenDraft};
 

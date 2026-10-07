@@ -1,0 +1,9 @@
+{
+ "templates": {
+  "Spell": "# Spell Name\n**Type:** Spell\n**Level:** 1st-level\n**Casting Time:** 1 action\n**Range:** 60 feet\n**Components:** V, S\n**Duration:** Instantaneous\n\nDescription text here.\n",
+  "Feat": "# Feat Name\n**Type:** Feat\n**Prerequisite:** None\n\nDescription text here.\n",
+  "Item": "# Item Name\n**Type:** Item\n**Rarity:** Uncommon\n**Attunement:** Required\n\nDescription text here.\n",
+  "Ability": "# Ability Name\n**Type:** Ability\n**Recharge:** Short Rest\n\nDescription text here.\n"
+ },
+ "reference": "Card Printer — Markdown Format Reference\n=========================================\n\nEach card is a markdown block separated by --- (three dashes on their own line).\n\nSTRUCTURE PER CARD\n------------------\n# Card Title\n**Type:** <type name> [optional #RRGGBB hex color]\n**<Stat Name>:** <value>\n**Copies:** <number>   (optional, default 1)\n\n<blank line separates stats from body>\nBody text here. Supports **bold**, *italic*, __underline__.\nMultiple paragraphs are separated by blank lines.\n\nBUILT-IN TYPES (auto-colored)\n------------------------------\nSpell   → purple      Feat    → green\nItem    → orange      Ability → blue\nCustom  → append a hex color, e.g.:  **Type:** Trap #8B0000\n\nCOPIES\n------\n**Copies:** 3  will print 3 instances of the card in the PDF.\n\nEXAMPLE\n-------\n# Fireball\n**Type:** Spell\n**Level:** 3rd-level\n**Range:** 150 feet\n**Copies:** 2\n\nA bright streak flashes from your finger to a point you choose,\nthen blossoms into a **20-foot-radius sphere** of flame.\n\n---\n\n# Lucky\n**Type:** Feat\n\nYou have *inexplicable luck* that seems to kick in at just the right moment.\n\n---\n\n# Boss Goblin\n**Type:** Boss #8B0000\n**HP:** 42\n**AC:** 15\n\nA cunning goblin chieftain with __uncanny reflexes__.\n"
+}
