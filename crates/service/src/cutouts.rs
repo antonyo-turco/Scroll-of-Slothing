@@ -32,7 +32,11 @@ fn check_points(params: &CutoutParams) -> Result<()> {
 }
 
 impl Service {
-    pub(crate) async fn compose_cutout(&self, source: &str, params: &CutoutParams) -> Result<RgbaImage> {
+    pub(crate) async fn compose_cutout(
+        &self,
+        source: &str,
+        params: &CutoutParams,
+    ) -> Result<RgbaImage> {
         check_points(params)?;
         let svc = self.clone();
         let (source, params) = (source.to_string(), params.clone());
@@ -48,7 +52,12 @@ impl Service {
     }
 
     /// Renders the cut-out (lasso + outline) to PNG bytes.
-    pub async fn cutout_render(&self, source: String, params: CutoutParams, fast: bool) -> Result<Vec<u8>> {
+    pub async fn cutout_render(
+        &self,
+        source: String,
+        params: CutoutParams,
+        fast: bool,
+    ) -> Result<Vec<u8>> {
         let img = self.compose_cutout(&source, &params).await?;
         tokio::task::spawn_blocking(move || {
             if fast { imaging::encode_png_fast(&img) } else { imaging::encode_png(&img) }
@@ -58,7 +67,12 @@ impl Service {
         .map_err(|e| ServiceError::Internal(e.to_string()))?
     }
 
-    pub async fn cutout_save_png(&self, source: String, params: CutoutParams, path: PathBuf) -> Result<PathBuf> {
+    pub async fn cutout_save_png(
+        &self,
+        source: String,
+        params: CutoutParams,
+        path: PathBuf,
+    ) -> Result<PathBuf> {
         let png = self.cutout_render(source, params, false).await?;
         self.blocking(move |_| {
             std::fs::write(&path, png)?;
@@ -81,7 +95,8 @@ impl Service {
         }
         let size = check_size(&size)?;
         let png = self.cutout_render(source.clone(), params.clone(), false).await?;
-        let params_json = serde_json::to_string(&params).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        let params_json =
+            serde_json::to_string(&params).map_err(|e| ServiceError::Internal(e.to_string()))?;
         self.blocking(move |s| {
             let original = s.read_blob(&source)?;
             let stored = store_encoded(s, &original, &png)?;
@@ -98,7 +113,14 @@ impl Service {
                             params_json: Some(params_json),
                         },
                     )?;
-                    s.update_asset_meta(id, &AssetPatch { name: Some(name), size_label: Some(size), ..Default::default() })?;
+                    s.update_asset_meta(
+                        id,
+                        &AssetPatch {
+                            name: Some(name),
+                            size_label: Some(size),
+                            ..Default::default()
+                        },
+                    )?;
                     id
                 }
                 None => s.insert_asset(&NewAsset {
@@ -156,14 +178,27 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn render_save_and_reopen_with_trace() {
         let (d, svc) = temp_service();
-        let src = svc.image_source_from_path(write_test_png(d.path(), "brazier.png", 200, 150)).await.unwrap();
-        let params = CutoutParams { points: square(20.0, 20.0, 120.0, 100.0), outline_px: 4, ..Default::default() };
+        let src = svc
+            .image_source_from_path(write_test_png(d.path(), "brazier.png", 200, 150))
+            .await
+            .unwrap();
+        let params = CutoutParams {
+            points: square(20.0, 20.0, 120.0, 100.0),
+            outline_px: 4,
+            ..Default::default()
+        };
         let png = svc.cutout_render(src.hash.clone(), params.clone(), true).await.unwrap();
         // 101×81 selection (PIL-inclusive) + 4px outline on each side.
         assert_eq!(imaging::dimensions(&png), Some((109, 89)));
 
         let a = svc
-            .cutout_save_to_library(src.hash.clone(), params.clone(), "Brazier".into(), "Small".into(), None)
+            .cutout_save_to_library(
+                src.hash.clone(),
+                params.clone(),
+                "Brazier".into(),
+                "Small".into(),
+                None,
+            )
             .await
             .unwrap();
         assert_eq!((a.kind.as_str(), a.size_label.as_str()), ("cutout", "Small"));
@@ -172,7 +207,13 @@ mod tests {
         assert_eq!(draft.params, params, "trace restored (Python lost it)");
 
         let updated = svc
-            .cutout_save_to_library(src.hash, CutoutParams { outline_px: 0, ..params }, "Brazier".into(), "Medium".into(), Some(a.id))
+            .cutout_save_to_library(
+                src.hash,
+                CutoutParams { outline_px: 0, ..params },
+                "Brazier".into(),
+                "Medium".into(),
+                Some(a.id),
+            )
             .await
             .unwrap();
         assert_eq!((updated.id, updated.size_label.as_str()), (a.id, "Medium"));
@@ -181,10 +222,21 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn invalid_selections_are_rejected() {
         let (d, svc) = temp_service();
-        let src = svc.image_source_from_path(write_test_png(d.path(), "x.png", 50, 50)).await.unwrap();
+        let src =
+            svc.image_source_from_path(write_test_png(d.path(), "x.png", 50, 50)).await.unwrap();
         let two = CutoutParams { points: vec![[0.0, 0.0], [10.0, 10.0]], ..Default::default() };
-        assert_eq!(svc.cutout_render(src.hash.clone(), two, true).await.unwrap_err().code(), crate::ErrorCode::InvalidInput);
-        let outside = CutoutParams { points: square(500.0, 500.0, 600.0, 600.0), ..Default::default() };
-        assert!(svc.cutout_render(src.hash, outside, true).await.unwrap_err().to_string().contains("empty"));
+        assert_eq!(
+            svc.cutout_render(src.hash.clone(), two, true).await.unwrap_err().code(),
+            crate::ErrorCode::InvalidInput
+        );
+        let outside =
+            CutoutParams { points: square(500.0, 500.0, 600.0, 600.0), ..Default::default() };
+        assert!(
+            svc.cutout_render(src.hash, outside, true)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("empty")
+        );
     }
 }

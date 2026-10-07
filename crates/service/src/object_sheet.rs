@@ -53,7 +53,11 @@ fn load(s: &Store) -> Result<ObjectSheet> {
     if let Some(sheet) = s.workspace_get::<ObjectSheet>(KEY)? {
         return Ok(sheet);
     }
-    Ok(ObjectSheet { items: vec![], format: s.load_settings()?.object_page_format, mode: SheetMode::Flat })
+    Ok(ObjectSheet {
+        items: vec![],
+        format: s.load_settings()?.object_page_format,
+        mode: SheetMode::Flat,
+    })
 }
 
 fn save(s: &Store, sheet: &ObjectSheet) -> Result<()> {
@@ -62,7 +66,13 @@ fn save(s: &Store, sheet: &ObjectSheet) -> Result<()> {
     Ok(())
 }
 
-fn new_item(s: &Store, label: String, size: String, image: String, asset_id: Option<i64>) -> Result<ObjectItem> {
+fn new_item(
+    s: &Store,
+    label: String,
+    size: String,
+    image: String,
+    asset_id: Option<i64>,
+) -> Result<ObjectItem> {
     let (w_px, h_px) = imaging::dimensions(&s.read_blob(&image)?)
         .ok_or_else(|| ServiceError::InvalidInput("not an image".into()))?;
     Ok(ObjectItem {
@@ -100,7 +110,13 @@ fn compute(sheet: &ObjectSheet) -> (Layout, SheetLayout) {
             .iter()
             .map(|p| {
                 p.iter()
-                    .map(|pl| PlacedItem { id: sheet.items[pl.item].id.clone(), x: pl.x, y: pl.y, w: pl.w, h: pl.h })
+                    .map(|pl| PlacedItem {
+                        id: sheet.items[pl.item].id.clone(),
+                        x: pl.x,
+                        y: pl.y,
+                        w: pl.w,
+                        h: pl.h,
+                    })
                     .collect()
             })
             .collect(),
@@ -140,12 +156,17 @@ impl Service {
         .await
     }
 
-    pub async fn object_sheet_add_files(&self, paths: Vec<PathBuf>, size: Option<String>) -> Result<ObjectSheet> {
+    pub async fn object_sheet_add_files(
+        &self,
+        paths: Vec<PathBuf>,
+        size: Option<String>,
+    ) -> Result<ObjectSheet> {
         let size = check_size(size.as_deref().unwrap_or("Medium"))?;
         self.object_mutate(move |s, sheet| {
             for p in paths {
                 let src = store_source(s, &std::fs::read(&p)?)?;
-                let label = p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                let label =
+                    p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                 sheet.items.push(new_item(s, label, size.clone(), src.hash, None)?);
             }
             Ok(())
@@ -171,7 +192,11 @@ impl Service {
         .await
     }
 
-    pub async fn object_sheet_update(&self, id: String, patch: ObjectItemPatch) -> Result<ObjectSheet> {
+    pub async fn object_sheet_update(
+        &self,
+        id: String,
+        patch: ObjectItemPatch,
+    ) -> Result<ObjectSheet> {
         let size = patch.size.as_deref().map(check_size).transpose()?;
         self.object_mutate(move |_, sheet| {
             let it = sheet
@@ -253,7 +278,10 @@ impl Service {
             }
             let (layout, view) = compute(&sheet);
             if !view.skipped.is_empty() {
-                return Err(ServiceError::InvalidInput(format!("{} item(s) cannot fit on a page", view.skipped.len())));
+                return Err(ServiceError::InvalidInput(format!(
+                    "{} item(s) cannot fit on a page",
+                    view.skipped.len()
+                )));
             }
             ctx.progress(0.02, "preparing images");
             let images = sheet
@@ -299,7 +327,8 @@ mod tests {
         let patch = serde_json::json!({"object_page_format": "A4"});
         svc.settings_set(patch.as_object().unwrap().clone()).await.unwrap();
         let p = write_test_png(d.path(), "Lamp.png", 100, 200);
-        let sheet = svc.object_sheet_add_files(vec![p.clone()], Some("Medium".into())).await.unwrap();
+        let sheet =
+            svc.object_sheet_add_files(vec![p.clone()], Some("Medium".into())).await.unwrap();
         assert_eq!((sheet.format, sheet.mode), (PageFormat::A4, SheetMode::Flat));
         let it = &sheet.items[0];
         assert_eq!((it.label.as_str(), it.w_px, it.h_px, it.scale), ("Lamp", 100, 200, 100));
@@ -314,17 +343,31 @@ mod tests {
         assert_eq!(sheet.items[1].label, "Cut-Out", "default label like Python");
 
         let id = sheet.items[0].id.clone();
-        svc.object_sheet_update(id.clone(), ObjectItemPatch { scale: Some(150), copies: Some(3), ..Default::default() })
+        svc.object_sheet_update(
+            id.clone(),
+            ObjectItemPatch { scale: Some(150), copies: Some(3), ..Default::default() },
+        )
+        .await
+        .unwrap();
+        assert!(
+            svc.object_sheet_update(
+                id.clone(),
+                ObjectItemPatch { scale: Some(5), ..Default::default() }
+            )
             .await
-            .unwrap();
-        assert!(svc.object_sheet_update(id.clone(), ObjectItemPatch { scale: Some(5), ..Default::default() }).await.is_err());
+            .is_err()
+        );
         let flat = svc.object_sheet_layout().await.unwrap();
         let lamp = flat.pages[0].iter().find(|p| p.id == id).unwrap();
         assert_eq!((lamp.w, lamp.h), (54.0, 108.0), "Medium 72pt × 150% on the longest side");
 
         svc.object_sheet_set_options(None, Some(SheetMode::Standee)).await.unwrap();
         let st = svc.object_sheet_layout().await.unwrap();
-        assert_eq!(st.pages[0].iter().find(|p| p.id == id).unwrap().h, 216.0, "standee doubles height");
+        assert_eq!(
+            st.pages[0].iter().find(|p| p.id == id).unwrap().h,
+            216.0,
+            "standee doubles height"
+        );
 
         let out = d.path().join("objects.pdf");
         let job = svc.object_sheet_export_pdf(out.clone());
