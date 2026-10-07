@@ -127,7 +127,10 @@ enum CampaignsCmd {
 enum SettingsCmd {
     Get,
     /// Set a value, e.g. `sleuth settings set map_square_in 1.5`.
-    Set { key: String, value: String },
+    Set {
+        key: String,
+        value: String,
+    },
     Reset,
 }
 
@@ -141,15 +144,17 @@ fn print<T: Serialize + std::fmt::Debug>(json: bool, v: &T, human: impl FnOnce(&
 }
 
 fn parse_sort(s: &str) -> Result<AssetSort> {
-    Ok(serde_json::from_value(Value::String(s.replace('-', "_")))
-        .with_context(|| format!("unknown sort {s:?} (newest|oldest|name_asc|name_desc|kind|size)"))?)
+    serde_json::from_value(Value::String(s.replace('-', "_")))
+        .with_context(|| format!("unknown sort {s:?} (newest|oldest|name_asc|name_desc|kind|size)"))
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
-        .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()))
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
+        )
         .init();
     let cli = Cli::parse();
     let dir = cli.data_dir.clone().unwrap_or_else(sleuth_service::default_data_dir);
@@ -157,17 +162,29 @@ async fn main() -> Result<()> {
     let j = cli.json;
 
     match cli.cmd {
-        Cmd::Info => print(j, &serde_json::json!({"data_dir": dir}), |_| println!("{}", dir.display()))?,
+        Cmd::Info => {
+            print(j, &serde_json::json!({"data_dir": dir}), |_| println!("{}", dir.display()))?
+        }
         Cmd::ImportLegacy { db, settings, aoe } => {
             eprintln!("Importing from {} (read-only)…", db.display());
             let r = svc
-                .legacy_import_blocking(LegacyImportOptions { db_path: db, settings_path: settings, aoe_presets_path: aoe })
+                .legacy_import_blocking(LegacyImportOptions {
+                    db_path: db,
+                    settings_path: settings,
+                    aoe_presets_path: aoe,
+                })
                 .await?;
             print(j, &r, |r| {
                 println!("Assets imported: {:?}", r.assets);
                 println!("Already present (skipped): {}", r.skipped_existing);
-                println!("Campaigns: {}  Sessions: {}  Tag links: {}", r.campaigns, r.sessions, r.tag_links);
-                println!("Links: {} campaign, {} session", r.asset_campaign_links, r.asset_session_links);
+                println!(
+                    "Campaigns: {}  Sessions: {}  Tag links: {}",
+                    r.campaigns, r.sessions, r.tag_links
+                );
+                println!(
+                    "Links: {} campaign, {} session",
+                    r.asset_campaign_links, r.asset_session_links
+                );
                 if let Some(p) = &r.music_json {
                     println!("Music data preserved in {}", p.display());
                 }
@@ -194,16 +211,33 @@ async fn main() -> Result<()> {
                 print(j, &page, |p| {
                     for a in &p.items {
                         let pin = if a.pinned { "★" } else { " " };
-                        println!("{pin} {:>5}  {:<7} {:<10} {}  [{}]", a.id, a.kind, a.size_label, a.name, a.tags.join(", "));
+                        println!(
+                            "{pin} {:>5}  {:<7} {:<10} {}  [{}]",
+                            a.id,
+                            a.kind,
+                            a.size_label,
+                            a.name,
+                            a.tags.join(", ")
+                        );
                     }
                     println!("{} of {} shown", p.items.len(), p.total);
                 })?;
             }
-            LibraryCmd::Get { id } => print(j, &svc.library_get(id).await?, |a| println!("{a:#?}"))?,
+            LibraryCmd::Get { id } => {
+                print(j, &svc.library_get(id).await?, |a| println!("{a:#?}"))?
+            }
             LibraryCmd::Import { files, kind, size } => {
                 let r = svc
                     .library_import(
-                        files.into_iter().map(|path| ImportFile { path, name: None, kind: kind.clone(), size: size.clone() }).collect(),
+                        files
+                            .into_iter()
+                            .map(|path| ImportFile {
+                                path,
+                                name: None,
+                                kind: kind.clone(),
+                                size: size.clone(),
+                            })
+                            .collect(),
                     )
                     .await?;
                 print(j, &r, |r| {
@@ -214,9 +248,18 @@ async fn main() -> Result<()> {
                 })?;
             }
             LibraryCmd::Update { id, name, size, pinned, tags } => {
-                let mut a = svc.library_update(id, AssetPatch { name, aliases: None, size_label: size, pinned }).await?;
+                let mut a = svc
+                    .library_update(
+                        id,
+                        AssetPatch { name, aliases: None, size_label: size, pinned },
+                    )
+                    .await?;
                 if let Some(t) = tags {
-                    let list = t.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                    let list = t
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
                     a = svc.library_set_tags(id, list).await?;
                 }
                 print(j, &a, |a| println!("Updated #{} {}", a.id, a.name))?;
@@ -238,10 +281,12 @@ async fn main() -> Result<()> {
                     println!("{:>5}  {:<24} {}", t.id, t.name, t.count);
                 }
             })?,
-            TagsCmd::Rename { id, name } => print(j, &svc.tags_rename(id, name).await?, |r| match r.merged_into {
-                Some(d) => println!("Merged into tag #{d}"),
-                None => println!("Renamed"),
-            })?,
+            TagsCmd::Rename { id, name } => {
+                print(j, &svc.tags_rename(id, name).await?, |r| match r.merged_into {
+                    Some(d) => println!("Merged into tag #{d}"),
+                    None => println!("Renamed"),
+                })?
+            }
             TagsCmd::Merge { src, dst } => {
                 svc.tags_merge(src, dst).await?;
                 print(j, &true, |_| println!("Merged #{src} into #{dst}"))?;
@@ -254,22 +299,33 @@ async fn main() -> Result<()> {
         Cmd::Campaigns(c) => match c {
             CampaignsCmd::List => print(j, &svc.campaigns_list().await?, |cs| {
                 for c in cs {
-                    println!("{}  {}  ({} sessions, {} assets)", c.id, c.name, c.session_count, c.asset_count);
+                    println!(
+                        "{}  {}  ({} sessions, {} assets)",
+                        c.id, c.name, c.session_count, c.asset_count
+                    );
                 }
             })?,
-            CampaignsCmd::Create { name } => print(j, &svc.campaigns_create(name).await?, |c| println!("Created {}", c.id))?,
-            CampaignsCmd::Sessions { campaign } => print(j, &svc.sessions_list(campaign).await?, |ss| {
-                for s in ss {
-                    println!("{}  {}  ({} assets)", s.id, s.name, s.asset_count);
-                }
-            })?,
+            CampaignsCmd::Create { name } => {
+                print(j, &svc.campaigns_create(name).await?, |c| println!("Created {}", c.id))?
+            }
+            CampaignsCmd::Sessions { campaign } => {
+                print(j, &svc.sessions_list(campaign).await?, |ss| {
+                    for s in ss {
+                        println!("{}  {}  ({} assets)", s.id, s.name, s.asset_count);
+                    }
+                })?
+            }
             CampaignsCmd::AddSession { campaign, name } => {
-                print(j, &svc.sessions_create(campaign, name, String::new()).await?, |s| println!("Created {}", s.id))?
+                print(j, &svc.sessions_create(campaign, name, String::new()).await?, |s| {
+                    println!("Created {}", s.id)
+                })?
             }
         },
         Cmd::Settings(c) => match c {
             SettingsCmd::Get => print(j, &svc.settings_get().await?, |s| println!("{s:#?}"))?,
-            SettingsCmd::Reset => print(j, &svc.settings_reset().await?, |_| println!("Settings reset"))?,
+            SettingsCmd::Reset => {
+                print(j, &svc.settings_reset().await?, |_| println!("Settings reset"))?
+            }
             SettingsCmd::Set { key, value } => {
                 // Accept JSON literals (numbers, booleans) and fall back to a plain string.
                 let v = serde_json::from_str::<Value>(&value).unwrap_or(Value::String(value));
