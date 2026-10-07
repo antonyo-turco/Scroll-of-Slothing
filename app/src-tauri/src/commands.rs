@@ -6,16 +6,18 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use serde_json::{Map, Value};
+use sleuth_core::cards::DeckLayout;
 use sleuth_core::cutout::CutoutParams;
 use sleuth_core::pack::shelf::SheetMode;
 use sleuth_core::settings::Settings;
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, CutoutDraft, ExportWhat,
-    ImportFile, ImportReport, JobId, JobStatus, LegacyImportOptions, ObjectItemPatch, ObjectSheet,
-    RenameOutcome, Service, ServiceError, Session, SettingsUpdate, SheetItemPatch, SheetLayout,
-    SourceImage, TagCount, TokenDraft, TokenSheet,
+    Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, CardOptions, CardSummary,
+    CutoutDraft, Deck, DeckSummary, ExportWhat, ImportFile, ImportReport, JobId, JobStatus,
+    LegacyImportOptions, ObjectItemPatch, ObjectSheet, RenameOutcome, Service, ServiceError,
+    Session, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft,
+    TokenSheet,
 };
 use tauri::State;
 use tauri::ipc::Response;
@@ -495,4 +497,62 @@ pub async fn object_sheet_layout(svc: Svc<'_>) -> Res<SheetLayout> {
 #[tauri::command]
 pub fn object_sheet_export_pdf(svc: Svc<'_>, path: PathBuf) -> JobId {
     svc.object_sheet_export_pdf(path)
+}
+
+// ── cards ──
+
+#[tauri::command]
+pub fn cards_templates(svc: Svc<'_>) -> Value {
+    svc.cards_templates()
+}
+
+#[tauri::command]
+pub async fn cards_layout(svc: Svc<'_>, markdown: String, opts: CardOptions) -> Res<DeckLayout> {
+    svc.cards_layout(markdown, opts).await
+}
+
+#[tauri::command]
+pub async fn cards_validate(svc: Svc<'_>, markdown: String, opts: CardOptions) -> Res<CardSummary> {
+    svc.cards_validate(markdown, opts).await
+}
+
+#[tauri::command]
+pub fn cards_export_pdf(svc: Svc<'_>, markdown: String, opts: CardOptions, path: PathBuf) -> JobId {
+    svc.cards_export_pdf(markdown, opts, path)
+}
+
+#[tauri::command]
+pub async fn decks_list(svc: Svc<'_>) -> Res<Vec<DeckSummary>> {
+    svc.decks_list().await
+}
+
+#[tauri::command]
+pub async fn decks_get(svc: Svc<'_>, id: i64) -> Res<Deck> {
+    svc.decks_get(id).await
+}
+
+#[tauri::command]
+pub async fn decks_save(
+    svc: Svc<'_>,
+    id: Option<i64>,
+    name: String,
+    markdown: String,
+    opts: Option<CardOptions>,
+) -> Res<Deck> {
+    svc.decks_save(id, name, markdown, opts).await
+}
+
+#[tauri::command]
+pub async fn decks_delete(svc: Svc<'_>, id: i64) -> Res<()> {
+    svc.decks_delete(id).await
+}
+
+#[tauri::command]
+pub async fn deck_read_file(svc: Svc<'_>, path: PathBuf) -> Res<String> {
+    svc.deck_read_file(path).await
+}
+
+#[tauri::command]
+pub async fn deck_write_file(svc: Svc<'_>, markdown: String, path: PathBuf) -> Res<PathBuf> {
+    svc.deck_write_file(markdown, path).await
 }

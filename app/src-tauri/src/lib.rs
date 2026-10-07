@@ -121,6 +121,16 @@ pub fn run() {
             commands::object_sheet_set_options,
             commands::object_sheet_layout,
             commands::object_sheet_export_pdf,
+            commands::cards_templates,
+            commands::cards_layout,
+            commands::cards_validate,
+            commands::cards_export_pdf,
+            commands::decks_list,
+            commands::decks_get,
+            commands::decks_save,
+            commands::decks_delete,
+            commands::deck_read_file,
+            commands::deck_write_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
