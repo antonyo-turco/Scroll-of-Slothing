@@ -3729,6 +3729,13 @@ dependencies = [
 [[package]]
 name = "sleuth-legacy"
 version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "sleuth-mcp"
@@ -3748,6 +3755,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sleuth-core",
+ "sleuth-legacy",
  "sleuth-store",
  "tempfile",
  "thiserror 2.0.21",
