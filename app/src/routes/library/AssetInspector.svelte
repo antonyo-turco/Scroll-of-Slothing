@@ -93,9 +93,10 @@
   }
 
   async function addToSheet() {
+    const token = asset.kind === 'token';
     try {
-      await api.tokenSheetAddAssets([asset.id]);
-      app.toast('success', `Added “${asset.name}” to the token sheet`);
+      await (token ? api.tokenSheetAddAssets([asset.id]) : api.objectSheetAddAssets([asset.id]));
+      app.toast('success', `Added “${asset.name}” to the ${token ? 'token' : 'object'} sheet`);
     } catch (e) {
       app.error('Could not add to sheet', e);
     }
@@ -182,8 +183,8 @@
     <button class="btn primary" onclick={openEditor} title={editorView ? `Available in phase ${editorView.phase}` : ''}>
       Open in {asset.kind === 'map' ? 'Map Paginator' : asset.kind === 'cutout' ? 'Object Cutter' : 'Token Cutter'}
     </button>
-    {#if asset.kind === 'token'}
-      <button class="btn" onclick={addToSheet}>Add to token sheet</button>
+    {#if asset.kind === 'token' || asset.kind === 'cutout'}
+      <button class="btn" onclick={addToSheet}>Add to {asset.kind === 'token' ? 'token' : 'object'} sheet</button>
     {/if}
     <div class="row">
       <button class="btn" onclick={() => exportFile('rendered')}>Save image…</button>

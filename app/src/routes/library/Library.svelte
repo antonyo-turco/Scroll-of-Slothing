@@ -73,13 +73,20 @@
 
   const ids = () => [...lib.selected];
 
+  // Like Python: tokens go to the token sheet, cut-outs to the object sheet, maps are skipped.
   async function bulkAddToSheet() {
-    const tokens = lib.items.filter((a) => lib.selected.has(a.id) && a.kind === 'token').map((a) => a.id);
-    const skipped = lib.selected.size - tokens.length;
-    if (!tokens.length) return app.toast('info', 'Only tokens can go on the token sheet.');
+    const pick = (kind: string) => lib.items.filter((a) => lib.selected.has(a.id) && a.kind === kind).map((a) => a.id);
+    const [tokens, cutouts] = [pick('token'), pick('cutout')];
+    const skipped = lib.selected.size - tokens.length - cutouts.length;
+    if (!tokens.length && !cutouts.length) return app.toast('info', 'Maps cannot be added to a sheet.');
     try {
-      await api.tokenSheetAddAssets(tokens);
-      app.toast('success', `Added ${tokens.length} token(s) to the sheet` + (skipped ? ` · skipped ${skipped} non-token(s)` : ''));
+      if (tokens.length) await api.tokenSheetAddAssets(tokens);
+      if (cutouts.length) await api.objectSheetAddAssets(cutouts);
+      const parts = [
+        tokens.length ? `${tokens.length} to the token sheet` : '',
+        cutouts.length ? `${cutouts.length} to the object sheet` : '',
+      ].filter(Boolean);
+      app.toast('success', `Added ${parts.join(' and ')}` + (skipped ? ` · skipped ${skipped} map(s)` : ''));
     } catch (e) {
       app.error('Could not add to sheet', e);
     }
@@ -223,7 +230,7 @@
           <option value="">Add to campaign…</option>
           {#each lib.campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
         </select>
-        <button class="btn" onclick={bulkAddToSheet}>Add to token sheet</button>
+        <button class="btn" onclick={bulkAddToSheet}>Add to sheets</button>
         <button class="btn" onclick={bulkExport}>Export…</button>
         {#if confirmBulkDelete}
           <button class="btn danger" onclick={() => act('Delete failed', () => api.libraryDelete(ids()), 'Deleted').then(() => (confirmBulkDelete = false))}>
