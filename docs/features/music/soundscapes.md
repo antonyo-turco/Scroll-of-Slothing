@@ -1,4 +1,4 @@
-# Music: soundscapes (spec, not implemented)
+# Music: soundscapes
 
 A soundscape is a saved mix: a set of channels plus a set of soundbites.
 

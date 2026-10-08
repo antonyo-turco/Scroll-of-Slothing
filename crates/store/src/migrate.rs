@@ -6,7 +6,10 @@ use rusqlite::Connection;
 use crate::{Result, StoreError};
 
 /// Ordered list of migrations; index + 1 is the version they produce.
-const MIGRATIONS: &[(&str, &str)] = &[("V1__init", include_str!("../migrations/V1__init.sql"))];
+const MIGRATIONS: &[(&str, &str)] = &[
+    ("V1__init", include_str!("../migrations/V1__init.sql")),
+    ("V2__music", include_str!("../migrations/V2__music.sql")),
+];
 
 pub const LATEST: i64 = MIGRATIONS.len() as i64;
 

@@ -13,6 +13,7 @@ mod jobs;
 mod legacy;
 mod library;
 mod maps;
+mod music;
 mod object_sheet;
 mod organize;
 mod settings;
@@ -34,7 +35,12 @@ pub use events::Event;
 pub use jobs::{JobCtx, JobId, JobState, JobStatus};
 pub use legacy::{LegacyFailure, LegacyImportOptions, LegacyImportReport};
 pub use library::{ASSET_KINDS, BulkAction, ExportWhat, ImportFailure, ImportFile, ImportReport};
-pub use maps::{MapDoc, MapLayout, SizingMode, WORK_MAX};
+pub use maps::{FilterCatalog, FilterPreset, MapDoc, MapLayout, SizingMode, WORK_MAX};
+pub use music::{
+    ChannelPatch as MusicChannelPatch, DuckMode, EngineEvent as MusicEngineEvent, MixImportResult,
+    MixerState, MusicImportReport, PlaylistInput, SoundbitePatch, SoundboardInput, SoundscapeInput,
+    TrackInput, TrackMeta, media_mime,
+};
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use settings::SettingsUpdate;
 pub use sleuth_store::{
@@ -42,6 +48,10 @@ pub use sleuth_store::{
     Session, TagCount,
 };
 pub use sleuth_store::{Deck, DeckSummary};
+pub use sleuth_store::{
+    MusicChannel, MusicPlaylist, MusicSoundbite, MusicSoundboard, MusicSoundboardButton,
+    MusicSoundscape, MusicTrack, MusicTrackQuery,
+};
 pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
 pub use tokens::{Border, SourceImage, TokenDraft};
 
@@ -75,6 +85,7 @@ struct Inner {
     jobs: jobs::Jobs,
     images: imgcache::ImageCache,
     maps: maps::MapCache,
+    music: music::MusicRuntime,
 }
 
 impl Service {
@@ -89,6 +100,7 @@ impl Service {
                 jobs: jobs::Jobs::default(),
                 images: imgcache::ImageCache::default(),
                 maps: maps::MapCache::default(),
+                music: music::MusicRuntime::default(),
             }),
         })
     }

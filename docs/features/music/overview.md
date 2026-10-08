@@ -1,7 +1,14 @@
-# DM Music: overview (SPECIFIED, NOT IMPLEMENTED)
+# DM Music: overview
 
-> **Status:** documentation only. Do not implement this until the user asks for it (see CLAUDE.md).
-> In the app, the Music entry in the nav rail is shown greyed out and labelled "planned".
+> **Status:** implemented at the user's request (2026-10), awaiting alpha testing. The design below is what was built.
+>
+> **Where it lives**
+> - Store: `crates/store/src/music.rs`, migration `V2__music.sql`.
+> - Service: `crates/service/src/music.rs`, which owns the live state, the soundbite timers and the SFX queue.
+> - Engine: `app/src/lib/music-engine.ts`, mounted by `MusicEngine.svelte`. The UI is in `app/src/routes/music/`.
+> - Tauri: the `music_*` commands. `sleuth://localhost/media/<hash>` streams uploads with Range support.
+> - `.dmix` files are associated with the app. Opening one imports it, loads the mix and plays it, even when the app is already running (single instance).
+> - MCP: the `music_*` tools, listed in `docs/mcp-tools.md`.
 
 The Python app has a DM music system for live sessions:
 - a **library** of YouTube links and uploaded audio files, tagged and assigned to campaigns and sessions;
@@ -27,7 +34,7 @@ The Python app has a DM music system for live sessions:
 - `db/creature_db.py:647-1546`: tables and CRUD
 - `app.py:398-514`: wiring, global stop, YouTube error mapping
 
-## Recommended Rust/Tauri design (for the future phase)
+## Rust/Tauri design
 **Playback engine**
 - Run it **inside the main Tauri webview**, as a hidden, always-mounted `<MusicEngine>` Svelte component.
 - It holds the YouTube IFrame players and `<audio>` elements.

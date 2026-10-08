@@ -1,4 +1,4 @@
-# Music: designed schema for the new app (NOT migrated yet)
+# Music: designed schema for the new app (migration `V2__music.sql`)
 
 These tables reuse the global `campaigns`, `sessions`, `tags` and `blobs` tables.
 

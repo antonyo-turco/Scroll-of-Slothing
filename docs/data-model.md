@@ -62,9 +62,9 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 `(key TEXT PK, json TEXT, updated)`. Keys:
 - `token_sheet`
 - `object_sheet`
+- `map_paginator`: the Map Paginator document (`MapDoc`: source, grid, filters, print settings, region, excluded pages), shared by the UI and MCP
+- `aoe.sheet`: the AoE multi-template sheet (template configs + gap)
 - `cards.editor`
-- `aoe.sheet`
-- `maps.session`
 - `ui.last_route`
 
 ### settings

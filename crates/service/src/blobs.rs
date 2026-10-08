@@ -1,5 +1,7 @@
 //! Blob access for the UI protocol and exports.
 
+use std::path::PathBuf;
+
 use crate::{Result, Service};
 
 impl Service {
@@ -9,6 +11,17 @@ impl Service {
         self.blocking(move |s| {
             let meta = s.blob_meta(&hash)?;
             Ok((s.read_blob(&hash)?, meta.mime))
+        })
+        .await
+    }
+
+    /// File path and MIME type of a stored blob, for streaming large media
+    /// with HTTP Range requests instead of reading it whole.
+    pub async fn blob_file(&self, hash: &str) -> Result<(PathBuf, String)> {
+        let hash = hash.to_string();
+        self.blocking(move |s| {
+            let meta = s.blob_meta(&hash)?;
+            Ok((s.blob_file(&hash)?, meta.mime))
         })
         .await
     }

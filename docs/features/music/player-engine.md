@@ -1,4 +1,4 @@
-# Music: player engine (spec, not implemented)
+# Music: player engine
 
 ## Python architecture (for reference)
 
