@@ -4,7 +4,7 @@
 use std::io::Cursor;
 
 use fast_image_resize::{self as fr, images::Image as FrImage};
-use image::{DynamicImage, ImageFormat, RgbaImage};
+use image::{DynamicImage, ImageFormat, RgbImage, RgbaImage};
 
 /// Max side of the small library thumbnail derivative.
 pub const THUMB_MAX: u32 = 256;
@@ -73,6 +73,72 @@ pub fn resize_rgba(src: &RgbaImage, tw: u32, th: u32) -> RgbaImage {
     RgbaImage::from_raw(tw, th, dst.into_vec()).expect("buffer size matches dimensions")
 }
 
+/// Horizontal resolution from the file's metadata, like PIL's `info["dpi"]`:
+/// PNG `pHYs` (metre unit), JPEG JFIF density (dpi or dpcm) and BMP
+/// pixels-per-metre. `None` when absent or not greater than 1.
+pub fn detect_dpi(bytes: &[u8]) -> Option<f64> {
+    let dpi = if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        let mut i = 8;
+        let mut found = None;
+        while i + 8 <= bytes.len() {
+            let len = u32::from_be_bytes(bytes[i..i + 4].try_into().ok()?) as usize;
+            let kind = &bytes[i + 4..i + 8];
+            if kind == b"pHYs" && i + 8 + 9 <= bytes.len() {
+                let d = &bytes[i + 8..i + 17];
+                let ppu = f64::from(u32::from_be_bytes(d[0..4].try_into().ok()?));
+                if d[8] == 1 {
+                    found = Some(ppu * 0.0254);
+                }
+                break;
+            }
+            if kind == b"IDAT" || kind == b"IEND" {
+                break;
+            }
+            i += 12 + len;
+        }
+        found?
+    } else if bytes.starts_with(&[0xFF, 0xD8]) {
+        let i = bytes.windows(5).position(|w| w == b"JFIF\0")?;
+        let d = bytes.get(i + 7..i + 12)?;
+        let x = f64::from(u16::from_be_bytes([d[1], d[2]]));
+        match d[0] {
+            1 => x,
+            2 => x * 2.54,
+            _ => return None,
+        }
+    } else if bytes.starts_with(b"BM") && bytes.len() >= 42 {
+        f64::from(u32::from_le_bytes(bytes[38..42].try_into().ok()?)) * 0.0254
+    } else {
+        return None;
+    };
+    (dpi > 1.0).then_some(dpi)
+}
+
+/// Resamples the float source box `(l, t, r, b)` of an RGB image to exactly
+/// `tw`×`th` with Lanczos3 (PIL `resize(size, LANCZOS, box=...)`). Adjacent
+/// boxes sharing float edges meet without seams.
+pub fn resize_box_rgb(src: &RgbImage, bx: (f64, f64, f64, f64), tw: u32, th: u32) -> RgbImage {
+    let (w, h) = src.dimensions();
+    let src_img = fr::images::ImageRef::new(w, h, src.as_raw(), fr::PixelType::U8x3)
+        .expect("buffer size matches dimensions");
+    let mut dst = FrImage::new(tw.max(1), th.max(1), fr::PixelType::U8x3);
+    let opts = fr::ResizeOptions::new()
+        .resize_alg(fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3))
+        .crop(bx.0, bx.1, (bx.2 - bx.0).max(1e-6), (bx.3 - bx.1).max(1e-6));
+    fr::Resizer::new().resize(&src_img, &mut dst, &opts).expect("same pixel type");
+    RgbImage::from_raw(tw.max(1), th.max(1), dst.into_vec())
+        .expect("buffer size matches dimensions")
+}
+
+/// Resizes an RGB image to exactly `tw`×`th` with Lanczos3.
+pub fn resize_rgb(src: &RgbImage, tw: u32, th: u32) -> RgbImage {
+    if src.dimensions() == (tw, th) {
+        return src.clone();
+    }
+    let (w, h) = src.dimensions();
+    resize_box_rgb(src, (0.0, 0.0, f64::from(w), f64::from(h)), tw, th)
+}
+
 /// Lossless WebP (used for derivatives: small, exact, fast to decode in WebView2).
 pub fn encode_webp_lossless(img: &RgbaImage) -> Result<Vec<u8>> {
     let mut out = Vec::new();
@@ -127,6 +193,27 @@ mod tests {
         DynamicImage::ImageRgba8(RgbaImage::from_fn(w, h, |x, y| {
             if (x / 8 + y / 8) % 2 == 0 { Rgba([255, 0, 0, 255]) } else { Rgba([0, 0, 255, 128]) }
         }))
+    }
+
+    #[test]
+    fn dpi_from_png_jpeg_and_bmp_metadata() {
+        // PNG: signature, then a pHYs chunk of 5906 px/m (≈150 dpi), unit metre.
+        let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        png.extend_from_slice(&9u32.to_be_bytes());
+        png.extend_from_slice(b"pHYs");
+        png.extend_from_slice(&5906u32.to_be_bytes());
+        png.extend_from_slice(&5906u32.to_be_bytes());
+        png.extend_from_slice(&[1, 0, 0, 0, 0]);
+        assert!((detect_dpi(&png).unwrap() - 150.01).abs() < 0.01);
+        // JFIF APP0 with 300 dpi
+        let jpg = [
+            0xFF, 0xD8, 0xFF, 0xE0, 0, 16, b'J', b'F', b'I', b'F', 0, 1, 1, 1, 1, 0x2C, 1, 0x2C, 0,
+            0,
+        ];
+        assert_eq!(detect_dpi(&jpg), Some(300.0));
+        // no metadata → None (callers fall back to 70)
+        let plain = encode_png(&checker(4, 4).to_rgba8()).unwrap();
+        assert_eq!(detect_dpi(&plain), None);
     }
 
     #[test]
