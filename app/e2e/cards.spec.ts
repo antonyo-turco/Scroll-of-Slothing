@@ -58,3 +58,8 @@ test('export starts a job', async ({ page }) => {
   await page.getByRole('button', { name: 'Export PDF' }).click();
   await expect(page.getByText('card export finished')).toBeVisible();
 });
+
+test('template buttons keep the Python order', async ({ page }) => {
+  const names = await page.getByRole('button', { name: /^(Spell|Feat|Item|Ability)$/ }).allTextContents();
+  expect(names).toEqual(['Spell', 'Feat', 'Item', 'Ability']);
+});

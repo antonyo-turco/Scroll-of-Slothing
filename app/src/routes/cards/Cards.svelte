@@ -10,6 +10,8 @@
   import CardPage from './CardPage.svelte';
 
   const EDITOR_KEY = 'cards.editor';
+  // Python button order (the JSON map itself is unordered).
+  const TEMPLATE_ORDER = ['Spell', 'Feat', 'Item', 'Ability'];
 
   interface EditorState {
     markdown: string;
@@ -179,7 +181,7 @@
   <section class="edit" aria-label="Deck editor">
     <div class="bar">
       <span class="muted small">Insert:</span>
-      {#each Object.keys(templates?.templates ?? {}) as t (t)}
+      {#each TEMPLATE_ORDER.filter((t) => templates?.templates[t]) as t (t)}
         <button class="btn" onclick={() => insertTemplate(t)}>{t}</button>
       {/each}
       <div class="spacer"></div>
