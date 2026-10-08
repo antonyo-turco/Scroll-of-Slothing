@@ -30,6 +30,7 @@ imageproc = { version = "0.27", default-features = false }
 rustfft = "6"
 krilla = "0.8"
 ttf-parser = "0.25"
+ab_glyph = "0.2"
 regex = "1"
 clap = { version = "4", features = ["derive"] }
 uuid = { version = "1", features = ["v4"] }

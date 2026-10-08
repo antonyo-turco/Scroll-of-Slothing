@@ -1,6 +1,7 @@
 //! Page packing algorithms. Coordinates are PDF points with a bottom-left origin
 //! (like ReportLab), unless stated otherwise.
 
+pub mod maxrects;
 pub mod shelf;
 pub mod token_grid;
 
