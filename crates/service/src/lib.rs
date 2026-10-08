@@ -132,8 +132,10 @@ impl Service {
     /// standalone MCP server) sharing the data dir. Must run inside a tokio runtime.
     pub fn spawn_change_watcher(&self, every: std::time::Duration) -> tokio::task::JoinHandle<()> {
         let svc = self.clone();
+        // Read the baseline before returning, so a change written right after
+        // this call is reported instead of being taken as already seen.
+        let mut last = self.store().latest_change_seq().unwrap_or(0);
         tokio::spawn(async move {
-            let mut last = svc.blocking(|s| Ok(s.latest_change_seq()?)).await.unwrap_or(0);
             let mut tick = tokio::time::interval(every);
             loop {
                 tick.tick().await;
@@ -184,7 +186,6 @@ mod tests {
         let (dir, svc) = temp_service();
         let mut rx = svc.subscribe();
         let handle = svc.spawn_change_watcher(Duration::from_millis(10));
-        tokio::time::sleep(Duration::from_millis(30)).await;
 
         // A second, independent store on the same data dir (like sleuth-mcp).
         let other = Store::open(dir.path()).unwrap();
