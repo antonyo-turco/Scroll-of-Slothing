@@ -247,13 +247,12 @@ impl Store {
         blob: Option<&str>,
     ) -> Result<Option<String>> {
         let conn = self.conn();
-        if let Some(u) = url.filter(|u| !u.is_empty()) {
-            if let Some(id) = conn
+        if let Some(u) = url.filter(|u| !u.is_empty())
+            && let Some(id) = conn
                 .query_row("SELECT id FROM music_tracks WHERE url = ?1", [u], |r| r.get(0))
                 .optional()?
-            {
-                return Ok(Some(id));
-            }
+        {
+            return Ok(Some(id));
         }
         if let Some(b) = blob.filter(|b| !b.is_empty()) {
             return Ok(conn
@@ -559,6 +558,7 @@ impl Store {
     }
 
     /// Creates a soundscape (or overwrites `id`'s mix) from explicit content.
+    #[allow(clippy::too_many_arguments)]
     pub fn music_soundscape_write(
         &self,
         id: Option<&str>,
