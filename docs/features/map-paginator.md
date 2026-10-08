@@ -158,15 +158,22 @@ Defaults come from Settings.
 | `map_export_pdf` | `{path}` |
 | `map_save_asset` | `{name, asset_id?}` |
 
+## Intentional changes
+- Zoom/pan are client-side transforms; the grid, region, tiles and reference block are vector overlays (Python re-rendered the composite with LANCZOS on every move).
+- The whole paginator state (`MapDoc`) is autosaved in the `map_paginator` workspace and stored as the asset's `params_json`, so reopening restores grid, filters, region, page selection and print settings. Python restored only the image.
+- Embedded-grid removal uses an f32 FFT and detects on the spectrum of R+G+B (the same as Python's mean of channel spectra), processing one channel at a time to bound memory. Output matches Python on 99.99 % of pixels.
+- Export and Save as Asset are cancellable background jobs; PDF images are embedded from raw pixels (no temp files).
+- DPI detection reads PNG `pHYs`, JPEG JFIF and BMP headers directly.
+
 ## Parity checklist (Python `ui/map_paginator_panel.py`, `map_grid.py`, `map_pdf_generator.py`)
 - [ ] Load via file, paste, drop or library; 2000 px proxy; DPI detection
 - [ ] View zoom and pan
-- [ ] 4 sizing modes, square cells, manual offset, nudge-align (golden `grid_modes.json`)
+- [x] 4 sizing modes, square cells, manual offset, nudge-align (golden `grid_modes.json`)
 - [ ] Grid styles and appearance
-- [ ] FFT removal: synthetic test plus golden comparison
-- [ ] De-warp with an 8000 px cap, undo (golden `homography.json`)
+- [x] FFT removal: synthetic test plus golden comparison (99.99 % identical pixels; f32 FFT)
+- [x] De-warp with an 8000 px cap, undo (golden `homography.json`; bicubic warp bit-exact)
 - [ ] Print settings including calibration; fit check
 - [ ] Region snapping and handles; tile include/exclude; layout drag with ¼ snapping
-- [ ] Tiling math: free and grid-aligned (golden `tiling.json`)
+- [x] Tiling math: free and grid-aligned (golden `tiling.json`)
 - [ ] Sub-pixel tile resampling, cut border, include set
 - [ ] Export PDF; Save as Asset with Update/New

@@ -62,13 +62,11 @@ Applying a preset enables exactly the listed filters, in the listed order, with 
 - The preview recomputes on the work proxy, debounced 120 ms, in Rust off the UI thread.
 
 ## Parity
-**Numerical parity with PIL is approximate.** PIL's Gaussian is a box approximation, and its UnsharpMask has its own rounding. Golden tests therefore compare against Python output with a tolerance:
-- mean absolute error ≤ 3 per channel;
-- for binary filters, ≥ 97 % of pixels agree.
+The filters are ports of PIL's `libImaging` maths (3-pass box Gaussian with 24-bit fixed point, UnsharpMask integer rounding, float32 `blend`, autocontrast/colorize LUTs, Floyd–Steinberg `tobilevel`, CONTOUR 3×3) and of OpenCV for canny. The golden test (`crates/core/tests/parity_map_images.rs`) checks every filter at two parameter values, all 18 presets and canny against the Python/PIL/OpenCV output: **all are bit-exact**. The test allows ≥ 99.9 % identical pixels and MAE ≤ 0.05.
 
 **Checklist**
-- [ ] All 13 Python filters, plus canny
-- [ ] Defaults and ranges as listed
-- [ ] All 18 presets, verbatim
+- [x] All 13 Python filters, plus canny
+- [x] Defaults and ranges as listed
+- [x] All 18 presets, verbatim
 - [ ] Order is user-controllable
-- [ ] Golden image tests within tolerance
+- [x] Golden image tests within tolerance (bit-exact)

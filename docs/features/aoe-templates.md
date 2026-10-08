@@ -115,11 +115,17 @@ Units: `px_per_ft = px_per_square / feet_per_square`. Coordinates start at the t
 | `aoe_export_template_pdf` | |
 | `aoe_export_png` | |
 
+## Intentional changes
+- Labels use the bundled Liberation Sans (metric-compatible with Arial) instead of the system Arial/DejaVu fallback.
+- Built-in presets cannot be deleted; saving over an existing user preset needs explicit `overwrite` (the UI asks, as Python did).
+- The sheet is autosaved in the `aoe.sheet` workspace instead of living only in memory.
+- Exports run as cancellable jobs and report skipped (too large) templates in the job result.
+
 ## Parity checklist (Python `aoe_templates.py`, `ui/aoe_template_panel.py`)
-- [ ] 4 shapes; geometry matches the golden fixture `aoe_geometry.json`
-- [ ] Render defaults, supersampling, the 6000 px cap
+- [x] 4 shapes; geometry matches the golden fixture `aoe_geometry.json`
+- [x] Render defaults, supersampling, the 6000 px cap (golden renders within MAE 0.45)
 - [ ] Labels, halo, auto-fill
 - [ ] 11 built-in presets; user presets with save, overwrite confirm, delete
-- [ ] MaxRects packing (golden `maxrects.json`); skipped items reported
+- [x] MaxRects packing (golden `maxrects.json`); skipped items reported
 - [ ] Sheet preview and current-template preview
 - [ ] Sheet PDF, template PDF, PNG
