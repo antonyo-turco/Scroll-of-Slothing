@@ -11,6 +11,7 @@ mod imgcache;
 mod jobs;
 mod legacy;
 mod library;
+mod maps;
 mod object_sheet;
 mod organize;
 mod settings;
@@ -31,6 +32,7 @@ pub use events::Event;
 pub use jobs::{JobCtx, JobId, JobState, JobStatus};
 pub use legacy::{LegacyFailure, LegacyImportOptions, LegacyImportReport};
 pub use library::{ASSET_KINDS, BulkAction, ExportWhat, ImportFailure, ImportFile, ImportReport};
+pub use maps::{MapDoc, MapLayout, SizingMode, WORK_MAX};
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use settings::SettingsUpdate;
 pub use sleuth_store::{
@@ -70,6 +72,7 @@ struct Inner {
     events: broadcast::Sender<Event>,
     jobs: jobs::Jobs,
     images: imgcache::ImageCache,
+    maps: maps::MapCache,
 }
 
 impl Service {
@@ -83,6 +86,7 @@ impl Service {
                 events,
                 jobs: jobs::Jobs::default(),
                 images: imgcache::ImageCache::default(),
+                maps: maps::MapCache::default(),
             }),
         })
     }
