@@ -45,9 +45,26 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `object_sheet_list` / `object_sheet_add` / `object_sheet_update` / `object_sheet_remove` / `object_sheet_clear` / `object_sheet_set_options` / `object_sheet_layout` / `object_sheet_export_pdf` | 3 | Object sheet (flat or standee) |
 | `cards_templates` / `cards_parse` / `cards_validate` / `cards_export_pdf` | 4 | Cards: format reference + templates, parse, validate (pages, overflow), export (job) |
 | `decks_list` / `decks_get` / `decks_save` / `decks_delete` | 4 | Saved decks |
-| `map_open` / `map_set_grid` / `map_set_style` / `map_set_filters` / `map_remove_grid` / `map_dewarp` / `map_set_print` / `map_set_region` / `map_toggle_page` / `map_layout` / `map_preview_page` / `map_export_pdf` / `map_save_asset` | 5 | Map paginator session |
-| `aoe_render` / `aoe_presets_list` / `aoe_presets_save` / `aoe_presets_delete` / `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_export_pdf` / `aoe_export_template_pdf` / `aoe_export_png` | 5 | AoE |
+| `map_get` / `map_open` / `map_open_asset` / `map_update` | 5 | Map paginator document: read, open from a file/blob or library asset, merge a partial doc |
+| `map_set_grid` / `map_set_style` / `map_set_filters` / `map_filter_catalog` / `map_remove_grid` | 5 | Grid sizing (4 modes + offset), overlay style, filter preset/pipeline (catalog of 14 filters, 18 presets), embedded-grid removal |
+| `map_dewarp` / `map_undo_dewarp` | 5 | Perspective de-warp from a reference block, and undo |
+| `map_set_print` / `map_set_region` / `map_toggle_page` / `map_layout` | 5 | Print settings, region and page offset, page include/exclude, tiling + fit check |
+| `map_preview` / `map_preview_page` | 5 | Working preview image; one printed page as an image |
+| `map_export_pdf` / `map_save_asset` | 5 | Tiled PDF export (job); save to the library with full state (job) |
+| `aoe_render` / `aoe_info` | 5 | Render a template (info + image); info only |
+| `aoe_presets_list` / `aoe_presets_save` / `aoe_presets_delete` | 5 | Built-in and user presets (overwrite needs `overwrite: true`) |
+| `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_set_gap` / `aoe_sheet_layout` / `aoe_sheet_export_pdf` | 5 | Multi-template sheet (MaxRects packing, skipped items reported; export is a job) |
+| `aoe_export_template_pdf` / `aoe_export_png` | 5 | One template as a tiled true-scale PDF (job) or PNG |
 | `ui_navigate` / `ui_open_asset` | 6 | In-app server only |
+| `music_tracks_list` / `music_track_add` / `music_track_delete` | 7 | Music library: YouTube links and uploaded audio, tagged and linked to campaigns |
+| `music_state` / `music_channel_add` / `music_channel_update` / `music_channel_remove` / `music_set_all_playing` / `music_stop_all` | 7 | Live mixer channels; `music_stop_all` is the global stop |
+| `music_soundbite_add` / `music_soundbite_remove` / `music_soundbite_play` / `music_set_duck` / `music_set_master` | 7 | Randomly timed soundbites, ducking and master volume |
+| `music_soundscapes_list` / `music_soundscape_save` / `music_play_soundscape` / `music_soundscape_delete` | 7 | Saved mixes |
+| `music_playlists_list` / `music_playlist_save` / `music_playlist_play` / `music_playlist_control` | 7 | Auto-advancing playlists |
+| `music_soundboards_list` / `music_soundboard_press` | 7 | Soundboard buttons (one-shot, restart, toggle) |
+| `music_mix_export` / `music_mix_import` / `music_import_legacy` | 7 | Portable `.dmix` files; import of the legacy music data |
+
+Music plays in the desktop app. When the standalone `sleuth-mcp` server changes music state, the change is stored, and the running app applies it to its audio engine.
 
 ## Resources
 - `sleuth://asset/{id}`: metadata JSON and the thumbnail
