@@ -8,6 +8,7 @@ import type {
   SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenParams, TokenSheet,
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
+  MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -53,8 +54,14 @@ export function blobUrl(hash: string | null | undefined): string {
 
 const call = <T>(cmd: string, args?: Record<string, unknown>) => getBackend().invoke<T>(cmd, args);
 
+/** Binary IPC result → Blob (PNG in the app; the mock returns SVG text). */
+const toBlob = (r: ArrayBuffer | string): Blob =>
+  typeof r === 'string' ? new Blob([r], { type: 'image/svg+xml' }) : new Blob([r], { type: 'image/png' });
+
 export const api = {
   appInfo: () => call<AppInfo>('app_info'),
+  /** Endpoint and bearer token of the in-app MCP HTTP server while it runs. */
+  mcpHttpStatus: () => call<{ url: string; token: string } | null>('mcp_http_status'),
   settingsGet: () => call<Settings>('settings_get'),
   settingsSet: (patch: Partial<Settings>) => call<SettingsUpdate>('settings_set', { patch }),
   settingsReset: () => call<Settings>('settings_reset'),
@@ -166,6 +173,46 @@ export const api = {
   decksDelete: (id: number) => call<void>('decks_delete', { id }),
   deckReadFile: (path: string) => call<string>('deck_read_file', { path }),
   deckWriteFile: (markdown: string, path: string) => call<string>('deck_write_file', { markdown, path }),
+
+  // ── Maps (Map Paginator) ──────────────────────────────────────────────
+  mapGet: () => call<MapDoc | null>('map_get'),
+  mapSet: (doc: MapDoc) => call<MapDoc>('map_set', { doc }),
+  mapOpenFile: (path: string) => call<MapDoc>('map_open_file', { path }),
+  mapOpenSource: (hash: string, name?: string | null) => call<MapDoc>('map_open_source', { hash, name: name ?? null }),
+  mapOpenAsset: (id: number) => call<MapDoc>('map_open_asset', { id }),
+  /** Processed working proxy (grid removal + filters, no grid overlay). */
+  mapPreview: async (doc: MapDoc): Promise<Blob> => toBlob(await call<ArrayBuffer | string>('map_preview', { doc })),
+  mapLayout: (doc: MapDoc) => call<MapLayout>('map_layout', { doc }),
+  mapPreviewPage: async (doc: MapDoc, index: number, pxPerPt: number): Promise<Blob> =>
+    toBlob(await call<ArrayBuffer | string>('map_preview_page', { doc, index, pxPerPt })),
+  mapDewarp: (doc: MapDoc) => call<MapDoc>('map_dewarp', { doc }),
+  mapUndoDewarp: (doc: MapDoc) => call<MapDoc>('map_undo_dewarp', { doc }),
+  mapExportPdf: (doc: MapDoc, path: string) => call<string>('map_export_pdf', { doc, path }),
+  mapSaveAsset: (doc: MapDoc, name: string, update?: number | null) =>
+    call<string>('map_save_asset', { doc, name, update: update ?? null }),
+  mapFilterCatalog: () => call<FilterCatalog>('map_filter_catalog'),
+  mapFilterDefs: async (): Promise<FilterDef[]> => (await call<FilterCatalog>('map_filter_catalog')).defs,
+  mapFilterPresets: async (): Promise<FilterPreset[]> => (await call<FilterCatalog>('map_filter_catalog')).presets,
+
+  // ── AoE templates ─────────────────────────────────────────────────────
+  aoePresetsList: () => call<AoePreset[]>('aoe_presets_list'),
+  aoePresetsSave: (name: string, config: AoeConfig, overwrite: boolean) =>
+    call<AoePreset>('aoe_presets_save', { name, config, overwrite }),
+  aoePresetsDelete: (name: string) => call<void>('aoe_presets_delete', { name }),
+  aoeRender: async (config: AoeConfig): Promise<Blob> => toBlob(await call<ArrayBuffer | string>('aoe_render', { config })),
+  aoeInfo: (config: AoeConfig) => call<AoeInfo>('aoe_info', { config }),
+  aoeExportPng: (config: AoeConfig, path: string) => call<string>('aoe_export_png', { config, path }),
+  aoeExportTemplatePdf: (config: AoeConfig, path: string) => call<string>('aoe_export_template_pdf', { config, path }),
+  aoeSheetGet: () => call<AoeSheet>('aoe_sheet_get'),
+  aoeSheetAdd: (config: AoeConfig) => call<AoeSheet>('aoe_sheet_add', { config }),
+  aoeSheetRemove: (ids: string[]) => call<AoeSheet>('aoe_sheet_remove', { ids }),
+  aoeSheetClear: () => call<AoeSheet>('aoe_sheet_clear'),
+  aoeSheetSetGap: (gapIn: number) => call<AoeSheet>('aoe_sheet_set_gap', { gapIn }),
+  aoeSheetLayout: (inch: number, format: PageFormat) => call<AoeSheetLayout>('aoe_sheet_layout', { inch, format }),
+  aoeSheetPreview: async (inch: number, format: PageFormat, page: number, maxPx: number): Promise<Blob> =>
+    toBlob(await call<ArrayBuffer | string>('aoe_sheet_preview', { inch, format, page, maxPx })),
+  aoeSheetExportPdf: (inch: number, format: PageFormat, path: string) =>
+    call<string>('aoe_sheet_export_pdf', { inch, format, path }),
 };
 
 // ── native dialogs (no-ops returning null outside Tauri) ──

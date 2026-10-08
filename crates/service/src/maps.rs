@@ -237,6 +237,18 @@ fn finite(v: f64) -> f64 {
     if v.is_finite() { v } else { 0.0 }
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FilterPreset {
+    pub name: String,
+    pub pipeline: Vec<FilterStep>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FilterCatalog {
+    pub defs: Vec<filters::FilterDef>,
+    pub presets: Vec<FilterPreset>,
+}
+
 /// Everything the UI and MCP need to show the pagination.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MapLayout {
@@ -517,6 +529,20 @@ impl Service {
                 .map_err(internal)
         })
         .await
+    }
+
+    /// Filter definitions (default order) and the 18 presets as full pipelines.
+    pub fn map_filter_catalog(&self) -> FilterCatalog {
+        FilterCatalog {
+            defs: filters::filter_defs(),
+            presets: filters::PRESETS
+                .iter()
+                .map(|(name, _)| FilterPreset {
+                    name: (*name).to_string(),
+                    pipeline: filters::preset_pipeline(name).unwrap_or_default(),
+                })
+                .collect(),
+        }
     }
 
     pub async fn map_layout(&self, doc: MapDoc) -> Result<MapLayout> {

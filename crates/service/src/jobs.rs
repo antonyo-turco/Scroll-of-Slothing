@@ -88,8 +88,10 @@ impl Service {
         })
     }
 
-    /// Starts `body` on the blocking pool and returns its id immediately.
-    /// Must be called from within a tokio runtime.
+    /// Starts `body` in the background and returns its id immediately.
+    /// Callable from any thread: it uses the tokio blocking pool when a runtime
+    /// is current, else a plain thread. Tauri runs sync commands on the UI
+    /// thread, which has no runtime; a panic there aborts the whole app.
     pub fn spawn_job<F>(&self, kind: &str, body: F) -> JobId
     where
         F: FnOnce(JobCtx) -> Result<Value> + Send + 'static,
@@ -111,7 +113,7 @@ impl Service {
         let ctx = JobCtx { id: id.clone(), cancel, svc: self.clone() };
         let svc = self.clone();
         let job_id = id.clone();
-        tokio::task::spawn_blocking(move || {
+        let run = move || {
             let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| body(ctx)))
                 .unwrap_or_else(|_| Err(ServiceError::Internal("job panicked".into())));
             if let Some(st) = svc.update_job(&job_id, |s| match outcome {
@@ -128,7 +130,11 @@ impl Service {
             }) {
                 svc.emit(Event::Job(st));
             }
-        });
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(rt) => drop(rt.spawn_blocking(run)),
+            Err(_) => drop(std::thread::Builder::new().name(format!("job {kind}")).spawn(run)),
+        }
         id
     }
 
@@ -170,6 +176,22 @@ mod tests {
                 return st;
             }
             tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        panic!("job did not finish");
+    }
+
+    /// Tauri runs sync commands on the UI thread, which has no tokio runtime.
+    #[test]
+    fn job_starts_without_a_runtime() {
+        let (_d, svc) = temp_service();
+        let id = svc.spawn_job("no runtime", |_| Ok(json!("ok")));
+        for _ in 0..1000 {
+            let st = svc.job_status(&id).unwrap();
+            if st.state != JobState::Running {
+                assert_eq!((st.state, st.result), (JobState::Done, Some(json!("ok"))));
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
         }
         panic!("job did not finish");
     }

@@ -1,4 +1,4 @@
-# Music: playlists (spec, not implemented)
+# Music: playlists
 
 ## Data
 - `music_playlists`: `(id, name, campaign_id, created_at)`.

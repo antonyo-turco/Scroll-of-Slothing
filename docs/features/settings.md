@@ -58,7 +58,7 @@ Other controls:
 ## Intentional changes
 - Saving is automatic, and settings apply live everywhere.
 - New keys: `object_page_format`, `card_page_format`, `theme`, `mcp_http_enabled`.
-- `start_tab`, which held a label, became `start_view`, which holds a route id. The legacy importer maps the old labels to routes. Music tabs, which no longer exist, fall back to the default.
+- `start_tab`, which held a label, became `start_view`, which holds a route id. The legacy importer maps the old labels to routes. The five Python music tabs (Library, Mixer, Soundscapes, Playlists, Soundboard) map to the single `music` route. Unknown labels fall back to the default.
 - Legacy values that Python accepted but that break later calculations are reset to their defaults on import. For example, `map_square_in: false` was coerced to 0.0 and then divided by. Coercion itself matches Python exactly; see the golden test `crates/core/tests/parity_settings.rs`.
 
 ## Parity checklist (Python `app_settings.py`, `ui/settings_panel.py`)

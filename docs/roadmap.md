@@ -14,9 +14,9 @@ Phases are **not** promoted individually. `master` receives the rewrite only onc
 | 2 | Token Cutter + Token Sheet | done (pending review) |
 | 3 | Object Cutter + Object Sheet | done (pending review) |
 | 4 | Cards | done (pending review) |
-| 5 | Map Paginator + filters + AoE templates | planned |
+| 5 | Map Paginator + filters + AoE templates | in progress (sprint) |
 | 6 | Perf benchmarks, accessibility, packaging (MSI), in-app MCP HTTP, docs review | planned |
-| — | Music (spec in `features/music/`) | not scheduled; only on the user's request |
+| 7 | Music (requested by the user; spec in `features/music/`) | implemented, alpha testing pending |
 
 ## Out of scope
 The features on the old repo's `feature/dnd-integration` and `dev-dnd-legacy` branches: LAN multiplayer, combat tracker, character sheets, encounters.

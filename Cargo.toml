@@ -36,6 +36,8 @@ clap = { version = "4", features = ["derive"] }
 uuid = { version = "1", features = ["v4"] }
 time = { version = "0.3", features = ["formatting", "macros"] }
 rayon = "1"
+fastrand = "2"
+base64 = "0.22"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 schemars = "1"
@@ -52,6 +54,14 @@ unsafe_code = "forbid"
 all = { level = "warn", priority = -1 }
 
 [profile.dev.package."*"]
+opt-level = 2
+
+# Our pixel and PDF crates do per-pixel work on images up to 8000 px; unoptimized
+# they make `tauri dev` and the tests crawl. Keep them optimized in dev too.
+[profile.dev.package.sleuth-core]
+opt-level = 2
+
+[profile.dev.package.sleuth-pdf]
 opt-level = 2
 
 [profile.release]

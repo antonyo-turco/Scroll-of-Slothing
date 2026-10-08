@@ -4,6 +4,8 @@
 //! Errors from the service are returned as *tool errors* (`isError: true` with a
 //! `code: message` text) so the model can read and react to them.
 
+pub mod http;
+
 use std::path::PathBuf;
 
 use base64::Engine;
@@ -26,7 +28,7 @@ type ToolResult = Result<CallToolResult, ErrorData>;
 
 const INSTRUCTIONS: &str = "Kastanomata's Scroll of Sleuthing: a tabletop (D&D) prep toolkit. \
 Manage an asset library of tokens, cut-outs and maps (search, tag, organise into campaigns and \
-sessions, import/export images). Use library_search to find asset ids, then act on them. \
+sessions, import/export images), print maps and AoE templates, and run live session music (mixer, soundscapes, playlists, soundboards). Use library_search to find asset ids, then act on them. \
 Long operations return a job_id: poll jobs_status. File paths are absolute paths on this machine.";
 
 fn ok<T: Serialize>(v: &T) -> ToolResult {
@@ -860,6 +862,547 @@ impl SleuthServer {
     async fn decks_delete(&self, Parameters(p): Parameters<IdParams>) -> ToolResult {
         done(self.svc.decks_delete(p.id).await)
     }
+
+    // ── maps (Map Paginator) ── tools act on the autosaved map doc ──
+
+    #[tool(
+        description = "Get the current Map Paginator document (grid, filters, print settings, region, excluded pages), or null if no map is open."
+    )]
+    async fn map_get(&self) -> ToolResult {
+        done(self.svc.map_get().await)
+    }
+
+    #[tool(
+        description = "Open a map for pagination from an image file path or a stored blob hash. Starts a fresh document with print defaults from Settings and the image's DPI."
+    )]
+    async fn map_open(&self, Parameters(p): Parameters<MapOpenParams>) -> ToolResult {
+        let r = match (p.path, p.hash) {
+            (Some(path), _) => self.svc.map_open_file(PathBuf::from(path)).await,
+            (None, Some(hash)) => self.svc.map_open_source(hash, p.name).await,
+            _ => Err(ServiceError::InvalidInput("give path or hash".into())),
+        };
+        done(r)
+    }
+
+    #[tool(description = "Open a library map asset in the paginator, restoring its saved state.")]
+    async fn map_open_asset(&self, Parameters(p): Parameters<IdParams>) -> ToolResult {
+        done(self.svc.map_open_asset(p.id).await)
+    }
+
+    #[tool(
+        description = "Merge a partial MapDoc JSON object (any top-level fields, see map_get) into the current map document."
+    )]
+    async fn map_update(&self, Parameters(p): Parameters<MapPatchParams>) -> ToolResult {
+        done(self.map_patch(p.patch).await)
+    }
+
+    #[tool(
+        description = "Set the grid sizing: mode rows_cols|reference|ppi|cell_side and its inputs (rows, cols, square_cells, ref_n, ref_quad as 4 [x,y] corners in image px, ppi, side), plus manual offset_x/offset_y."
+    )]
+    async fn map_set_grid(&self, Parameters(p): Parameters<MapGridParams>) -> ToolResult {
+        done(self.map_patch(to_obj(&p)).await)
+    }
+
+    #[tool(
+        description = "Set the grid overlay look: color [r,g,b], thickness 1-10, opacity 0-255, visible, style solid|dashed|dotted|broken."
+    )]
+    async fn map_set_style(&self, Parameters(p): Parameters<MapStyleParams>) -> ToolResult {
+        done(self.map_patch(to_obj(&p)).await)
+    }
+
+    #[tool(
+        description = "Set the map filters: a preset name (see map_filter_catalog) or a full pipeline [{type, enabled, params}]."
+    )]
+    async fn map_set_filters(&self, Parameters(p): Parameters<MapFiltersParams>) -> ToolResult {
+        let pipeline = match (p.preset, p.pipeline) {
+            (Some(name), _) => match sleuth_core::maps::filters::preset_pipeline(&name) {
+                Some(pl) => pl,
+                None => {
+                    return fail(&ServiceError::InvalidInput(format!("unknown preset {name:?}")));
+                }
+            },
+            (None, Some(pl)) => match serde_json::from_value::<
+                Vec<sleuth_core::maps::filters::FilterStep>,
+            >(Value::Array(pl))
+            {
+                Ok(pl) => pl,
+                Err(e) => return fail(&ServiceError::InvalidInput(e.to_string())),
+            },
+            _ => return fail(&ServiceError::InvalidInput("give preset or pipeline".into())),
+        };
+        let mut m = Map::new();
+        m.insert("filters".into(), serde_json::to_value(pipeline).unwrap_or_default());
+        done(self.map_patch(m).await)
+    }
+
+    #[tool(description = "List filter definitions (params, ranges) and the 18 presets.")]
+    async fn map_filter_catalog(&self) -> ToolResult {
+        ok(&self.svc.map_filter_catalog())
+    }
+
+    #[tool(description = "Turn embedded-grid removal (FFT notch) on or off.")]
+    async fn map_remove_grid(&self, Parameters(p): Parameters<OnParams>) -> ToolResult {
+        let mut m = Map::new();
+        m.insert("remove_grid".into(), p.on.into());
+        done(self.map_patch(m).await)
+    }
+
+    #[tool(
+        description = "De-warp (perspective-rectify) the whole map from a reference block: quad = its 4 corners [x,y] in image px (any order), n = blocks per side. Uses the doc's ref_quad/ref_n when omitted."
+    )]
+    async fn map_dewarp(&self, Parameters(p): Parameters<MapDewarpParams>) -> ToolResult {
+        let r = async {
+            let mut doc = self.current_map().await?;
+            if let Some(q) = p.quad {
+                doc.ref_quad = Some(q);
+            }
+            if let Some(n) = p.n {
+                doc.ref_n = n;
+            }
+            self.svc.map_dewarp(doc).await
+        };
+        done(r.await)
+    }
+
+    #[tool(description = "Undo the last de-warp.")]
+    async fn map_undo_dewarp(&self) -> ToolResult {
+        let r = async { self.svc.map_undo_dewarp(self.current_map().await?).await };
+        done(r.await)
+    }
+
+    #[tool(
+        description = "Set print options: format Letter|A4, square_in (printed inches per square), calibration_mm (measured mm of a printed inch), margin_in, overlap_in, align_to_grid, cut_border."
+    )]
+    async fn map_set_print(&self, Parameters(p): Parameters<MapPrintParams>) -> ToolResult {
+        done(self.map_patch(to_obj(&p)).await)
+    }
+
+    #[tool(
+        description = "Set the print region [x, y, w, h] in image px (null = whole map) and optionally the page grid offset [dx, dy] px."
+    )]
+    async fn map_set_region(&self, Parameters(p): Parameters<MapRegionParams>) -> ToolResult {
+        let mut m = Map::new();
+        m.insert("region".into(), serde_json::to_value(p.region).unwrap_or_default());
+        if let Some(o) = p.page_offset {
+            m.insert("page_offset".into(), serde_json::to_value(o).unwrap_or_default());
+        }
+        done(self.map_patch(m).await)
+    }
+
+    #[tool(
+        description = "Include/exclude one page (col, row) from export; toggles unless `include` is given."
+    )]
+    async fn map_toggle_page(&self, Parameters(p): Parameters<MapPageParams>) -> ToolResult {
+        let r = async {
+            let mut doc = self.current_map().await?;
+            let key = (p.col, p.row);
+            let excluded = doc.excluded.contains(&key);
+            let include = p.include.unwrap_or(excluded);
+            doc.excluded.retain(|k| *k != key);
+            if !include {
+                doc.excluded.push(key);
+            }
+            self.svc.map_set(doc).await
+        };
+        done(r.await)
+    }
+
+    #[tool(
+        description = "Compute the page tiling of the current map: grid, tiles (col,row,crop,page rects), selection summary and fit check."
+    )]
+    async fn map_layout(&self) -> ToolResult {
+        let r = async { self.svc.map_layout(self.current_map().await?).await };
+        done(r.await)
+    }
+
+    #[tool(
+        description = "See the working preview of the map (filters and grid removal applied, without the grid overlay)."
+    )]
+    async fn map_preview(&self) -> ToolResult {
+        let r = async { self.svc.map_preview(self.current_map().await?).await };
+        png_result(r.await)
+    }
+
+    #[tool(description = "See one printed page (0-based index into map_layout tiles) as an image.")]
+    async fn map_preview_page(&self, Parameters(p): Parameters<IndexParams>) -> ToolResult {
+        let r = async { self.svc.map_preview_page(self.current_map().await?, p.index, 1.0).await };
+        png_result(r.await)
+    }
+
+    #[tool(
+        description = "Export the map as a true-scale tiled PDF (included pages only). Returns a job_id."
+    )]
+    async fn map_export_pdf(&self, Parameters(p): Parameters<PathParams>) -> ToolResult {
+        match self.current_map().await {
+            Ok(doc) => ok(&serde_json::json!({
+                "job_id": self.svc.map_export_pdf(doc, PathBuf::from(p.path))
+            })),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(
+        description = "Save the map to the library (original, gridded composite, PDF, full state). asset_id updates that asset instead of creating one. Returns a job_id."
+    )]
+    async fn map_save_asset(&self, Parameters(p): Parameters<MapSaveParams>) -> ToolResult {
+        match self.current_map().await {
+            Ok(doc) => ok(&serde_json::json!({
+                "job_id": self.svc.map_save_asset(doc, p.name, p.asset_id)
+            })),
+            Err(e) => fail(&e),
+        }
+    }
+
+    // ── AoE templates ──
+
+    #[tool(
+        description = "Render an area-of-effect template. config: {shape circle|cone|line|square, a_ft, b_ft (line width), feet_per_square, inch (printed inches per square), page_format, fill_rgb, fill_alpha, line_rgb, line_width, grid_on, grid_rgb, grid_alpha, label_on, label}. Returns info (footprint, inches, pages) and the image."
+    )]
+    async fn aoe_render(&self, Parameters(p): Parameters<AoeParams>) -> ToolResult {
+        let info = match self.svc.aoe_info(p.config.clone()).await {
+            Ok(i) => i,
+            Err(e) => return fail(&e),
+        };
+        match self.svc.aoe_render(p.config).await {
+            Ok(png) => Ok(CallToolResult::success(vec![
+                ContentBlock::json(&info)?,
+                ContentBlock::image(
+                    base64::engine::general_purpose::STANDARD.encode(png),
+                    "image/png",
+                ),
+            ])),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(
+        description = "Footprint, size on paper and page count of an AoE template config (no image)."
+    )]
+    async fn aoe_info(&self, Parameters(p): Parameters<AoeParams>) -> ToolResult {
+        done(self.svc.aoe_info(p.config).await)
+    }
+
+    #[tool(description = "List AoE presets: 11 built-ins, then user presets.")]
+    async fn aoe_presets_list(&self) -> ToolResult {
+        done(self.svc.aoe_presets_list().await)
+    }
+
+    #[tool(
+        description = "Save a user AoE preset; an existing name is replaced only with overwrite=true."
+    )]
+    async fn aoe_presets_save(&self, Parameters(p): Parameters<AoePresetSaveParams>) -> ToolResult {
+        done(self.svc.aoe_presets_save(p.name, p.config, p.overwrite.unwrap_or(false)).await)
+    }
+
+    #[tool(description = "Delete a user AoE preset by name.")]
+    async fn aoe_presets_delete(&self, Parameters(p): Parameters<NameParams>) -> ToolResult {
+        done(self.svc.aoe_presets_delete(p.name).await)
+    }
+
+    #[tool(description = "Add a template config to the AoE sheet.")]
+    async fn aoe_sheet_add(&self, Parameters(p): Parameters<AoeParams>) -> ToolResult {
+        done(self.svc.aoe_sheet_add(p.config).await)
+    }
+
+    #[tool(description = "Get the AoE sheet (items with ids and configs, gap).")]
+    async fn aoe_sheet_list(&self) -> ToolResult {
+        done(self.svc.aoe_sheet_get().await)
+    }
+
+    #[tool(description = "Remove items from the AoE sheet by id.")]
+    async fn aoe_sheet_remove(&self, Parameters(p): Parameters<StrIdsParams>) -> ToolResult {
+        done(self.svc.aoe_sheet_remove(p.ids).await)
+    }
+
+    #[tool(description = "Remove all items from the AoE sheet.")]
+    async fn aoe_sheet_clear(&self) -> ToolResult {
+        done(self.svc.aoe_sheet_clear().await)
+    }
+
+    #[tool(description = "Set the gap between packed templates, inches.")]
+    async fn aoe_sheet_set_gap(&self, Parameters(p): Parameters<GapParams>) -> ToolResult {
+        done(self.svc.aoe_sheet_set_gap(p.gap_in).await)
+    }
+
+    #[tool(
+        description = "Pack the AoE sheet at `inch` per square on `format` pages: placements, pages and skipped (too big) items."
+    )]
+    async fn aoe_sheet_layout(&self, Parameters(p): Parameters<AoeSheetParams>) -> ToolResult {
+        match parse_format(&p.format) {
+            Ok(f) => done(self.svc.aoe_sheet_layout(p.inch, f).await),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(
+        description = "Export the AoE sheet PDF. Returns a job_id; the job result lists skipped items."
+    )]
+    async fn aoe_sheet_export_pdf(
+        &self,
+        Parameters(p): Parameters<AoeSheetExportParams>,
+    ) -> ToolResult {
+        match parse_format(&p.format) {
+            Ok(f) => ok(&serde_json::json!({
+                "job_id": self.svc.aoe_sheet_export_pdf(p.inch, f, PathBuf::from(p.path))
+            })),
+            Err(e) => fail(&e),
+        }
+    }
+
+    #[tool(
+        description = "Export one AoE template tiled at true scale across pages (PDF). Returns a job_id."
+    )]
+    async fn aoe_export_template_pdf(
+        &self,
+        Parameters(p): Parameters<AoeExportParams>,
+    ) -> ToolResult {
+        ok(&serde_json::json!({
+            "job_id": self.svc.aoe_export_template_pdf(p.config, PathBuf::from(p.path))
+        }))
+    }
+
+    #[tool(description = "Save one AoE template as a PNG file.")]
+    async fn aoe_export_png(&self, Parameters(p): Parameters<AoeExportParams>) -> ToolResult {
+        done(self.svc.aoe_export_png(p.config, PathBuf::from(p.path)).await)
+    }
+
+    // ── UI remote control (in-app server only) ──
+
+    #[tool(
+        description = "Show a view in the desktop app. route: library, tokens.cutter, tokens.sheet, cutouts.cutter, cutouts.sheet, cards, maps.paginator, maps.aoe, campaigns, music, settings. Works only through the in-app MCP server."
+    )]
+    async fn ui_navigate(&self, Parameters(p): Parameters<RouteParams>) -> ToolResult {
+        done(self.svc.ui_navigate(p.route).await)
+    }
+
+    #[tool(
+        description = "Open a library asset in its editor in the desktop app (tokens and cut-outs in their cutter with saved framing, maps in the paginator). Works only through the in-app MCP server."
+    )]
+    async fn ui_open_asset(&self, Parameters(p): Parameters<IdParams>) -> ToolResult {
+        done(self.svc.ui_open_asset(p.id).await)
+    }
+
+    // ── music ──
+    // Audio plays in the desktop app's engine. From the standalone server the
+    // state changes are stored and the running app applies them.
+
+    #[tool(
+        description = "List music tracks. Optional query: {campaign_id, session_id, tags (all must match), text (title/notes)}."
+    )]
+    async fn music_tracks_list(&self, Parameters(p): Parameters<MusicQueryParams>) -> ToolResult {
+        done(self.svc.music_tracks_list(p.query.unwrap_or_default()).await)
+    }
+
+    #[tool(
+        description = "Add a music track. input: {source youtube|upload, url (youtube), file_path (absolute, upload), title, notes, loop_by_default, campaign_ids (at least one), session_ids, tags}."
+    )]
+    async fn music_track_add(&self, Parameters(p): Parameters<MusicTrackParams>) -> ToolResult {
+        done(self.svc.music_track_create(p.input).await)
+    }
+
+    #[tool(
+        description = "Delete a music track by id (also removes it from mixes, playlists and boards)."
+    )]
+    async fn music_track_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.music_track_delete(p.id).await)
+    }
+
+    #[tool(
+        description = "Live mixer state: channels (track, role, volume, looping, playing), soundbites, duck mode, master volume, loaded soundscape, playlist position."
+    )]
+    async fn music_state(&self) -> ToolResult {
+        done(self.svc.music_state().await)
+    }
+
+    #[tool(
+        description = "Add a track to the live mix as a channel. role music|ambient|sfx (default music), volume 0-100, looping, play (default true)."
+    )]
+    async fn music_channel_add(
+        &self,
+        Parameters(p): Parameters<MusicChannelAddParams>,
+    ) -> ToolResult {
+        done(
+            self.svc
+                .music_channel_add(p.track_id, p.role, p.volume, p.looping, p.play.unwrap_or(true))
+                .await,
+        )
+    }
+
+    #[tool(
+        description = "Change a live channel. patch: {volume 0-100, is_looping, is_playing, role}."
+    )]
+    async fn music_channel_update(
+        &self,
+        Parameters(p): Parameters<MusicChannelPatchParams>,
+    ) -> ToolResult {
+        done(self.svc.music_channel_update(p.id, p.patch).await)
+    }
+
+    #[tool(description = "Remove a channel from the live mix.")]
+    async fn music_channel_remove(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.music_channel_remove(p.id).await)
+    }
+
+    #[tool(
+        description = "Play (on=true) or pause (on=false) every channel; pausing also stops the soundbite timers."
+    )]
+    async fn music_set_all_playing(&self, Parameters(p): Parameters<OnParams>) -> ToolResult {
+        done(self.svc.music_set_all_playing(p.on).await)
+    }
+
+    #[tool(
+        description = "Global stop: stops all audio, clears the live mix and unloads the soundscape."
+    )]
+    async fn music_stop_all(&self) -> ToolResult {
+        done(self.svc.music_stop_all().await)
+    }
+
+    #[tool(
+        description = "Add a soundbite: a track played at random intervals (min/max seconds, defaults 30/90) at volume 0-100 (default 80), ducking the music."
+    )]
+    async fn music_soundbite_add(
+        &self,
+        Parameters(p): Parameters<MusicSoundbiteParams>,
+    ) -> ToolResult {
+        done(
+            self.svc
+                .music_soundbite_add(
+                    p.track_id,
+                    p.min_interval.unwrap_or(30.0),
+                    p.max_interval.unwrap_or(90.0),
+                    p.volume.unwrap_or(80),
+                )
+                .await,
+        )
+    }
+
+    #[tool(description = "Remove a soundbite from the live mix.")]
+    async fn music_soundbite_remove(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.music_soundbite_remove(p.id).await)
+    }
+
+    #[tool(description = "Play a soundbite now (through the SFX queue, ducking the music).")]
+    async fn music_soundbite_play(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.music_soundbite_play(p.id).await)
+    }
+
+    #[tool(
+        description = "Set ducking while soundbites and SFX play: off | soft (50%) | strong (25%)."
+    )]
+    async fn music_set_duck(&self, Parameters(p): Parameters<MusicDuckParams>) -> ToolResult {
+        done(self.svc.music_set_duck(p.mode).await)
+    }
+
+    #[tool(description = "Set the master volume (0-100).")]
+    async fn music_set_master(&self, Parameters(p): Parameters<MusicVolumeParams>) -> ToolResult {
+        done(self.svc.music_set_master(p.volume).await)
+    }
+
+    #[tool(description = "List saved soundscapes (mixes), optionally for one campaign.")]
+    async fn music_soundscapes_list(
+        &self,
+        Parameters(p): Parameters<MusicCampaignParams>,
+    ) -> ToolResult {
+        done(self.svc.music_soundscapes_list(p.campaign_id).await)
+    }
+
+    #[tool(
+        description = "Save the current live mix as a soundscape. input: {name, campaign_id, notes, tags}."
+    )]
+    async fn music_soundscape_save(
+        &self,
+        Parameters(p): Parameters<MusicSoundscapeParams>,
+    ) -> ToolResult {
+        done(self.svc.music_soundscape_save(p.input).await)
+    }
+
+    #[tool(
+        description = "Load a soundscape into the live mix and play it (replaces the current mix)."
+    )]
+    async fn music_play_soundscape(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.music_soundscape_load(p.id).await)
+    }
+
+    #[tool(description = "Delete a soundscape.")]
+    async fn music_soundscape_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.music_soundscape_delete(p.id).await)
+    }
+
+    #[tool(description = "List playlists, optionally for one campaign.")]
+    async fn music_playlists_list(
+        &self,
+        Parameters(p): Parameters<MusicCampaignParams>,
+    ) -> ToolResult {
+        done(self.svc.music_playlists_list(p.campaign_id).await)
+    }
+
+    #[tool(
+        description = "Create (no id) or replace (with id) a playlist. input: {id, name, campaign_id, track_ids (in order)}."
+    )]
+    async fn music_playlist_save(
+        &self,
+        Parameters(p): Parameters<MusicPlaylistParams>,
+    ) -> ToolResult {
+        done(self.svc.music_playlist_save(p.input).await)
+    }
+
+    #[tool(description = "Play a playlist from track index (default 0); it auto-advances.")]
+    async fn music_playlist_play(
+        &self,
+        Parameters(p): Parameters<MusicPlaylistPlayParams>,
+    ) -> ToolResult {
+        done(self.svc.music_playlist_play(p.id, p.index).await)
+    }
+
+    #[tool(
+        description = "Control the playing playlist. action: next | prev | pause | resume | stop."
+    )]
+    async fn music_playlist_control(
+        &self,
+        Parameters(p): Parameters<MusicActionParams>,
+    ) -> ToolResult {
+        done(self.svc.music_playlist_control(p.action).await)
+    }
+
+    #[tool(description = "List soundboards with their buttons, optionally for one campaign.")]
+    async fn music_soundboards_list(
+        &self,
+        Parameters(p): Parameters<MusicCampaignParams>,
+    ) -> ToolResult {
+        done(self.svc.music_soundboards_list(p.campaign_id).await)
+    }
+
+    #[tool(
+        description = "Press a soundboard button by button id (one-shot, restart or toggle, per its mode)."
+    )]
+    async fn music_soundboard_press(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.music_soundboard_press(p.id).await)
+    }
+
+    #[tool(
+        description = "Write the live mix (or soundscape_id) to a portable .dmix file at an absolute path (uploads embedded)."
+    )]
+    async fn music_mix_export(
+        &self,
+        Parameters(p): Parameters<MusicMixExportParams>,
+    ) -> ToolResult {
+        done(self.svc.music_mix_export(PathBuf::from(p.path), p.soundscape_id).await)
+    }
+
+    #[tool(
+        description = "Import a .dmix file: creates or reuses tracks, saves a soundscape named after the file and loads it (plays unless play=false)."
+    )]
+    async fn music_mix_import(
+        &self,
+        Parameters(p): Parameters<MusicMixImportParams>,
+    ) -> ToolResult {
+        done(self.svc.music_mix_import(PathBuf::from(p.path), p.play.unwrap_or(true)).await)
+    }
+
+    #[tool(description = "Import the music data saved by the legacy importer (legacy/music.json).")]
+    async fn music_import_legacy(&self) -> ToolResult {
+        done(self.svc.music_import_legacy().await)
+    }
 }
 
 impl SleuthServer {
@@ -1062,4 +1605,300 @@ impl ServerHandler for SleuthServer {
             .with_server_info(Implementation::new("sleuth", env!("CARGO_PKG_VERSION")))
             .with_instructions(INSTRUCTIONS)
     }
+}
+
+// ── maps / AoE helpers and params ───────────────────────────────────────────
+
+impl SleuthServer {
+    async fn current_map(&self) -> Result<sleuth_service::MapDoc, ServiceError> {
+        self.svc
+            .map_get()
+            .await?
+            .ok_or_else(|| ServiceError::InvalidInput("open a map first (map_open)".into()))
+    }
+
+    /// Shallow-merges `patch` into the current doc and saves it.
+    async fn map_patch(
+        &self,
+        patch: Map<String, Value>,
+    ) -> Result<sleuth_service::MapDoc, ServiceError> {
+        let doc = self.current_map().await?;
+        let mut v =
+            serde_json::to_value(&doc).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        if let Some(obj) = v.as_object_mut() {
+            for (k, val) in patch {
+                if !obj.contains_key(&k) {
+                    return Err(ServiceError::InvalidInput(format!("unknown map field {k:?}")));
+                }
+                obj.insert(k, val);
+            }
+        }
+        let doc: sleuth_service::MapDoc =
+            serde_json::from_value(v).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+        self.svc.map_set(doc).await
+    }
+}
+
+/// Serializes a params struct, dropping `None` fields.
+fn to_obj<T: Serialize>(p: &T) -> Map<String, Value> {
+    match serde_json::to_value(p) {
+        Ok(Value::Object(m)) => m.into_iter().filter(|(_, v)| !v.is_null()).collect(),
+        _ => Map::new(),
+    }
+}
+
+fn png_result(r: Result<Vec<u8>, ServiceError>) -> ToolResult {
+    match r {
+        Ok(png) => Ok(CallToolResult::success(vec![ContentBlock::image(
+            base64::engine::general_purpose::STANDARD.encode(png),
+            "image/png",
+        )])),
+        Err(e) => fail(&e),
+    }
+}
+
+fn parse_format(f: &str) -> Result<PageFormat, ServiceError> {
+    PageFormat::parse(f)
+        .ok_or_else(|| ServiceError::InvalidInput("format must be Letter or A4".into()))
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MapOpenParams {
+    /// Absolute path to the map image.
+    pub path: Option<String>,
+    /// Or a stored blob hash.
+    pub hash: Option<String>,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MapPatchParams {
+    /// Partial MapDoc: top-level fields to replace.
+    pub patch: Map<String, Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct MapGridParams {
+    /// rows_cols | reference | ppi | cell_side
+    pub mode: Option<String>,
+    pub rows: Option<i64>,
+    pub cols: Option<i64>,
+    pub square_cells: Option<bool>,
+    pub ref_n: Option<i64>,
+    /// 4 corners [[x,y],...] in image px.
+    pub ref_quad: Option<[(f64, f64); 4]>,
+    pub ppi: Option<f64>,
+    pub side: Option<f64>,
+    pub offset_x: Option<f64>,
+    pub offset_y: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct MapStyleParams {
+    pub color: Option<[u8; 3]>,
+    pub thickness: Option<u32>,
+    pub opacity: Option<u8>,
+    pub visible: Option<bool>,
+    /// solid | dashed | dotted | broken
+    pub style: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MapFiltersParams {
+    pub preset: Option<String>,
+    /// [{type, enabled, params}]
+    pub pipeline: Option<Vec<Value>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct OnParams {
+    pub on: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MapDewarpParams {
+    pub quad: Option<[(f64, f64); 4]>,
+    pub n: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct MapPrintParams {
+    /// Letter | A4
+    pub format: Option<String>,
+    pub square_in: Option<f64>,
+    pub calibration_mm: Option<f64>,
+    pub margin_in: Option<f64>,
+    pub overlap_in: Option<f64>,
+    pub align_to_grid: Option<bool>,
+    pub cut_border: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MapRegionParams {
+    /// [x, y, w, h] image px, or null for the whole map.
+    pub region: Option<(f64, f64, f64, f64)>,
+    pub page_offset: Option<(f64, f64)>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MapPageParams {
+    pub col: u32,
+    pub row: u32,
+    pub include: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct IndexParams {
+    pub index: usize,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MapSaveParams {
+    pub name: String,
+    pub asset_id: Option<i64>,
+}
+
+/// An AoE template config; missing fields take the defaults (20 ft circle).
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AoeParams {
+    #[schemars(with = "Value")]
+    pub config: sleuth_core::aoe::AoeConfig,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AoePresetSaveParams {
+    pub name: String,
+    #[schemars(with = "Value")]
+    pub config: sleuth_core::aoe::AoeConfig,
+    pub overwrite: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct StrIdsParams {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GapParams {
+    pub gap_in: f64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AoeSheetParams {
+    pub inch: f64,
+    /// Letter | A4
+    pub format: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AoeSheetExportParams {
+    pub inch: f64,
+    /// Letter | A4
+    pub format: String,
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AoeExportParams {
+    #[schemars(with = "Value")]
+    pub config: sleuth_core::aoe::AoeConfig,
+    pub path: String,
+}
+
+// ── music params ──
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicQueryParams {
+    /// {campaign_id, session_id, tags, text}
+    #[schemars(with = "Option<Value>")]
+    pub query: Option<sleuth_service::MusicTrackQuery>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicTrackParams {
+    #[schemars(with = "Value")]
+    pub input: sleuth_service::TrackInput,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicChannelAddParams {
+    pub track_id: String,
+    pub role: Option<String>,
+    pub volume: Option<i64>,
+    pub looping: Option<bool>,
+    pub play: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicChannelPatchParams {
+    pub id: String,
+    #[schemars(with = "Value")]
+    pub patch: sleuth_service::MusicChannelPatch,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicSoundbiteParams {
+    pub track_id: String,
+    pub min_interval: Option<f64>,
+    pub max_interval: Option<f64>,
+    pub volume: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicDuckParams {
+    /// off | soft | strong
+    #[schemars(with = "String")]
+    pub mode: sleuth_service::DuckMode,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicVolumeParams {
+    pub volume: i64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicCampaignParams {
+    pub campaign_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicSoundscapeParams {
+    #[schemars(with = "Value")]
+    pub input: sleuth_service::SoundscapeInput,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicPlaylistParams {
+    #[schemars(with = "Value")]
+    pub input: sleuth_service::PlaylistInput,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicPlaylistPlayParams {
+    pub id: String,
+    pub index: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicActionParams {
+    pub action: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicMixExportParams {
+    /// Absolute output path (.dmix).
+    pub path: String,
+    pub soundscape_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicMixImportParams {
+    /// Absolute path of a .dmix file.
+    pub path: String,
+    pub play: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct RouteParams {
+    pub route: String,
 }

@@ -2,6 +2,7 @@
   import { onMount, type Component } from 'svelte';
   import CommandPalette from './lib/components/CommandPalette.svelte';
   import JobsTray from './lib/components/JobsTray.svelte';
+  import MusicEngine from './lib/components/MusicEngine.svelte';
   import Rail from './lib/components/Rail.svelte';
   import Toasts from './lib/components/Toasts.svelte';
   import TopBar from './lib/components/TopBar.svelte';
@@ -56,6 +57,7 @@
 <CommandPalette />
 <JobsTray />
 <Toasts />
+{#if app.ready}<MusicEngine />{/if}
 
 <style>
   .shell {

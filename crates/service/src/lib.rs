@@ -2,8 +2,10 @@
 //! on [`Service`]; the Tauri commands, MCP tools and CLI are thin wrappers.
 //! CPU / IO work runs on the blocking pool so async callers never stall.
 
+mod aoe;
 mod blobs;
 mod cards;
+mod clipboard;
 mod cutouts;
 mod error;
 mod events;
@@ -12,11 +14,13 @@ mod jobs;
 mod legacy;
 mod library;
 mod maps;
+mod music;
 mod object_sheet;
 mod organize;
 mod settings;
 mod token_sheet;
 mod tokens;
+mod ui;
 mod workspaces;
 
 use std::path::Path;
@@ -25,6 +29,7 @@ use std::sync::Arc;
 use sleuth_store::Store;
 use tokio::sync::broadcast;
 
+pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
 pub use cards::{CardOptions, CardSummary};
 pub use cutouts::CutoutDraft;
 pub use error::{ErrorCode, ServiceError};
@@ -32,7 +37,12 @@ pub use events::Event;
 pub use jobs::{JobCtx, JobId, JobState, JobStatus};
 pub use legacy::{LegacyFailure, LegacyImportOptions, LegacyImportReport};
 pub use library::{ASSET_KINDS, BulkAction, ExportWhat, ImportFailure, ImportFile, ImportReport};
-pub use maps::{MapDoc, MapLayout, SizingMode, WORK_MAX};
+pub use maps::{FilterCatalog, FilterPreset, MapDoc, MapLayout, SizingMode, WORK_MAX};
+pub use music::{
+    ChannelPatch as MusicChannelPatch, DuckMode, EngineEvent as MusicEngineEvent, MixImportResult,
+    MixerState, MusicImportReport, PlaylistInput, SoundbitePatch, SoundboardInput, SoundscapeInput,
+    TrackInput, TrackMeta, media_mime,
+};
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use settings::SettingsUpdate;
 pub use sleuth_store::{
@@ -40,8 +50,13 @@ pub use sleuth_store::{
     Session, TagCount,
 };
 pub use sleuth_store::{Deck, DeckSummary};
+pub use sleuth_store::{
+    MusicChannel, MusicPlaylist, MusicSoundbite, MusicSoundboard, MusicSoundboardButton,
+    MusicSoundscape, MusicTrack, MusicTrackQuery,
+};
 pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
 pub use tokens::{Border, SourceImage, TokenDraft};
+pub use ui::editor_route;
 
 pub type Result<T> = std::result::Result<T, ServiceError>;
 
@@ -73,6 +88,8 @@ struct Inner {
     jobs: jobs::Jobs,
     images: imgcache::ImageCache,
     maps: maps::MapCache,
+    music: music::MusicRuntime,
+    ui_attached: std::sync::atomic::AtomicBool,
 }
 
 impl Service {
@@ -87,6 +104,8 @@ impl Service {
                 jobs: jobs::Jobs::default(),
                 images: imgcache::ImageCache::default(),
                 maps: maps::MapCache::default(),
+                music: music::MusicRuntime::default(),
+                ui_attached: std::sync::atomic::AtomicBool::new(false),
             }),
         })
     }
@@ -114,8 +133,10 @@ impl Service {
     /// standalone MCP server) sharing the data dir. Must run inside a tokio runtime.
     pub fn spawn_change_watcher(&self, every: std::time::Duration) -> tokio::task::JoinHandle<()> {
         let svc = self.clone();
+        // Read the baseline before returning, so a change written right after
+        // this call is reported instead of being taken as already seen.
+        let mut last = self.store().latest_change_seq().unwrap_or(0);
         tokio::spawn(async move {
-            let mut last = svc.blocking(|s| Ok(s.latest_change_seq()?)).await.unwrap_or(0);
             let mut tick = tokio::time::interval(every);
             loop {
                 tick.tick().await;
@@ -166,7 +187,6 @@ mod tests {
         let (dir, svc) = temp_service();
         let mut rx = svc.subscribe();
         let handle = svc.spawn_change_watcher(Duration::from_millis(10));
-        tokio::time::sleep(Duration::from_millis(30)).await;
 
         // A second, independent store on the same data dir (like sleuth-mcp).
         let other = Store::open(dir.path()).unwrap();

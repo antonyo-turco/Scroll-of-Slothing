@@ -10,4 +10,8 @@ pub enum Event {
     Job(JobStatus),
     /// Persistent data changed (from this process or another one).
     StoreChanged { entity: String, entity_id: String, op: String },
+    /// A command for the webview audio engine (see app/src/lib/music.ts).
+    MusicEngine { command: serde_json::Value },
+    /// Show a view in the app, optionally opening an asset in it (in-app MCP `ui_*` tools).
+    UiNavigate { route: String, asset_id: Option<i64> },
 }

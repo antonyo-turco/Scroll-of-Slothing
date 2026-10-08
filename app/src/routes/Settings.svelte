@@ -13,6 +13,14 @@
 
   onMount(() => void api.appInfo().then((i) => (dataDir = i.data_dir)));
 
+  let mcp = $state<{ url: string; token: string } | null>(null);
+  $effect(() => {
+    // re-query whenever the toggle changes (the server starts/stops asynchronously)
+    if (!app.settings.mcp_http_enabled) return void (mcp = null);
+    const t = setTimeout(() => void api.mcpHttpStatus().then((u) => (mcp = u)).catch(() => {}), 400);
+    return () => clearTimeout(t);
+  });
+
   async function importLegacy() {
     if (!isTauri()) return app.toast('info', 'Legacy import is only available in the desktop app.');
     const db = await pickFile('Select Orb of Many Functions db/creatures.db', ['db'], 'SQLite database');
@@ -200,6 +208,14 @@
     <details class="card advanced">
       <summary><h2>Advanced</h2></summary>
       {@render toggle('mcp_http_enabled', 'Enable in-app MCP server (HTTP, localhost only)')}
+      {#if app.settings.mcp_http_enabled}
+        <p class="muted hint" data-testid="mcp-url">
+          {#if mcp}
+            Endpoint <code>{mcp.url}</code>, header <code>Authorization: Bearer {mcp.token}</code>. For Claude Code:
+            <code>claude mcp add --transport http sleuth {mcp.url} --header "Authorization: Bearer {mcp.token}"</code>
+          {:else}Starting… (if this stays, port 8765 may be in use){/if}
+        </p>
+      {/if}
       <p class="muted hint">The standalone <code>sleuth-mcp</code> server works regardless of this setting.</p>
     </details>
   </div>

@@ -11,6 +11,7 @@ mod campaigns;
 mod changes;
 mod decks;
 mod migrate;
+mod music;
 mod settings;
 mod tags;
 mod workspaces;
@@ -27,6 +28,13 @@ pub use blobs::{BlobMeta, BlobRef};
 pub use campaigns::{Campaign, Session};
 pub use changes::Change;
 pub use decks::{Deck, DeckSummary};
+pub use music::{
+    Channel as MusicChannel, Playlist as MusicPlaylist, PlaylistItem as MusicPlaylistItem,
+    Soundbite as MusicSoundbite, Soundboard as MusicSoundboard,
+    SoundboardButton as MusicSoundboardButton, Soundscape as MusicSoundscape,
+    SoundscapeChannel as MusicSoundscapeChannel, SoundscapeSoundbite as MusicSoundscapeSoundbite,
+    Track as MusicTrack, TrackQuery as MusicTrackQuery, TrackRow as MusicTrackRow,
+};
 pub use tags::{RenameOutcome, TagCount};
 
 #[derive(Debug, thiserror::Error)]

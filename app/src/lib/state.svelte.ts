@@ -91,6 +91,11 @@ class AppState {
   }
 
   onEvent(e: ServiceEvent): void {
+    if (e.type === 'ui_navigate') {
+      if (e.asset_id != null) this.openRequest = { route: e.route, assetId: e.asset_id };
+      this.navigate(e.route);
+      return;
+    }
     if (e.type === 'job') {
       const { type: _t, ...job } = e;
       const i = this.jobs.findIndex((j) => j.id === job.id);

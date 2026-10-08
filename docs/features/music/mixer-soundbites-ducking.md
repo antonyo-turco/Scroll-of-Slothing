@@ -1,4 +1,4 @@
-# Music: mixer, soundbites, ducking (spec, not implemented)
+# Music: mixer, soundbites, ducking
 
 ## Live mix state
 The live mix is persisted in the database.

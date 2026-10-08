@@ -11,6 +11,8 @@ import {
   type DeckLayout,
 } from './types';
 import cardTemplates from '../../../assets/cards/templates.json';
+import { createMusicMockHandlers } from './mock-music';
+import { createMapsMockHandlers } from './mock-maps';
 
 export interface Backend {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -162,6 +164,8 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
 
   const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     app_info: () => ({ version: '0.0.0-mock', data_dir: '(in-memory mock)' }),
+    mcp_http_status: () =>
+      settings.mcp_http_enabled ? { url: 'http://127.0.0.1:8765/mcp', token: 'mock-token' } : null,
     settings_get: () => ({ ...settings }),
     settings_set: ({ patch }) => {
       const errors: Record<string, string> = {};
@@ -743,6 +747,9 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     deck_read_file: () => '# From file\n**Type:** Item\n\nLoaded.',
     deck_write_file: ({ path }: Record<string, unknown>) => path,
   });
+
+  Object.assign(handlers, createMapsMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
+  Object.assign(handlers, createMusicMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
 
   return {
     async invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {

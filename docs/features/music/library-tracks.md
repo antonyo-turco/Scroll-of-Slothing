@@ -1,4 +1,4 @@
-# Music: library and tracks (spec, not implemented)
+# Music: library and tracks
 
 ## Track
 | Field | Notes |
