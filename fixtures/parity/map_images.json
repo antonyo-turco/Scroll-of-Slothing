@@ -1,0 +1,765 @@
+{
+ "cases": [
+  {
+   "cell": [
+    25,
+    25
+   ],
+   "changed": true,
+   "input": "maps/degrid_grid25_in.png",
+   "kind": "degrid",
+   "output": "maps/degrid_grid25_out.png"
+  },
+  {
+   "cell": [
+    27,
+    23.5
+   ],
+   "changed": true,
+   "input": "maps/degrid_grid25_guess_in.png",
+   "kind": "degrid",
+   "output": "maps/degrid_grid25_guess_out.png"
+  },
+  {
+   "cell": [
+    30,
+    20
+   ],
+   "changed": true,
+   "input": "maps/degrid_grid30x20_in.png",
+   "kind": "degrid",
+   "output": "maps/degrid_grid30x20_out.png"
+  },
+  {
+   "cell": [
+    25,
+    25
+   ],
+   "changed": false,
+   "input": "maps/degrid_clean_in.png",
+   "kind": "degrid",
+   "output": "maps/degrid_clean_out.png"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_autocontrast_0.png",
+   "params": {
+    "clip": 1
+   },
+   "type": "autocontrast"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_autocontrast_1.png",
+   "params": {
+    "clip": 16
+   },
+   "type": "autocontrast"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_contrast_0.png",
+   "params": {
+    "amount": 150
+   },
+   "type": "contrast"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_contrast_1.png",
+   "params": {
+    "amount": 240
+   },
+   "type": "contrast"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_lightness_0.png",
+   "params": {
+    "amount": 100
+   },
+   "type": "lightness"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_lightness_1.png",
+   "params": {
+    "amount": 160
+   },
+   "type": "lightness"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_clarity_0.png",
+   "params": {
+    "amount": 100
+   },
+   "type": "clarity"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_clarity_1.png",
+   "params": {
+    "amount": 240
+   },
+   "type": "clarity"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_sharpen_0.png",
+   "params": {
+    "amount": 150
+   },
+   "type": "sharpen"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_sharpen_1.png",
+   "params": {
+    "amount": 400
+   },
+   "type": "sharpen"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_sepia_0.png",
+   "params": {},
+   "type": "sepia"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_grayscale_0.png",
+   "params": {},
+   "type": "grayscale"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_adaptive_0.png",
+   "params": {
+    "sensitivity": 50
+   },
+   "type": "adaptive"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_adaptive_1.png",
+   "params": {
+    "sensitivity": 80
+   },
+   "type": "adaptive"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_threshold_0.png",
+   "params": {
+    "cutoff": 50
+   },
+   "type": "threshold"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_threshold_1.png",
+   "params": {
+    "cutoff": 80
+   },
+   "type": "threshold"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_posterize_0.png",
+   "params": {
+    "levels": 4
+   },
+   "type": "posterize"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_posterize_1.png",
+   "params": {
+    "levels": 7
+   },
+   "type": "posterize"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_dither_0.png",
+   "params": {},
+   "type": "dither"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_edge_boost_0.png",
+   "params": {
+    "strength": 60
+   },
+   "type": "edge_boost"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_edge_boost_1.png",
+   "params": {
+    "strength": 80
+   },
+   "type": "edge_boost"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_line_art_0.png",
+   "params": {
+    "detail": 55
+   },
+   "type": "line_art"
+  },
+  {
+   "kind": "filter",
+   "output": "maps/filter_line_art_1.png",
+   "params": {
+    "detail": 80
+   },
+   "type": "line_art"
+  },
+  {
+   "kind": "preset",
+   "name": "None (clear all)",
+   "output": "maps/preset_00.png",
+   "pipeline": []
+  },
+  {
+   "kind": "preset",
+   "name": "Most legible (gray + edges)",
+   "output": "maps/preset_01.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 150
+     },
+     "type": "sharpen"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "grayscale"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "strength": 70
+     },
+     "type": "edge_boost"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Ink-saver (adaptive)",
+   "output": "maps/preset_02.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 150
+     },
+     "type": "sharpen"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "sensitivity": 50
+     },
+     "type": "adaptive"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Detailed line maps",
+   "output": "maps/preset_03.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 200
+     },
+     "type": "sharpen"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "sensitivity": 60
+     },
+     "type": "adaptive"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Max detail B&W",
+   "output": "maps/preset_04.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 120
+     },
+     "type": "clarity"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 150
+     },
+     "type": "sharpen"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "sensitivity": 65
+     },
+     "type": "adaptive"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "strength": 40
+     },
+     "type": "edge_boost"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Atmospheric (dither)",
+   "output": "maps/preset_05.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "dither"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "strength": 50
+     },
+     "type": "edge_boost"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Newsprint",
+   "output": "maps/preset_06.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 140
+     },
+     "type": "contrast"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "dither"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Newsprint (print-friendly)",
+   "output": "maps/preset_07.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 2
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 120
+     },
+     "type": "contrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 150
+     },
+     "type": "sharpen"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "dither"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "strength": 55
+     },
+     "type": "edge_boost"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "High-contrast B&W",
+   "output": "maps/preset_08.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 180
+     },
+     "type": "contrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "cutoff": 55
+     },
+     "type": "threshold"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Posterized (3 levels)",
+   "output": "maps/preset_09.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 100
+     },
+     "type": "clarity"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "levels": 3
+     },
+     "type": "posterize"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "strength": 50
+     },
+     "type": "edge_boost"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Posterized (4 levels)",
+   "output": "maps/preset_10.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "levels": 4
+     },
+     "type": "posterize"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Soft grayscale",
+   "output": "maps/preset_11.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 80
+     },
+     "type": "clarity"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "grayscale"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Clean grayscale",
+   "output": "maps/preset_12.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "grayscale"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Pure line art",
+   "output": "maps/preset_13.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "amount": 150
+     },
+     "type": "sharpen"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "detail": 55
+     },
+     "type": "line_art"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Pencil sketch",
+   "output": "maps/preset_14.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "amount": 120
+     },
+     "type": "clarity"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "detail": 68
+     },
+     "type": "line_art"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Bold ink (thick lines)",
+   "output": "maps/preset_15.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 280
+     },
+     "type": "sharpen"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "sensitivity": 40
+     },
+     "type": "adaptive"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Sepia print",
+   "output": "maps/preset_16.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "sepia"
+    }
+   ]
+  },
+  {
+   "kind": "preset",
+   "name": "Faded parchment",
+   "output": "maps/preset_17.png",
+   "pipeline": [
+    {
+     "enabled": true,
+     "params": {
+      "clip": 1
+     },
+     "type": "autocontrast"
+    },
+    {
+     "enabled": true,
+     "params": {
+      "amount": 60
+     },
+     "type": "clarity"
+    },
+    {
+     "enabled": true,
+     "params": {},
+     "type": "sepia"
+    }
+   ]
+  },
+  {
+   "dilate": 0,
+   "high": 150,
+   "kind": "canny",
+   "low": 50,
+   "output": "maps/canny_50_150_0.png"
+  },
+  {
+   "dilate": 1,
+   "high": 100,
+   "kind": "canny",
+   "low": 30,
+   "output": "maps/canny_30_100_1.png"
+  },
+  {
+   "coeffs": [
+    1.2,
+    -0.05,
+    60.0,
+    0.1,
+    0.8,
+    50.0,
+    0.0,
+    0.0
+   ],
+   "kind": "warp",
+   "output": "maps/warp.png",
+   "size": [
+    240,
+    220
+   ]
+  },
+  {
+   "a_ft": 10,
+   "b_ft": 5,
+   "cell_px": 60.0,
+   "kind": "aoe",
+   "output": "maps/aoe_circle.png",
+   "px_per_square": 60.0,
+   "shape": "circle"
+  },
+  {
+   "a_ft": 15,
+   "b_ft": 5,
+   "cell_px": 60.0,
+   "kind": "aoe",
+   "output": "maps/aoe_cone.png",
+   "px_per_square": 60.0,
+   "shape": "cone"
+  },
+  {
+   "a_ft": 30,
+   "b_ft": 5,
+   "cell_px": 60.0,
+   "kind": "aoe",
+   "output": "maps/aoe_line.png",
+   "px_per_square": 60.0,
+   "shape": "line"
+  },
+  {
+   "a_ft": 15,
+   "b_ft": 5,
+   "cell_px": 60.0,
+   "kind": "aoe",
+   "output": "maps/aoe_square.png",
+   "px_per_square": 60.0,
+   "shape": "square"
+  }
+ ],
+ "generator": "tools/parity/generate.py",
+ "source": "orb-of-many-functions (dev)"
+}

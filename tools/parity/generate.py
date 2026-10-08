@@ -39,6 +39,7 @@ def main():
         ("maxrects.json", gen_maxrects),
         ("token_compose.json", lambda: gen_token_compose(ref, out)),
         ("cutout.json", lambda: gen_cutout(out)),
+        ("map_images.json", lambda: gen_map_images(out)),
     ]
     for name, fn in gens:
         data = {"source": "orb-of-many-functions (dev)", "generator": "tools/parity/generate.py",
@@ -435,6 +436,139 @@ def gen_cutout(out):
         st = make_standee_block(cut)
         st.save(os.path.join(img_dir, f"{name}_standee.png"))
         cases.append({"polygon": name, "standee_of": f"cutout/{name}_cut.png", "output": f"cutout/{name}_standee.png"})
+    return cases
+
+
+# ── maps / AoE (images) ────────────────────────────────────────────────────
+
+def _map_source(w, h, seed=7):
+    """Deterministic map-like art: tonal gradients, a few walls/rooms, text-ish
+    strokes and mild noise, so every filter has edges and flats to work on."""
+    import random
+
+    from PIL import Image, ImageDraw
+    rnd = random.Random(seed)
+    img = Image.new("RGB", (w, h))
+    px = img.load()
+    for y in range(h):
+        for x in range(w):
+            base = 110 + 70 * math.sin(x / 37.0) * math.cos(y / 53.0)
+            n = rnd.randint(-12, 12)
+            px[x, y] = (int(min(255, max(0, base + n + 20))), int(min(255, max(0, base * 0.8 + n))),
+                        int(min(255, max(0, 160 - base * 0.4 + n))))
+    d = ImageDraw.Draw(img)
+    d.rectangle([w * 0.1, h * 0.15, w * 0.45, h * 0.6], outline=(30, 25, 20), width=4)
+    d.rectangle([w * 0.55, h * 0.3, w * 0.9, h * 0.85], fill=(200, 190, 160), outline=(40, 30, 20), width=3)
+    d.ellipse([w * 0.2, h * 0.65, w * 0.4, h * 0.9], fill=(60, 110, 70))
+    for i in range(12):
+        x0 = rnd.randint(0, w - 40)
+        y0 = rnd.randint(0, h - 10)
+        d.line([(x0, y0), (x0 + 30, y0 + rnd.randint(-6, 6))], fill=(20, 20, 20), width=1)
+    return img
+
+
+def _with_grid(img, cw, ch, color=(25, 25, 25)):
+    from PIL import ImageDraw
+    out = img.copy()
+    d = ImageDraw.Draw(out)
+    w, h = out.size
+    x = 0.0
+    while x < w:
+        d.line([(round(x), 0), (round(x), h)], fill=color, width=1)
+        x += cw
+    y = 0.0
+    while y < h:
+        d.line([(0, round(y)), (w, round(y))], fill=color, width=1)
+        y += ch
+    return out
+
+
+def gen_map_images(out):
+    """Embedded-grid removal, every filter, every preset, canny, the perspective
+    warp and AoE renders, via the real Python code; writes PNGs to ``maps/``."""
+    import cv2
+    import numpy as np
+    from PIL import Image
+
+    import aoe_templates as a
+    import map_filters as mf
+    import map_grid as g
+    img_dir = os.path.join(out, "maps")
+    os.makedirs(img_dir, exist_ok=True)
+    cases = []
+
+    src = _map_source(360, 260)
+    src.save(os.path.join(img_dir, "source.png"))
+
+    # grid removal: exact cell, inexact guess, rectangular cells, grid-free map
+    for name, (cw, ch), (gw, gh), gridded in [
+        ("grid25", (25, 25), (25, 25), True),
+        ("grid25_guess", (25, 25), (27, 23.5), True),
+        ("grid30x20", (30, 20), (30, 20), True),
+        ("clean", (25, 25), (25, 25), False),
+    ]:
+        inp = _with_grid(src, cw, ch) if gridded else src
+        inp.save(os.path.join(img_dir, f"degrid_{name}_in.png"))
+        res = g.remove_grid_lines(inp, g.GridModel(cell_w=gw, cell_h=gh))
+        changed = bool(np.any(np.asarray(res) != np.asarray(inp.convert("RGB"))))
+        res.save(os.path.join(img_dir, f"degrid_{name}_out.png"))
+        cases.append({"kind": "degrid", "input": f"maps/degrid_{name}_in.png",
+                      "output": f"maps/degrid_{name}_out.png", "cell": [gw, gh], "changed": changed})
+
+    # every filter at its default, and at a second parameter value
+    for key in mf.FILTER_ORDER:
+        deff = mf.FILTER_DEFS[key]
+        variants = [{}]
+        if deff["param"]:
+            pk, lo, hi = deff["param"]["key"], deff["param"]["min"], deff["param"]["max"]
+            variants = [{pk: deff["param"]["default"]}, {pk: round(lo + (hi - lo) * 0.8)}]
+        for i, params in enumerate(variants):
+            res = mf.apply_pipeline(src, [{"type": key, "enabled": True, "params": params}])
+            fn = f"filter_{key}_{i}.png"
+            res.save(os.path.join(img_dir, fn))
+            cases.append({"kind": "filter", "type": key, "params": params, "output": f"maps/{fn}"})
+
+    # presets (pipelines built exactly as the panel does: listed steps, in order)
+    for i, (pname, steps) in enumerate(mf.PRESETS):
+        pipeline = []
+        for t, over in steps:
+            params = {}
+            if mf.FILTER_DEFS[t]["param"]:
+                params[mf.FILTER_DEFS[t]["param"]["key"]] = mf.FILTER_DEFS[t]["param"]["default"]
+            params.update(over)
+            pipeline.append({"type": t, "enabled": True, "params": params})
+        res = mf.apply_pipeline(src, pipeline)
+        fn = f"preset_{i:02d}.png"
+        res.save(os.path.join(img_dir, fn))
+        cases.append({"kind": "preset", "name": pname, "pipeline": pipeline, "output": f"maps/{fn}"})
+
+    # canny (the unused Python LineArtExtractor, on the same source)
+    gray = cv2.cvtColor(np.asarray(src)[:, :, ::-1].copy(), cv2.COLOR_BGR2GRAY)
+    for low, high, dil in [(50, 150, 0), (30, 100, 1)]:
+        edges = cv2.Canny(cv2.GaussianBlur(gray, (5, 5), 0), low, high)
+        inv = cv2.bitwise_not(edges)
+        if dil:
+            inv = cv2.dilate(inv, np.ones((3, 3), np.uint8), iterations=dil)
+        fn = f"canny_{low}_{high}_{dil}.png"
+        Image.fromarray(inv).save(os.path.join(img_dir, fn))
+        cases.append({"kind": "canny", "low": low, "high": high, "dilate": dil, "output": f"maps/{fn}"})
+
+    # perspective warp (bicubic, white fill)
+    quad = [(60, 50), (300, 70), (290, 230), (50, 210)]
+    side = 200.0
+    coeffs = g.perspective_coeffs([(0, 0), (side, 0), (side, side), (0, side)], g.order_quad_corners(quad))
+    warped = src.transform((240, 220), Image.Transform.PERSPECTIVE, coeffs,
+                           Image.Resampling.BICUBIC, fillcolor="white")
+    warped.save(os.path.join(img_dir, "warp.png"))
+    cases.append({"kind": "warp", "coeffs": coeffs, "size": [240, 220], "output": "maps/warp.png"})
+
+    # AoE renders (no label: Python used Arial, the rewrite bundles Liberation Sans)
+    for shape, a_ft, b_ft in [("circle", 10, 5), ("cone", 15, 5), ("line", 30, 5), ("square", 15, 5)]:
+        img, cell = a.render_template(shape, a_ft, b_ft, px_per_square=60.0, label=None)
+        fn = f"aoe_{shape}.png"
+        img.save(os.path.join(img_dir, fn))
+        cases.append({"kind": "aoe", "shape": shape, "a_ft": a_ft, "b_ft": b_ft, "px_per_square": 60.0,
+                      "cell_px": cell, "output": f"maps/{fn}"})
     return cases
 
 
