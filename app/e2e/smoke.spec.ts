@@ -22,7 +22,8 @@ test('rail navigation and sub-view tabs', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Paginator' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: 'AoE templates' }).click();
   await expect(page).toHaveURL(/#\/maps\.aoe$/);
-  await expect(page.getByRole('button', { name: 'Music' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Music' }).click();
+  await expect(page).toHaveURL(/#\/music$/);
 });
 
 test('command palette navigates', async ({ page }) => {

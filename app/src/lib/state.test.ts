@@ -6,11 +6,11 @@ import { app } from './state.svelte';
 import { DEFAULT_SETTINGS } from './types';
 
 describe('navigation model', () => {
-  it('exposes the 7 rail destinations with music disabled', () => {
+  it('exposes the 7 rail destinations, all enabled', () => {
     expect(DESTINATIONS.map((d) => d.id)).toEqual([
       'library', 'tokens', 'cutouts', 'cards', 'maps', 'campaigns', 'music',
     ]);
-    expect(DESTINATIONS.find((d) => d.id === 'music')?.disabled).toBe(true);
+    expect(DESTINATIONS.filter((d) => d.disabled)).toEqual([]);
   });
 
   it('has route ids identical to the Rust ROUTES list', () => {
@@ -18,14 +18,15 @@ describe('navigation model', () => {
     expect(ALL_VIEWS.map((v) => v.id).sort()).toEqual(
       [
         'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
-        'cards', 'maps.paginator', 'maps.aoe', 'campaigns', 'settings',
+        'cards', 'maps.paginator', 'maps.aoe', 'campaigns', 'music', 'settings',
       ].sort(),
     );
   });
 
   it('resolves views to their destination', () => {
     expect(findView('maps.aoe')?.dest.id).toBe('maps');
-    expect(isRoute('music')).toBe(false);
+    expect(findView('music')?.dest.id).toBe('music');
+    expect(isRoute('dnd.combat')).toBe(false);
   });
 });
 
@@ -45,6 +46,17 @@ describe('app state', () => {
     location.hash = '#/maps.aoe';
     await app.init();
     expect(app.route).toBe('maps.aoe');
+  });
+
+  it('ui_navigate events switch views and hand over the asset to open', async () => {
+    await app.init();
+    app.onEvent({ type: 'ui_navigate', route: 'maps.paginator', asset_id: 7 });
+    expect(app.route).toBe('maps.paginator');
+    expect(app.openRequest).toEqual({ route: 'maps.paginator', assetId: 7 });
+    app.openRequest = null;
+    app.onEvent({ type: 'ui_navigate', route: 'music', asset_id: null });
+    expect(app.route).toBe('music');
+    expect(app.openRequest).toBeNull();
   });
 
   it('navigate ignores unknown routes and updates the hash', async () => {
