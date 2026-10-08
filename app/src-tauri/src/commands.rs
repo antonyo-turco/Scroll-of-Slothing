@@ -556,3 +556,419 @@ pub async fn deck_read_file(svc: Svc<'_>, path: PathBuf) -> Res<String> {
 pub async fn deck_write_file(svc: Svc<'_>, markdown: String, path: PathBuf) -> Res<PathBuf> {
     svc.deck_write_file(markdown, path).await
 }
+
+// ── maps (Map Paginator) ──
+
+use sleuth_core::aoe::AoeConfig;
+use sleuth_service::{
+    AoeInfo, AoePreset, AoeSheet, AoeSheetLayout, FilterCatalog, MapDoc, MapLayout,
+};
+
+#[tauri::command]
+pub async fn map_get(svc: Svc<'_>) -> Res<Option<MapDoc>> {
+    svc.map_get().await
+}
+
+#[tauri::command]
+pub async fn map_set(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
+    svc.map_set(doc).await
+}
+
+#[tauri::command]
+pub async fn map_open_file(svc: Svc<'_>, path: PathBuf) -> Res<MapDoc> {
+    svc.map_open_file(path).await
+}
+
+#[tauri::command]
+pub async fn map_open_source(svc: Svc<'_>, hash: String, name: Option<String>) -> Res<MapDoc> {
+    svc.map_open_source(hash, name).await
+}
+
+#[tauri::command]
+pub async fn map_open_asset(svc: Svc<'_>, id: i64) -> Res<MapDoc> {
+    svc.map_open_asset(id).await
+}
+
+#[tauri::command]
+pub async fn map_preview(svc: Svc<'_>, doc: MapDoc) -> Res<Response> {
+    Ok(Response::new(svc.map_preview(doc).await?))
+}
+
+#[tauri::command]
+pub async fn map_layout(svc: Svc<'_>, doc: MapDoc) -> Res<MapLayout> {
+    svc.map_layout(doc).await
+}
+
+#[tauri::command]
+pub async fn map_preview_page(
+    svc: Svc<'_>,
+    doc: MapDoc,
+    index: usize,
+    px_per_pt: Option<f64>,
+) -> Res<Response> {
+    Ok(Response::new(svc.map_preview_page(doc, index, px_per_pt.unwrap_or(1.0)).await?))
+}
+
+#[tauri::command]
+pub async fn map_dewarp(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
+    svc.map_dewarp(doc).await
+}
+
+#[tauri::command]
+pub async fn map_undo_dewarp(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
+    svc.map_undo_dewarp(doc).await
+}
+
+#[tauri::command]
+pub fn map_export_pdf(svc: Svc<'_>, doc: MapDoc, path: PathBuf) -> JobId {
+    svc.map_export_pdf(doc, path)
+}
+
+#[tauri::command]
+pub fn map_save_asset(svc: Svc<'_>, doc: MapDoc, name: String, update: Option<i64>) -> JobId {
+    svc.map_save_asset(doc, name, update)
+}
+
+#[tauri::command]
+pub fn map_filter_catalog(svc: Svc<'_>) -> FilterCatalog {
+    svc.map_filter_catalog()
+}
+
+// ── AoE templates ──
+
+#[tauri::command]
+pub async fn aoe_presets_list(svc: Svc<'_>) -> Res<Vec<AoePreset>> {
+    svc.aoe_presets_list().await
+}
+
+#[tauri::command]
+pub async fn aoe_presets_save(
+    svc: Svc<'_>,
+    name: String,
+    config: AoeConfig,
+    overwrite: Option<bool>,
+) -> Res<AoePreset> {
+    svc.aoe_presets_save(name, config, overwrite.unwrap_or(false)).await
+}
+
+#[tauri::command]
+pub async fn aoe_presets_delete(svc: Svc<'_>, name: String) -> Res<()> {
+    svc.aoe_presets_delete(name).await
+}
+
+#[tauri::command]
+pub async fn aoe_render(svc: Svc<'_>, config: AoeConfig) -> Res<Response> {
+    Ok(Response::new(svc.aoe_render(config).await?))
+}
+
+#[tauri::command]
+pub async fn aoe_info(svc: Svc<'_>, config: AoeConfig) -> Res<AoeInfo> {
+    svc.aoe_info(config).await
+}
+
+#[tauri::command]
+pub async fn aoe_export_png(svc: Svc<'_>, config: AoeConfig, path: PathBuf) -> Res<PathBuf> {
+    svc.aoe_export_png(config, path).await
+}
+
+#[tauri::command]
+pub fn aoe_export_template_pdf(svc: Svc<'_>, config: AoeConfig, path: PathBuf) -> JobId {
+    svc.aoe_export_template_pdf(config, path)
+}
+
+#[tauri::command]
+pub async fn aoe_sheet_get(svc: Svc<'_>) -> Res<AoeSheet> {
+    svc.aoe_sheet_get().await
+}
+
+#[tauri::command]
+pub async fn aoe_sheet_add(svc: Svc<'_>, config: AoeConfig) -> Res<AoeSheet> {
+    svc.aoe_sheet_add(config).await
+}
+
+#[tauri::command]
+pub async fn aoe_sheet_remove(svc: Svc<'_>, ids: Vec<String>) -> Res<AoeSheet> {
+    svc.aoe_sheet_remove(ids).await
+}
+
+#[tauri::command]
+pub async fn aoe_sheet_clear(svc: Svc<'_>) -> Res<AoeSheet> {
+    svc.aoe_sheet_clear().await
+}
+
+#[tauri::command]
+pub async fn aoe_sheet_set_gap(svc: Svc<'_>, gap_in: f64) -> Res<AoeSheet> {
+    svc.aoe_sheet_set_gap(gap_in).await
+}
+
+#[tauri::command]
+pub async fn aoe_sheet_layout(svc: Svc<'_>, inch: f64, format: PageFormat) -> Res<AoeSheetLayout> {
+    svc.aoe_sheet_layout(inch, format).await
+}
+
+#[tauri::command]
+pub async fn aoe_sheet_preview(
+    svc: Svc<'_>,
+    inch: f64,
+    format: PageFormat,
+    page: usize,
+    max_px: Option<u32>,
+) -> Res<Response> {
+    Ok(Response::new(svc.aoe_sheet_preview(inch, format, page, max_px.unwrap_or(1200)).await?))
+}
+
+#[tauri::command]
+pub fn aoe_sheet_export_pdf(svc: Svc<'_>, inch: f64, format: PageFormat, path: PathBuf) -> JobId {
+    svc.aoe_sheet_export_pdf(inch, format, path)
+}
+
+// ── music ──
+
+use sleuth_service::{
+    DuckMode, MixImportResult, MixerState, MusicChannelPatch, MusicEngineEvent, MusicImportReport,
+    MusicPlaylist, MusicSoundboard, MusicSoundscape, MusicTrack, MusicTrackQuery, PlaylistInput,
+    SoundbitePatch, SoundboardInput, SoundscapeInput, TrackInput, TrackMeta,
+};
+
+#[tauri::command]
+pub async fn music_tracks_list(svc: Svc<'_>, query: MusicTrackQuery) -> Res<Vec<MusicTrack>> {
+    svc.music_tracks_list(query).await
+}
+
+#[tauri::command]
+pub async fn music_track_get(svc: Svc<'_>, id: String) -> Res<MusicTrack> {
+    svc.music_track_get(id).await
+}
+
+#[tauri::command]
+pub async fn music_track_create(svc: Svc<'_>, input: TrackInput) -> Res<MusicTrack> {
+    svc.music_track_create(input).await
+}
+
+#[tauri::command]
+pub async fn music_track_update(svc: Svc<'_>, id: String, input: TrackInput) -> Res<MusicTrack> {
+    svc.music_track_update(id, input).await
+}
+
+#[tauri::command]
+pub async fn music_track_delete(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.music_track_delete(id).await
+}
+
+#[tauri::command]
+pub async fn music_fetch_youtube_meta(svc: Svc<'_>, url: String) -> Res<TrackMeta> {
+    svc.music_fetch_youtube_meta(url).await
+}
+
+#[tauri::command]
+pub async fn music_probe_file(svc: Svc<'_>, path: PathBuf) -> Res<TrackMeta> {
+    svc.music_probe_file(path).await
+}
+
+#[tauri::command]
+pub async fn music_state(svc: Svc<'_>) -> Res<MixerState> {
+    svc.music_state().await
+}
+
+#[tauri::command]
+pub async fn music_channel_add(
+    svc: Svc<'_>,
+    track_id: String,
+    role: Option<String>,
+    volume: Option<i64>,
+    looping: Option<bool>,
+    play: bool,
+) -> Res<MixerState> {
+    svc.music_channel_add(track_id, role, volume, looping, play).await
+}
+
+#[tauri::command]
+pub async fn music_channel_update(
+    svc: Svc<'_>,
+    id: String,
+    patch: MusicChannelPatch,
+) -> Res<MixerState> {
+    svc.music_channel_update(id, patch).await
+}
+
+#[tauri::command]
+pub async fn music_channel_remove(svc: Svc<'_>, id: String) -> Res<MixerState> {
+    svc.music_channel_remove(id).await
+}
+
+#[tauri::command]
+pub async fn music_set_all_playing(svc: Svc<'_>, playing: bool) -> Res<MixerState> {
+    svc.music_set_all_playing(playing).await
+}
+
+#[tauri::command]
+pub async fn music_stop_all(svc: Svc<'_>) -> Res<MixerState> {
+    svc.music_stop_all().await
+}
+
+#[tauri::command]
+pub async fn music_soundbite_add(
+    svc: Svc<'_>,
+    track_id: String,
+    min_interval: f64,
+    max_interval: f64,
+    volume: i64,
+) -> Res<MixerState> {
+    svc.music_soundbite_add(track_id, min_interval, max_interval, volume).await
+}
+
+#[tauri::command]
+pub async fn music_soundbite_update(
+    svc: Svc<'_>,
+    id: String,
+    patch: SoundbitePatch,
+) -> Res<MixerState> {
+    svc.music_soundbite_update(id, patch).await
+}
+
+#[tauri::command]
+pub async fn music_soundbite_remove(svc: Svc<'_>, id: String) -> Res<MixerState> {
+    svc.music_soundbite_remove(id).await
+}
+
+#[tauri::command]
+pub async fn music_soundbite_play(svc: Svc<'_>, id: String) -> Res<MixerState> {
+    svc.music_soundbite_play(id).await
+}
+
+#[tauri::command]
+pub async fn music_set_duck(svc: Svc<'_>, mode: DuckMode) -> Res<MixerState> {
+    svc.music_set_duck(mode).await
+}
+
+#[tauri::command]
+pub async fn music_set_master(svc: Svc<'_>, volume: i64) -> Res<MixerState> {
+    svc.music_set_master(volume).await
+}
+
+#[tauri::command]
+pub async fn music_preview(svc: Svc<'_>, track_id: String, seconds: Option<f64>) -> Res<()> {
+    svc.music_preview(track_id, seconds).await
+}
+
+#[tauri::command]
+pub async fn music_stop_preview(svc: Svc<'_>) -> Res<()> {
+    svc.music_stop_preview().await
+}
+
+#[tauri::command]
+pub async fn music_toggle_video(svc: Svc<'_>) -> Res<()> {
+    svc.music_toggle_video().await
+}
+
+#[tauri::command]
+pub async fn music_engine_event(svc: Svc<'_>, event: MusicEngineEvent) -> Res<()> {
+    svc.music_engine_event(event).await
+}
+
+#[tauri::command]
+pub async fn music_sync(svc: Svc<'_>) -> Res<()> {
+    svc.music_sync().await
+}
+
+#[tauri::command]
+pub async fn music_soundscapes_list(
+    svc: Svc<'_>,
+    campaign_id: Option<String>,
+) -> Res<Vec<MusicSoundscape>> {
+    svc.music_soundscapes_list(campaign_id).await
+}
+
+#[tauri::command]
+pub async fn music_soundscape_save(svc: Svc<'_>, input: SoundscapeInput) -> Res<MusicSoundscape> {
+    svc.music_soundscape_save(input).await
+}
+
+#[tauri::command]
+pub async fn music_soundscape_update(svc: Svc<'_>, id: String) -> Res<MusicSoundscape> {
+    svc.music_soundscape_update(id).await
+}
+
+#[tauri::command]
+pub async fn music_soundscape_load(svc: Svc<'_>, id: String) -> Res<MixerState> {
+    svc.music_soundscape_load(id).await
+}
+
+#[tauri::command]
+pub async fn music_soundscape_delete(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.music_soundscape_delete(id).await
+}
+
+#[tauri::command]
+pub async fn music_playlists_list(
+    svc: Svc<'_>,
+    campaign_id: Option<String>,
+) -> Res<Vec<MusicPlaylist>> {
+    svc.music_playlists_list(campaign_id).await
+}
+
+#[tauri::command]
+pub async fn music_playlist_save(svc: Svc<'_>, input: PlaylistInput) -> Res<MusicPlaylist> {
+    svc.music_playlist_save(input).await
+}
+
+#[tauri::command]
+pub async fn music_playlist_delete(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.music_playlist_delete(id).await
+}
+
+#[tauri::command]
+pub async fn music_playlist_play(
+    svc: Svc<'_>,
+    id: String,
+    index: Option<usize>,
+) -> Res<MixerState> {
+    svc.music_playlist_play(id, index).await
+}
+
+#[tauri::command]
+pub async fn music_playlist_control(svc: Svc<'_>, action: String) -> Res<MixerState> {
+    svc.music_playlist_control(action).await
+}
+
+#[tauri::command]
+pub async fn music_soundboards_list(
+    svc: Svc<'_>,
+    campaign_id: Option<String>,
+) -> Res<Vec<MusicSoundboard>> {
+    svc.music_soundboards_list(campaign_id).await
+}
+
+#[tauri::command]
+pub async fn music_soundboard_save(svc: Svc<'_>, input: SoundboardInput) -> Res<MusicSoundboard> {
+    svc.music_soundboard_save(input).await
+}
+
+#[tauri::command]
+pub async fn music_soundboard_delete(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.music_soundboard_delete(id).await
+}
+
+#[tauri::command]
+pub async fn music_soundboard_press(svc: Svc<'_>, button_id: String) -> Res<MixerState> {
+    svc.music_soundboard_press(button_id).await
+}
+
+#[tauri::command]
+pub async fn music_mix_export(
+    svc: Svc<'_>,
+    path: PathBuf,
+    soundscape_id: Option<String>,
+) -> Res<PathBuf> {
+    svc.music_mix_export(path, soundscape_id).await
+}
+
+#[tauri::command]
+pub async fn music_mix_import(svc: Svc<'_>, path: PathBuf, play: bool) -> Res<MixImportResult> {
+    svc.music_mix_import(path, play).await
+}
+
+#[tauri::command]
+pub async fn music_import_legacy(svc: Svc<'_>) -> Res<MusicImportReport> {
+    svc.music_import_legacy().await
+}

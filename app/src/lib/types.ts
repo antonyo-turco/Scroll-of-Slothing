@@ -341,3 +341,202 @@ export interface CardTemplates {
   templates: Record<string, string>;
   reference: string;
 }
+
+// ── Maps (Map Paginator) ── mirrors crates/service/src/maps.rs + core::maps
+
+export type SizingMode = 'rows_cols' | 'reference' | 'ppi' | 'cell_side';
+export type GridStyle = 'solid' | 'dashed' | 'dotted' | 'broken';
+export type Pt = [number, number];
+
+export interface FilterStep {
+  type: string;
+  enabled: boolean;
+  params: Record<string, number>;
+}
+
+export interface FilterParamDef {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  default: number;
+  step: number;
+}
+
+export interface FilterDef {
+  key: string;
+  label: string;
+  params: FilterParamDef[];
+}
+
+export interface FilterPreset {
+  name: string;
+  pipeline: FilterStep[];
+}
+
+export interface FilterCatalog {
+  defs: FilterDef[];
+  presets: FilterPreset[];
+}
+
+export interface MapDoc {
+  source: SourceImage | null;
+  pre_warp: SourceImage | null;
+  name: string;
+  asset_id: number | null;
+  detected_dpi: number;
+  dpi_detected: boolean;
+  mode: SizingMode;
+  rows: number;
+  cols: number;
+  square_cells: boolean;
+  ref_n: number;
+  ref_quad: [Pt, Pt, Pt, Pt] | null;
+  ppi: number;
+  side: number;
+  offset_x: number;
+  offset_y: number;
+  color: Rgb8;
+  thickness: number;
+  opacity: number;
+  visible: boolean;
+  style: GridStyle;
+  remove_grid: boolean;
+  filters: FilterStep[];
+  format: PageFormat;
+  square_in: number;
+  calibration_mm: number;
+  margin_in: number;
+  overlap_in: number;
+  align_to_grid: boolean;
+  cut_border: boolean;
+  fit_w_ft: number;
+  fit_h_ft: number;
+  /** [x, y, w, h] in full-res image px, or null for the whole map. */
+  region: [number, number, number, number] | null;
+  page_offset: [number, number];
+  /** Excluded pages as [col, row]. */
+  excluded: [number, number][];
+}
+
+export type Rgb8 = [number, number, number];
+
+export interface GridModel {
+  cell_w: number;
+  cell_h: number;
+  offset_x: number;
+  offset_y: number;
+  color: Rgb8;
+  thickness: number;
+  opacity: number;
+  visible: boolean;
+  style: GridStyle;
+}
+
+export interface Tile {
+  col: number;
+  row: number;
+  /** [l, t, r, b] image px */
+  crop: [number, number, number, number];
+  page_rect: [number, number, number, number];
+  page_x_pt: number;
+  page_y_pt: number;
+  w_pt: number;
+  h_pt: number;
+}
+
+export interface FitCheck {
+  squares: [number, number];
+  printed_in: [number, number];
+  fits: boolean;
+}
+
+export interface MapLayout {
+  grid: GridModel;
+  base_offset: [number, number];
+  work_scale: number;
+  proxy_w: number;
+  proxy_h: number;
+  scale_x: number;
+  scale_y: number;
+  tiles: Tile[];
+  cols: number;
+  rows: number;
+  selected: number;
+  fit: FitCheck | null;
+  summary: string;
+  page_w_pt: number;
+  page_h_pt: number;
+  margin_pt: number;
+}
+
+// ── AoE templates ── mirrors core::aoe + crates/service/src/aoe.rs
+
+export type AoeShape = 'circle' | 'cone' | 'line' | 'square';
+
+export interface AoeConfig {
+  shape: AoeShape;
+  a_ft: number;
+  b_ft: number;
+  feet_per_square: number;
+  fill_rgb: Rgb8;
+  fill_alpha: number;
+  line_rgb: Rgb8;
+  line_width: number;
+  grid_on: boolean;
+  grid_rgb: Rgb8;
+  grid_alpha: number;
+  label_on: boolean;
+  label: string;
+  inch: number;
+  page_format: PageFormat;
+  name: string;
+}
+
+export interface AoeInfo {
+  footprint_ft: [number, number];
+  inches: [number, number];
+  image_w: number;
+  image_h: number;
+  cell_px: number;
+  pages: number;
+  cols: number;
+  rows: number;
+  page_rects: [number, number, number, number][];
+  label: string;
+  summary: string;
+}
+
+export interface AoePreset {
+  name: string;
+  builtin: boolean;
+  config: AoeConfig;
+}
+
+export interface AoeSheetItem {
+  id: string;
+  config: AoeConfig;
+}
+
+export interface AoeSheet {
+  items: AoeSheetItem[];
+  gap_in: number;
+}
+
+export interface AoePlaced {
+  id: string;
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface AoeSheetLayout {
+  page_w: number;
+  page_h: number;
+  pages: number;
+  placed: AoePlaced[];
+  skipped: string[];
+  summary: string;
+}

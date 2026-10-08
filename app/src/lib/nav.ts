@@ -40,13 +40,13 @@ export const DESTINATIONS: Destination[] = [
   { id: 'cards', label: 'Cards', icon: 'cards',
     views: [{ id: 'cards', label: 'Cards', phase: 4, load: () => import('../routes/cards/Cards.svelte') }] },
   { id: 'maps', label: 'Maps', icon: 'map', views: [
-    { id: 'maps.paginator', label: 'Paginator', phase: 5, load: placeholder },
-    { id: 'maps.aoe', label: 'AoE templates', phase: 5, load: placeholder },
+    { id: 'maps.paginator', label: 'Paginator', phase: 5, load: () => import('../routes/maps/MapPaginator.svelte') },
+    { id: 'maps.aoe', label: 'AoE templates', phase: 5, load: () => import('../routes/aoe/AoeTemplates.svelte') },
   ] },
   { id: 'campaigns', label: 'Campaigns', icon: 'flag',
     views: [{ id: 'campaigns', label: 'Campaigns', phase: 1, load: () => import('../routes/Campaigns.svelte') }] },
-  { id: 'music', label: 'Music', icon: 'music', views: [], disabled: true,
-    hint: 'Planned — see docs/features/music' },
+  { id: 'music', label: 'Music', icon: 'music',
+    views: [{ id: 'music', label: 'Music', phase: 7, load: () => import('../routes/music/Music.svelte') }] },
 ];
 
 export const SETTINGS_DEST: Destination = {
