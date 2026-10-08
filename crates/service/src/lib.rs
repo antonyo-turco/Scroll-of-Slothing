@@ -19,6 +19,7 @@ mod organize;
 mod settings;
 mod token_sheet;
 mod tokens;
+mod ui;
 mod workspaces;
 
 use std::path::Path;
@@ -54,6 +55,7 @@ pub use sleuth_store::{
 };
 pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
 pub use tokens::{Border, SourceImage, TokenDraft};
+pub use ui::editor_route;
 
 pub type Result<T> = std::result::Result<T, ServiceError>;
 
@@ -86,6 +88,7 @@ struct Inner {
     images: imgcache::ImageCache,
     maps: maps::MapCache,
     music: music::MusicRuntime,
+    ui_attached: std::sync::atomic::AtomicBool,
 }
 
 impl Service {
@@ -101,6 +104,7 @@ impl Service {
                 images: imgcache::ImageCache::default(),
                 maps: maps::MapCache::default(),
                 music: music::MusicRuntime::default(),
+                ui_attached: std::sync::atomic::AtomicBool::new(false),
             }),
         })
     }

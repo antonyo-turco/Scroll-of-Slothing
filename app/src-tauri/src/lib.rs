@@ -62,6 +62,7 @@ pub fn run() {
         .setup(|app| {
             let svc = app.state::<Service>().inner().clone();
             let handle = app.handle().clone();
+            svc.attach_ui();
             // This process hosts the audio engine; clear stale live state first.
             if let Err(e) = tauri::async_runtime::block_on(svc.music_attach_engine()) {
                 tracing::warn!(%e, "music engine attach failed");

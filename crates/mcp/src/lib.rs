@@ -1166,6 +1166,22 @@ impl SleuthServer {
         done(self.svc.aoe_export_png(p.config, PathBuf::from(p.path)).await)
     }
 
+    // ── UI remote control (in-app server only) ──
+
+    #[tool(
+        description = "Show a view in the desktop app. route: library, tokens.cutter, tokens.sheet, cutouts.cutter, cutouts.sheet, cards, maps.paginator, maps.aoe, campaigns, music, settings. Works only through the in-app MCP server."
+    )]
+    async fn ui_navigate(&self, Parameters(p): Parameters<RouteParams>) -> ToolResult {
+        done(self.svc.ui_navigate(p.route).await)
+    }
+
+    #[tool(
+        description = "Open a library asset in its editor in the desktop app (tokens and cut-outs in their cutter with saved framing, maps in the paginator). Works only through the in-app MCP server."
+    )]
+    async fn ui_open_asset(&self, Parameters(p): Parameters<IdParams>) -> ToolResult {
+        done(self.svc.ui_open_asset(p.id).await)
+    }
+
     // ── music ──
     // Audio plays in the desktop app's engine. From the standalone server the
     // state changes are stored and the running app applies them.
@@ -1880,4 +1896,9 @@ pub struct MusicMixImportParams {
     /// Absolute path of a .dmix file.
     pub path: String,
     pub play: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct RouteParams {
+    pub route: String,
 }

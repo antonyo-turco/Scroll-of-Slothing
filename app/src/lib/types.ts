@@ -45,7 +45,9 @@ export interface JobStatus {
 
 export type ServiceEvent =
   | ({ type: 'job' } & JobStatus)
-  | { type: 'store_changed'; entity: string; entity_id: string; op: string };
+  | { type: 'store_changed'; entity: string; entity_id: string; op: string }
+  /** In-app MCP `ui_navigate` / `ui_open_asset`. */
+  | { type: 'ui_navigate'; route: string; asset_id: number | null };
 
 export interface ServiceError {
   code: 'not_found' | 'invalid_input' | 'cancelled' | 'io' | 'internal';
