@@ -56,6 +56,14 @@ all = { level = "warn", priority = -1 }
 [profile.dev.package."*"]
 opt-level = 2
 
+# Our pixel and PDF crates do per-pixel work on images up to 8000 px; unoptimized
+# they make `tauri dev` and the tests crawl. Keep them optimized in dev too.
+[profile.dev.package.sleuth-core]
+opt-level = 2
+
+[profile.dev.package.sleuth-pdf]
+opt-level = 2
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
