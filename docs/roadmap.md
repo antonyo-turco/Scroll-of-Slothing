@@ -13,7 +13,7 @@ Phases are **not** promoted individually. `master` receives the rewrite only onc
 | 1 | Store + blobs, Library, tags, campaigns/sessions, legacy importer, MCP v0, CLI | done (pending review) |
 | 2 | Token Cutter + Token Sheet | done (pending review) |
 | 3 | Object Cutter + Object Sheet | done (pending review) |
-| 4 | Cards | planned |
+| 4 | Cards | done (pending review) |
 | 5 | Map Paginator + filters + AoE templates | planned |
 | 6 | Perf benchmarks, accessibility, packaging (MSI), in-app MCP HTTP, docs review | planned |
 | — | Music (spec in `features/music/`) | not scheduled; only on the user's request |

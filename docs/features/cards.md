@@ -63,7 +63,7 @@ You write cards in markdown, preview them exactly as they will print, and export
 
 **Overflow detection**
 - A card overflows if its body does not fit even at 9 pt.
-- **Python quirk:** the overflow simulation subtracts 11 pt for the second divider, but drawing actually subtracts 8 pt (`+3 − 11`). The Rust engine runs the real layout instead of a separate simulation, so it uses 8 pt everywhere. This is an intentional change. Golden tests flag any card where the two disagree.
+- **Python quirk, reproduced on purpose:** the overflow *simulation* subtracts 11 pt for the second divider and always advances one stat line per stat, while *drawing* subtracts 8 pt (`+3 − 11`) and skips empty values. The Rust engine keeps both exactly as Python has them: the simulation decides the overflow warning and whether back pages are added, and the drawing decides what actually fits on the front. This keeps every overflow and duplex decision identical to the old app (golden `cards_layout.json`).
 
 ## Double-sided export
 **When backs are added**
@@ -85,7 +85,7 @@ You write cards in markdown, preview them exactly as they will print, and export
 - Cutting guides across the whole page: dashed `[2,3]`, 0.3 pt, grey 0.6. These are fixed and do not use the cut-line setting.
 
 ## Editor UI
-**Layout:** the CodeMirror editor on the left and the exact preview on the right.
+**Layout:** a plain markdown text editor on the left (monospace, native undo; no editor library needed) and the exact preview on the right.
 - The preview updates live, debounced 250 ms (Python only updated on Ctrl+Enter).
 - It shows front and back pages and lets you page through them.
 - Click a page to enlarge it.
@@ -148,9 +148,9 @@ Description text here.
 ## MCP
 | Tool | Input | Output / effect |
 |---|---|---|
+| `cards_templates` | | `{templates, reference}` (verbatim from Python) |
 | `cards_parse` | `{markdown}` | the parsed cards |
-| `cards_validate` | `{markdown, format?}` | `{cards, pages, overflow:[{index,title}]}` |
-| `cards_preview_page` | `{markdown, page, side}` | a PNG |
+| `cards_validate` | `{markdown, format?, double_sided?, flip?}` | `{cards, pages, overflow:[titles], backs}` |
 | `cards_export_pdf` | `{markdown \| deck_id, path, format?, double_sided?, flip?}` | writes the PDF |
 | `decks_list` | | the saved decks |
 | `decks_get` | | one deck |
@@ -160,17 +160,20 @@ Description text here.
 ## Intentional changes
 - The preview is exact and live, with all pages and backs. Python only showed an approximate first page, with the first 120 characters of each body.
 - The page format default comes from a setting.
-- Overflow detection uses the same layout as drawing (see the quirk above).
+- Text is measured and drawn with Liberation Sans, whose glyph advances rounded to 1/1000 em are identical to Helvetica's AFM metrics (checked for all printable ASCII in all four styles), so line breaks match ReportLab exactly. Glyphs are placed without kerning, like ReportLab.
+- Decks can also be saved inside the app (Saved decks), besides `.md` files.
+- The editor state is autosaved and restored after a restart.
+- MCP has no `cards_preview_page`: an LLM gets more from `cards_validate` (pages, overflow) and `cards_templates`.
 
 ## Parity checklist (Python `card_generator.py`, `ui/card_printer_panel.py`)
-- [ ] Parser: all 8 rules (golden `cards_parse.json`)
-- [ ] Inline tokenizer order and dropping of stray markers
-- [ ] Type colours plus custom hex colours
-- [ ] Copies expansion
-- [ ] Front layout constants (banner, title truncation, stats wrapping, body font fallback)
-- [ ] Overflow set (golden `cards_overflow.json`, with documented exceptions)
-- [ ] Duplex: backs only when needed, an empty back page kept, mirroring for both flips
-- [ ] Back card: CONT. marker, same font size
-- [ ] Cutting guides
-- [ ] Templates, reference text, save and load deck
-- [ ] A4 and Letter layouts
+- [x] Parser: all 8 rules (golden `cards_parse.json`, exact)
+- [x] Inline tokenizer order and dropping of stray markers (golden, exact)
+- [x] Type colours plus custom hex colours
+- [x] Copies expansion
+- [x] Front layout constants (banner, title truncation, stats wrapping, body font fallback); body heights and line breaks match the golden `cards_layout.json` exactly
+- [x] Overflow set: golden `cards_layout.json`, exact, with no exceptions needed
+- [x] Duplex: backs only when needed, an empty back page kept, mirroring for both flips
+- [x] Back card: CONT. marker, same font size
+- [x] Cutting guides
+- [x] Templates, reference text, save and load deck
+- [x] A4 and Letter layouts
