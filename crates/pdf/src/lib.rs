@@ -3,11 +3,16 @@
 //! draws top-left, so every writer converts with `top()`.
 
 pub mod cards;
+pub mod image_pages;
+pub mod map_tiles;
 pub mod token_sheet;
+
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use krilla::color::rgb;
 use krilla::geom::{Path, PathBuilder, Size, Transform};
-use krilla::image::Image;
+use krilla::image::{BitsPerComponent, CustomImage, Image, ImageColorspace};
 use krilla::num::NormalizedF32;
 use krilla::paint::{Stroke, StrokeDash};
 use krilla::surface::Surface;
@@ -97,4 +102,49 @@ pub(crate) fn stroke_path(surface: &mut Surface<'_>, path: &Path, stroke: Stroke
     surface.set_stroke(Some(stroke));
     surface.draw_path(path);
     surface.set_stroke(None);
+}
+
+/// Raw 8-bit RGB pixels handed to krilla without a PNG/temp-file round-trip.
+/// Hashing uses `id` (unique per image within one document) so krilla does not
+/// hash megabytes of pixels.
+#[derive(Clone)]
+struct RawRgb {
+    data: Arc<Vec<u8>>,
+    w: u32,
+    h: u32,
+    id: u64,
+}
+
+impl Hash for RawRgb {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.id, self.w, self.h, self.data.len()).hash(state);
+    }
+}
+
+impl CustomImage for RawRgb {
+    fn color_channel(&self) -> &[u8] {
+        &self.data
+    }
+    fn alpha_channel(&self) -> Option<&[u8]> {
+        None
+    }
+    fn bits_per_component(&self) -> BitsPerComponent {
+        BitsPerComponent::Eight
+    }
+    fn size(&self) -> (u32, u32) {
+        (self.w, self.h)
+    }
+    fn icc_profile(&self) -> Option<&[u8]> {
+        None
+    }
+    fn color_space(&self) -> ImageColorspace {
+        ImageColorspace::Rgb
+    }
+}
+
+/// Wraps an RGB image for embedding; `id` must be unique within the document.
+pub(crate) fn raw_rgb_image(img: image::RgbImage, id: u64) -> Image {
+    let (w, h) = img.dimensions();
+    Image::from_custom(RawRgb { data: Arc::new(img.into_raw()), w, h, id }, true)
+        .expect("valid raw image")
 }
