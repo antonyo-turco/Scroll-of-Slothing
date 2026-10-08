@@ -36,6 +36,8 @@ pub fn route_for_legacy_tab(label: &str) -> Option<&'static str> {
         "Card Printer" => "cards",
         "Map Paginator" => "maps.paginator",
         "AoE Templates" => "maps.aoe",
+        // The five Python music tabs are views inside the single Music route.
+        "Library" | "Mixer" | "Soundscapes" | "Playlists" | "Soundboard" => "music",
         "⚙ Settings" | "Settings" => "settings",
         _ => return None,
     })
@@ -374,7 +376,7 @@ mod tests {
             "map_margin_in": 0.5,
             "map_square_in": 0,
             "cut_line_color": "red",
-            "start_view": "music",
+            "start_view": "dnd.combat",
             "token_page_format": "A4",
             "bogus": 1
         })));
@@ -430,11 +432,21 @@ mod tests {
             "Card Printer",
             "Map Paginator",
             "AoE Templates",
+            "Library",
+            "Mixer",
+            "Soundscapes",
+            "Playlists",
+            "Soundboard",
         ] {
             let r = route_for_legacy_tab(label).unwrap();
             assert!(ROUTES.contains(&r), "{label} -> {r}");
         }
-        assert_eq!(route_for_legacy_tab("Mixer"), None, "music tabs fall back to default");
+        assert_eq!(route_for_legacy_tab("Mixer"), Some("music"));
+        assert_eq!(
+            route_for_legacy_tab("Combat Tracker"),
+            None,
+            "unknown tabs fall back to default"
+        );
     }
 
     #[test]
