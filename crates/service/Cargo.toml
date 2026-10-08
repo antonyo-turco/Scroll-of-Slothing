@@ -25,6 +25,9 @@ sleuth-pdf.workspace = true
 fastrand.workspace = true
 base64.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+clipboard-win = { version = "5", features = ["std"] }
+
 [dev-dependencies]
 tempfile.workspace = true
 sleuth-legacy = { workspace = true, features = ["fixture"] }

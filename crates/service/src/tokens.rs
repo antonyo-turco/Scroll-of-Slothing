@@ -171,32 +171,7 @@ impl Service {
 
     /// Stores the clipboard image (or an image file path copied as text) as a source.
     pub async fn image_source_from_clipboard(&self) -> Result<SourceImage> {
-        self.blocking(|s| {
-            let mut cb = arboard::Clipboard::new().map_err(|e| ServiceError::Io(e.to_string()))?;
-            if let Ok(img) = cb.get_image() {
-                let rgba = RgbaImage::from_raw(
-                    img.width as u32,
-                    img.height as u32,
-                    img.bytes.into_owned(),
-                )
-                .ok_or_else(|| {
-                    ServiceError::InvalidInput("clipboard image has an odd layout".into())
-                })?;
-                let png = imaging::encode_png(&rgba)
-                    .map_err(|e| ServiceError::Internal(e.to_string()))?;
-                return store_source(s, &png);
-            }
-            // Python also accepted a copied file path.
-            let text = cb
-                .get_text()
-                .map_err(|_| ServiceError::InvalidInput("the clipboard has no image".into()))?;
-            let path = PathBuf::from(text.trim().trim_matches('"'));
-            if path.is_file() {
-                return store_source(s, &std::fs::read(&path)?);
-            }
-            Err(ServiceError::InvalidInput("the clipboard has no image".into()))
-        })
-        .await
+        self.blocking(|s| store_source(s, &crate::clipboard::read_image()?)).await
     }
 
     /// Source description for an already-stored blob.

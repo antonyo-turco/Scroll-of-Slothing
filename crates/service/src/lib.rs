@@ -5,6 +5,7 @@
 mod aoe;
 mod blobs;
 mod cards;
+mod clipboard;
 mod cutouts;
 mod error;
 mod events;
