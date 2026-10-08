@@ -78,9 +78,34 @@ export function snapQuarter(v: number, page: number, tol: number): number {
   return v;
 }
 
-/** Python-style ordering of quad corners: TL, TR, BR, BL. */
-export function orderQuad(q: [number, number][]): [number, number][] {
-  const bySum = [...q].sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
-  const byDiff = [...q].sort((a, b) => a[0] - a[1] - (b[0] - b[1]));
+type Pt = [number, number];
+
+/** Indices of the quad corners in Python order: TL, TR, BR, BL. */
+export function quadOrder(q: Pt[]): [number, number, number, number] {
+  const idx = [0, 1, 2, 3];
+  const bySum = [...idx].sort((a, b) => q[a][0] + q[a][1] - (q[b][0] + q[b][1]));
+  const byDiff = [...idx].sort((a, b) => q[a][0] - q[a][1] - (q[b][0] - q[b][1]));
   return [bySum[0], byDiff[3], bySum[3], byDiff[0]];
+}
+
+/** Python-style ordering of quad corners: TL, TR, BR, BL. */
+export function orderQuad(q: Pt[]): Pt[] {
+  return quadOrder(q).map((i) => q[i]);
+}
+
+/** The quad's sides as corner-index pairs: top, right, bottom, left. */
+export function quadEdges(q: Pt[]): [number, number][] {
+  const [tl, tr, br, bl] = quadOrder(q);
+  return [[tl, tr], [tr, br], [br, bl], [bl, tl]];
+}
+
+/** Moves side (a, b) of `q` by the drag (dx, dy) projected on the side's
+ *  normal: the side stays parallel, so a rectangle stays a rectangle. */
+export function moveQuadEdge(q: Pt[], a: number, b: number, dx: number, dy: number): Pt[] {
+  const ex = q[b][0] - q[a][0];
+  const ey = q[b][1] - q[a][1];
+  const len = Math.hypot(ex, ey) || 1;
+  const [nx, ny] = [-ey / len, ex / len];
+  const t = dx * nx + dy * ny;
+  return q.map((p, i) => (i === a || i === b ? [p[0] + t * nx, p[1] + t * ny] : [p[0], p[1]]));
 }

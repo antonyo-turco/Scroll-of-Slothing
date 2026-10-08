@@ -53,7 +53,7 @@ Used when the map already has grid lines drawn in. Options: "Keep" (default) or 
 **Performance**: the preview uses the proxy, in Rust, off the UI thread. Export runs at full resolution inside the cancellable export job.
 
 ## Perspective de-warp
-1. Use the reference-block rectangle. Drag its 4 corner handles onto the real block (hit tolerance 10 px).
+1. Use the reference-block rectangle. Drag its 4 corner handles onto the real block (hit tolerance 10 px). The new app also has a handle in the middle of each side: dragging it moves that side parallel to itself, so an axis-aligned rectangle stays one.
 2. Corners are ordered TL, TR, BR, BL by sorting on x+y and x−y.
 3. Cell size = max(average horizontal edge, average vertical edge) / N.
 4. Map the quad to an axis-aligned square. Project the image corners to size the output. Cap the output at 8000 px, with 2 attempts that shrink `cell_px`.
@@ -159,6 +159,9 @@ Defaults come from Settings.
 | `map_save_asset` | `{name, asset_id?}` |
 
 ## Intentional changes
+- Canvas tools are labelled by what they do: Pan, Print area (Python: region), Reference square, Align grid (Python: nudge) and Move pages. The active tool's instructions are shown under the toolbar.
+- While the Reference square tool is active, the grid overlay and the page tiles are hidden, and a previous square is hidden while a new one is drawn, so the block underneath stays visible (alpha-test feedback).
+- Reference square: side handles in addition to corner handles (alpha-test feedback).
 - Zoom/pan are client-side transforms; the grid, region, tiles and reference block are vector overlays (Python re-rendered the composite with LANCZOS on every move).
 - The whole paginator state (`MapDoc`) is autosaved in the `map_paginator` workspace and stored as the asset's `params_json`, so reopening restores grid, filters, region, page selection and print settings. Python restored only the image.
 - Embedded-grid removal uses an f32 FFT and detects on the spectrum of R+G+B (the same as Python's mean of channel spectra), processing one channel at a time to bound memory. Output matches Python on 99.99 % of pixels.

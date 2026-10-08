@@ -12,7 +12,9 @@
     HANDLES,
     handlePoint,
     linePositions,
+    moveQuadEdge,
     orderQuad,
+    quadEdges,
     pmod,
     rectFrom,
     resizeRect,
@@ -31,7 +33,16 @@
     | { kind: 'resize'; hd: Handle; orig: Rect }
     | { kind: 'move'; x0: number; y0: number; orig: Rect }
     | { kind: 'corner'; i: number }
+    | { kind: 'side'; a: number; b: number; x0: number; y0: number; orig: Pt[] }
     | { kind: 'layout'; x0: number; y0: number; orig: [number, number] };
+
+  const TOOLS: { id: Tool; glyph: string; label: string; help: string }[] = [
+    { id: 'none', glyph: '✋', label: 'Pan', help: 'Drag to move around the map. Click a page to include or exclude it.' },
+    { id: 'region', glyph: '▭', label: 'Print area', help: 'Drag the part of the map to print (snaps to the grid; Shift = free). Drag the handles to resize, inside to move.' },
+    { id: 'reference', glyph: '◰', label: 'Reference square', help: 'Drag a box over a block of known size (N×N squares; Shift = not square). Then drag its corners or sides onto the block’s real edges.' },
+    { id: 'nudge', glyph: '⌖', label: 'Align grid', help: 'Drag over one real grid cell of the map to line the grid up with it.' },
+    { id: 'layout', glyph: '⇲', label: 'Move pages', help: 'Drag the page layout over the map (snaps to ¼ page; Shift = free).' },
+  ];
 
   const MODES: [SizingMode, string][] = [
     ['rows_cols', 'Rows×Cols'],
@@ -278,6 +289,7 @@
   const snapX = (v: number) => (grid && !shift ? snapLine(v, grid.offset_x, grid.cell_w) : v);
   const snapY = (v: number) => (grid && !shift ? snapLine(v, grid.offset_y, grid.cell_h) : v);
   const near = (a: Pt, b: Pt, px: number) => Math.hypot((a[0] - b[0]) * z, (a[1] - b[1]) * z) <= px;
+  const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 
   function onPointerDown(e: PointerEvent) {
     if (!doc?.source) return;
@@ -299,8 +311,11 @@
         return void (drag = { kind: 'move', x0: p[0], y0: p[1], orig: [...r] });
     }
     if (tool === 'reference' && doc.ref_quad) {
-      const i = doc.ref_quad.findIndex((c) => near(c, p, 10));
+      const q = doc.ref_quad;
+      const i = q.findIndex((c) => near(c, p, 10));
       if (i >= 0) return void (drag = { kind: 'corner', i });
+      const side = quadEdges(q).find(([a, b]) => near(mid(q[a], q[b]), p, 10));
+      if (side) return void (drag = { kind: 'side', a: side[0], b: side[1], x0: p[0], y0: p[1], orig: q.map((c) => [...c] as Pt) });
     }
     if (tool === 'layout') return void (drag = { kind: 'layout', x0: p[0], y0: p[1], orig: [...doc.page_offset] });
     const [x0, y0] = tool === 'region' ? [snapX(p[0]), snapY(p[1])] : p;
@@ -335,6 +350,9 @@
       }
       case 'corner':
         if (doc.ref_quad) doc.ref_quad[drag.i] = p;
+        break;
+      case 'side':
+        doc.ref_quad = moveQuadEdge(drag.orig, drag.a, drag.b, p[0] - drag.x0, p[1] - drag.y0) as [Pt, Pt, Pt, Pt];
         break;
       case 'layout': {
         const t = tiles[0]?.page_rect;
@@ -474,6 +492,9 @@
   });
   const curTile = $derived(tiles[Math.min(page, tiles.length - 1)]);
   const sw = $derived(1 / z); // one screen pixel in image px
+  // The Reference tool hides the grid and page tiles so the block underneath is clear.
+  const refFocus = $derived(tool === 'reference');
+  const activeTool = $derived(TOOLS.find((t) => t.id === tool) ?? TOOLS[0]);
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -481,24 +502,35 @@
 <div class="paginator">
   <section class="work">
     <div class="toolbar">
-      <div class="segmented" role="group" aria-label="Canvas tool">
-        <button aria-pressed={tool === 'none'} onclick={() => (tool = 'none')} title="Pan / click pages">Pan</button>
-        <button aria-pressed={tool === 'region'} onclick={() => (tool = 'region')} title="Drag a print region (Shift: no snapping)">Region</button>
-        <button aria-pressed={tool === 'reference'} onclick={() => (tool = 'reference')} title="Drag over a known N×N block">Reference</button>
-        <button aria-pressed={tool === 'nudge'} onclick={() => (tool = 'nudge')} title="Drag over one real cell to align">Nudge</button>
-        <button aria-pressed={tool === 'layout'} onclick={() => (tool = 'layout')} title="Drag the page grid (Shift: free)">Move pages</button>
-      </div>
-      <label class="check"><input type="checkbox" bind:checked={showTiles} /> Show page tiles</label>
+      <button class="btn" onclick={browse} title="Load a map image from disk">Open map…</button>
+      <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
       <div class="spacer"></div>
-      <button class="btn icon" aria-label="Zoom out" onclick={() => zoomCentre(1 / 1.25)}>−</button>
-      <span class="zoom muted">{Math.round(z * 100)}%</span>
-      <button class="btn icon" aria-label="Zoom in" onclick={() => zoomCentre(1.25)}>+</button>
-      <button class="btn" onclick={fit}>Fit</button>
-      <button class="btn" onclick={browse}>Choose file…</button>
-      <button class="btn" onclick={paste}>Paste</button>
-      <button class="btn" disabled={!doc?.source || busy} onclick={openSave}>Save as asset…</button>
-      <button class="btn primary" disabled={!doc?.source || !layout?.selected} onclick={exportPdf}>Export Map PDF</button>
+      <button class="btn" disabled={!doc?.source || busy} onclick={openSave} title="Store the map and these settings in the Library">Save to library…</button>
+      <button class="btn primary" disabled={!doc?.source || !layout?.selected} onclick={exportPdf} title="Write the selected pages as a true-scale PDF">Export PDF</button>
     </div>
+    <div class="toolbar">
+      <div class="segmented tools" role="group" aria-label="Canvas tool">
+        {#each TOOLS as t (t.id)}
+          <button aria-pressed={tool === t.id} onclick={() => (tool = t.id)} title={t.help}>
+            <span class="glyph" aria-hidden="true">{t.glyph}</span>{t.label}
+          </button>
+        {/each}
+      </div>
+      <div class="spacer"></div>
+      <div class="viewctl" role="group" aria-label="View">
+        <label class="check" title="Show the printed pages over the map"><input type="checkbox" bind:checked={showTiles} /> Pages</label>
+        <button class="btn icon" aria-label="Zoom out" onclick={() => zoomCentre(1 / 1.25)}>−</button>
+        <span class="zoom muted">{Math.round(z * 100)}%</span>
+        <button class="btn icon" aria-label="Zoom in" onclick={() => zoomCentre(1.25)}>+</button>
+        <button class="btn" onclick={fit} title="Fit the whole map in view">Fit</button>
+      </div>
+    </div>
+    {#if doc?.source}
+      <p class="toolhint" data-testid="tool-hint">
+        <strong>{activeTool.label}:</strong>
+        {activeTool.help}{refFocus ? ' Grid and pages are hidden while this tool is active.' : ''}
+      </p>
+    {/if}
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -516,7 +548,7 @@
         <div class="layer" style:transform="translate({tx}px, {ty}px) scale({z})" style:width="{W}px" style:height="{H}px">
           {#if previewUrl}<img src={previewUrl} alt="Map" draggable="false" />{/if}
           <svg viewBox="0 0 {W} {H}" width={W} height={H}>
-            {#if grid?.visible}
+            {#if grid?.visible && !refFocus}
               <g stroke={gridColor} stroke-opacity={grid.opacity / 255} stroke-width={Math.max(grid.thickness, sw)}>
                 {#each lines.v as x (x)}<line x1={x} y1="0" x2={x} y2={H} stroke-dasharray={dashV} />{/each}
                 {#each lines.h as y (y)}<line x1="0" y1={y} x2={W} y2={y} stroke-dasharray={dashH} />{/each}
@@ -533,7 +565,7 @@
                 {/each}
               {/if}
             {/if}
-            {#if showTiles}
+            {#if showTiles && !refFocus}
               {#each tiles as t, i (t.col + ':' + t.row)}
                 {@const pr = t.page_rect}
                 {@const ex = isExcluded(t.col, t.row)}
@@ -545,9 +577,16 @@
                 {/if}
               {/each}
             {/if}
-            {#if doc.ref_quad && !doc.pre_warp}
+            {#if doc.ref_quad && !doc.pre_warp && !(tool === 'reference' && drag?.kind === 'new')}
+              {@const q = doc.ref_quad}
               <polygon class="quad" points={quadPts} stroke-width={2 * sw} />
-              {#each doc.ref_quad as [qx, qy], i (i)}
+              {#if tool === 'reference'}
+                {#each quadEdges(q) as [a, b] (a + ':' + b)}
+                  {@const [mx, my] = mid(q[a], q[b])}
+                  <rect class="side" x={mx - 5 * sw} y={my - 5 * sw} width={10 * sw} height={10 * sw} stroke-width={sw} />
+                {/each}
+              {/if}
+              {#each q as [qx, qy], i (i)}
                 <circle class="corner" cx={qx} cy={qy} r={6 * sw} stroke-width={sw} />
               {/each}
             {/if}
@@ -567,13 +606,7 @@
     <p class="hint muted">
       {#if !doc?.source}Load a map to start.
       {:else}
-        {W} × {H} px{doc.dpi_detected ? ` · ${Math.round(doc.detected_dpi)} dpi` : ''} ·
-        {#if tool === 'region'}drag a print region (snaps to grid; Shift = free) · drag handles to resize, inside to move
-        {:else if tool === 'reference'}drag a box over a known N×N block (Shift = not square), then drag its corners onto the block
-        {:else if tool === 'nudge'}drag over one real grid cell to align the grid
-        {:else if tool === 'layout'}drag the page grid (snaps to ¼ page; Shift = free)
-        {:else}click a page tile to include/exclude it{/if}
-        · wheel zooms, middle-drag pans
+        {W} × {H} px{doc.dpi_detected ? ` · ${Math.round(doc.detected_dpi)} dpi` : ''} · wheel zooms, middle-drag pans
       {/if}
     </p>
   </section>
@@ -596,7 +629,7 @@
 
       <details open>
         <summary>Grid</summary>
-        <div class="segmented wrap" role="group" aria-label="Sizing mode">
+        <div class="segmented modes" role="group" aria-label="Sizing mode">
           {#each MODES as [m, label] (m)}
             <button aria-pressed={doc.mode === m} onclick={() => (doc!.mode = m)}>{label}</button>
           {/each}
@@ -712,7 +745,8 @@
 <style>
   .paginator {
     display: grid;
-    grid-template-columns: 1fr var(--inspector-w);
+    /* Wider than other views: the paginator has the most settings. */
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 440px);
     height: 100%;
     min-height: 0;
   }
@@ -730,6 +764,12 @@
     gap: var(--space-2);
     align-items: center;
     flex-wrap: wrap;
+  }
+  .viewctl {
+    display: flex;
+    flex: none;
+    gap: var(--space-2);
+    align-items: center;
   }
   .spacer,
   .grow {
@@ -863,7 +903,18 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    overflow-x: hidden;
     overflow-y: auto;
+    min-width: 0;
+  }
+  .inspector :global(.input) {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .inspector .tiny {
+    width: 64px;
+    flex: none;
   }
   details {
     display: grid;
@@ -878,8 +929,28 @@
     font-weight: 600;
     cursor: pointer;
   }
-  .segmented.wrap {
+  .segmented.modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .segmented.modes button:nth-child(odd) {
+    border-left: 0;
+  }
+  .segmented.modes button:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+  .segmented.tools {
     flex-wrap: wrap;
+  }
+  .glyph {
+    margin-right: 6px;
+  }
+  .toolhint {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    font-size: 13px;
   }
   .field {
     display: grid;
@@ -888,18 +959,20 @@
   }
   .pair {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--space-2);
   }
   .slider {
     display: grid;
-    grid-template-columns: 70px 1fr 32px;
+    grid-template-columns: auto minmax(0, 1fr) 32px;
     gap: 6px;
     align-items: center;
     font-size: 12px;
   }
   .slider input {
     accent-color: var(--accent);
+    width: 100%;
+    min-width: 0;
   }
   .swatch {
     width: 40px;
