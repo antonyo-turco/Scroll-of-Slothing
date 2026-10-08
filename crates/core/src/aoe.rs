@@ -264,6 +264,32 @@ impl From<&AoeConfig> for Style {
 /// Longest side cap for a rendered template, px.
 pub const MAX_DIM: i64 = 6000;
 
+/// Output size `(w, h, px_per_square)` of [`render_template`] without
+/// rendering: the footprint plus `line_width + 4` padding, with
+/// `px_per_square` reduced until the longest side is within 6000 px.
+pub fn template_size(
+    shape: Shape,
+    a_ft: f64,
+    b_ft: f64,
+    feet_per_square: f64,
+    px_per_square: f64,
+    line_width: u32,
+) -> (i64, i64, f64) {
+    let fps = feet_per_square.max(0.1);
+    let mut pps = px_per_square.max(8.0);
+    let pad = f64::from(line_width) + 4.0;
+    let (bw, bh) = bbox_ft(shape, a_ft.max(0.0), b_ft.max(0.0));
+    loop {
+        let ppf = pps / fps;
+        let w = ((bw * ppf + 2.0 * pad).round_ties_even() as i64).max(1);
+        let h = ((bh * ppf + 2.0 * pad).round_ties_even() as i64).max(1);
+        if w.max(h) <= MAX_DIM {
+            return (w, h, pps);
+        }
+        pps *= MAX_DIM as f64 / w.max(h) as f64;
+    }
+}
+
 /// Renders a template on white. Returns `(image, cell_px)`, where `cell_px`
 /// is the px-per-square to hand to the tiler (reduced when the 6000 px cap
 /// kicks in).
@@ -281,20 +307,9 @@ pub fn render_template(
     let a_ft = a_ft.max(0.0);
     let b_ft = b_ft.max(0.0);
     let fps = feet_per_square.max(0.1);
-    let mut pps = px_per_square.max(8.0);
     let ss = supersample.max(1);
     let pad = f64::from(style.line_width) + 4.0;
-    let (bw, bh) = bbox_ft(shape, a_ft, b_ft);
-    let (mut w, mut h);
-    loop {
-        let ppf = pps / fps;
-        w = ((bw * ppf + 2.0 * pad).round_ties_even() as i64).max(1);
-        h = ((bh * ppf + 2.0 * pad).round_ties_even() as i64).max(1);
-        if w.max(h) <= MAX_DIM {
-            break;
-        }
-        pps *= MAX_DIM as f64 / w.max(h) as f64;
-    }
+    let (w, h, pps) = template_size(shape, a_ft, b_ft, fps, px_per_square, style.line_width);
     let ssf = f64::from(ss);
     let (sw, sh) = (w as usize * ss as usize, h as usize * ss as usize);
     let o = pad * ssf;

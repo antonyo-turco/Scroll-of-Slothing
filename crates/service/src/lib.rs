@@ -2,6 +2,7 @@
 //! on [`Service`]; the Tauri commands, MCP tools and CLI are thin wrappers.
 //! CPU / IO work runs on the blocking pool so async callers never stall.
 
+mod aoe;
 mod blobs;
 mod cards;
 mod cutouts;
@@ -25,6 +26,7 @@ use std::sync::Arc;
 use sleuth_store::Store;
 use tokio::sync::broadcast;
 
+pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
 pub use cards::{CardOptions, CardSummary};
 pub use cutouts::CutoutDraft;
 pub use error::{ErrorCode, ServiceError};
