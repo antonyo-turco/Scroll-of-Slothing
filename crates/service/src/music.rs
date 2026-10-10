@@ -14,7 +14,7 @@
 //! - Soundbite timers and the SFX queue (with ducking) are tokio tasks that
 //!   only run in the process with the engine.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -251,7 +251,10 @@ struct Desired {
 #[derive(Default)]
 struct Rt {
     engine: HashMap<String, EngineCh>,
-    ducked: bool,
+    /// The SFX worker is playing a soundbite.
+    sfx_ducked: bool,
+    /// Soundboard one-shots still playing (they duck too, but never queue).
+    board_oneshots: HashSet<String>,
     previewing: bool,
     sfx_tx: Option<mpsc::Sender<(u64, String, i64)>>,
     soundbite_key: String,
@@ -267,6 +270,13 @@ pub(crate) struct MusicRuntime {
     generation: AtomicU64,
     os_seq: AtomicU64,
     rt: Mutex<Rt>,
+}
+
+impl Rt {
+    /// The music is lowered while a soundbite or a soundboard one-shot plays.
+    fn ducked(&self) -> bool {
+        self.sfx_ducked || !self.board_oneshots.is_empty()
+    }
 }
 
 fn internal(e: impl std::fmt::Display) -> ServiceError {
@@ -515,7 +525,7 @@ impl Service {
             soundscape_id: meta.soundscape_id.clone(),
             soundscape_name,
             duck: meta.duck,
-            ducked: rt.ducked,
+            ducked: rt.ducked(),
             master_volume: meta.master_volume,
             playlist: meta.playlist.clone(),
             toggles_playing: meta.toggles.clone(),
@@ -627,7 +637,8 @@ impl Service {
         self.music().sfx_len.store(0, Ordering::SeqCst);
         let mut rt = self.rt();
         rt.engine.clear();
-        rt.ducked = false;
+        rt.sfx_ducked = false;
+        rt.board_oneshots.clear();
         rt.previewing = false;
         for t in rt.soundbite_tasks.drain(..) {
             t.abort();
@@ -753,10 +764,34 @@ impl Service {
     fn execute(&self, s: &Store, r: Request) -> Result<()> {
         match r {
             Request::Oneshot { track_id, volume } => {
+                // Soundboard one-shot: ducks the music like a soundbite, but
+                // plays at once (no queue), so presses can overlap.
                 let t = s.music_track_get(&track_id)?;
                 let (kind, src) = src_of(&t);
                 let osid = format!("os{}", self.music().os_seq.fetch_add(1, Ordering::SeqCst) + 1);
+                let was_ducked = {
+                    let mut rt = self.rt();
+                    let was = rt.ducked();
+                    rt.board_oneshots.insert(osid.clone());
+                    was
+                };
+                if !was_ducked {
+                    self.sync_inner(s)?;
+                }
                 self.engine_cmd(json!({ "action": "play_oneshot", "osid": osid, "kind": kind, "src": src, "volume": clamp_vol(volume) }));
+                // Fallback if the engine never reports the end (as for soundbites).
+                if let Ok(h) = tokio::runtime::Handle::try_current() {
+                    let svc = self.clone();
+                    let wait = t.duration.map_or(30.0, |d| d + 1.0);
+                    h.spawn(async move {
+                        tokio::time::sleep(Duration::from_secs_f64(wait)).await;
+                        if svc.rt().board_oneshots.remove(&osid) {
+                            let store = svc.store();
+                            let _ = svc.sync_inner(&store);
+                            let _ = store.record_change("music_live", "live", "update");
+                        }
+                    });
+                }
             }
             Request::Sfx { track_id, volume } => self.sfx_enqueue(track_id, volume),
             Request::Preview { track_id, seconds } => {
@@ -815,8 +850,13 @@ impl Service {
                 self.sfx_done();
                 continue;
             };
-            if !self.rt().ducked {
-                self.rt().ducked = true;
+            let was_ducked = {
+                let mut rt = self.rt();
+                let was = rt.ducked();
+                rt.sfx_ducked = true;
+                was
+            };
+            if !was_ducked {
                 let _ = self.sync_inner(&store);
             }
             let osid = format!("os{}", self.music().os_seq.fetch_add(1, Ordering::SeqCst) + 1);
@@ -828,7 +868,7 @@ impl Service {
             let _ = tokio::time::timeout(Duration::from_secs_f64(wait), rx_end).await;
             self.rt().waiters.remove(&osid);
             if self.sfx_done() == 0 {
-                self.rt().ducked = false;
+                self.rt().sfx_ducked = false;
                 let _ = self.sync_inner(&store);
             }
             let _ = store.record_change("music_live", "live", "update");
@@ -870,7 +910,7 @@ impl Service {
         }
         let meta = load_meta(s)?;
         let channels = s.music_channels()?;
-        let ducked = self.rt().ducked;
+        let ducked = self.rt().ducked();
         let duck = if ducked { meta.duck.factor() } else { 1.0 };
         let master = meta.master_volume as f64 / 100.0;
         let eff = |v: i64, f: f64| ((v as f64) * master * f).round() as i64;
@@ -1016,8 +1056,10 @@ impl Service {
         self.blocking(move |s| {
             match event {
                 EngineEvent::Ready => {
-                    svc.rt().engine.clear();
-                    svc.rt().soundbite_key.clear();
+                    let mut rt = svc.rt();
+                    rt.engine.clear();
+                    rt.soundbite_key.clear();
+                    rt.board_oneshots.clear(); // a reloaded engine plays nothing
                 }
                 EngineEvent::ChannelEnded { channel_id }
                 | EngineEvent::ChannelError { channel_id, .. } => {
@@ -1047,6 +1089,10 @@ impl Service {
                 EngineEvent::OneshotEnded { osid } => {
                     if let Some(w) = svc.rt().waiters.remove(&osid) {
                         let _ = w.send(());
+                    }
+                    // the sync below restores the volume once nothing ducks
+                    if svc.rt().board_oneshots.remove(&osid) {
+                        s.record_change("music_live", "live", "update")?;
                     }
                 }
                 EngineEvent::OneshotDuration { .. } => {}
@@ -1334,7 +1380,7 @@ impl Service {
         self.blocking(move |s| Ok(s.music_soundboard_delete(&id)?)).await
     }
 
-    /// oneshot: fire-and-forget clip (no queue, no ducking); restart: (re)start
+    /// oneshot: fire-and-forget clip (ducks the music, no queue); restart: (re)start
     /// the button's channel; toggle: start or stop it.
     pub async fn music_soundboard_press(&self, button_id: String) -> Result<MixerState> {
         let svc = self.clone();

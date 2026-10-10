@@ -740,12 +740,19 @@ async fn soundboard_modes() {
     let (os, rs) = (board.buttons[0].id.clone(), board.buttons[1].id.clone());
     let mut rx = svc.subscribe();
 
-    // one-shot: fire and forget, no queue, no ducking
-    let st = svc.music_soundboard_press(os).await.unwrap();
-    assert!(st.toggles_playing.is_empty() && st.sfx_queue == 0 && !st.ducked);
-    assert!(
-        engine_cmds(&mut rx).iter().any(|c| c["action"] == "play_oneshot" && c["volume"] == 90)
-    );
+    // one-shot: plays at once (no queue) and ducks the music until it ends
+    let st = svc.music_soundboard_press(os.clone()).await.unwrap();
+    assert!(st.toggles_playing.is_empty() && st.sfx_queue == 0 && st.ducked);
+    let os1 = engine_cmds(&mut rx)
+        .into_iter()
+        .find(|c| c["action"] == "play_oneshot" && c["volume"] == 90)
+        .unwrap();
+    svc.music_engine_event(EngineEvent::OneshotEnded {
+        osid: os1["osid"].as_str().unwrap().into(),
+    })
+    .await
+    .unwrap();
+    assert!(!svc.music_state().await.unwrap().ducked);
 
     // restart: plays on the button's channel; pressing again starts it over
     svc.music_soundboard_press(rs.clone()).await.unwrap();
@@ -771,6 +778,58 @@ async fn soundboard_modes() {
     );
     svc.music_soundboard_delete(board.id).await.unwrap();
     assert!(svc.music_soundboards_list(None).await.unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn soundboard_oneshots_duck_without_queueing() {
+    let (_d, svc) = temp_service();
+    svc.music_attach_engine().await.unwrap();
+    let c = campaign(&svc).await;
+    let music = svc.music_track_create(yt_input(&c, "music", None)).await.unwrap();
+    let boom = svc.music_track_create(yt_input(&c, "boom", Some(20.0))).await.unwrap();
+    svc.music_channel_add(music.id.clone(), None, Some(80), None, true).await.unwrap();
+    svc.music_set_duck(DuckMode::Strong).await.unwrap();
+    let board = svc
+        .music_soundboard_save(SoundboardInput {
+            id: None,
+            name: "FX".into(),
+            campaign_id: None,
+            notes: None,
+            buttons: vec![button(&boom.id, "oneshot", false)],
+        })
+        .await
+        .unwrap();
+    let b = board.buttons[0].id.clone();
+    let mut rx = svc.subscribe();
+
+    // the music drops (80 × 0.25) before the clip starts
+    svc.music_soundboard_press(b.clone()).await.unwrap();
+    let cmds = engine_cmds(&mut rx);
+    let duck = cmds.iter().position(|c| c["action"] == "set_volume" && c["volume"] == 20);
+    let play = cmds.iter().position(|c| c["action"] == "play_oneshot");
+    assert!(matches!((duck, play), (Some(a), Some(p)) if a < p), "{cmds:?}");
+    // a second press overlaps instead of queueing, and does not re-duck
+    svc.music_soundboard_press(b.clone()).await.unwrap();
+    let cmds2 = engine_cmds(&mut rx);
+    assert!(cmds2.iter().any(|c| c["action"] == "play_oneshot"), "{cmds2:?}");
+    assert!(!cmds2.iter().any(|c| c["action"] == "set_volume"), "{cmds2:?}");
+    assert_eq!(svc.music_state().await.unwrap().sfx_queue, 0);
+
+    let osid = |c: &Value| EngineEvent::OneshotEnded { osid: c["osid"].as_str().unwrap().into() };
+    let first = cmds.iter().find(|c| c["action"] == "play_oneshot").unwrap();
+    let second = cmds2.iter().find(|c| c["action"] == "play_oneshot").unwrap();
+    // still ducked while the second clip plays
+    svc.music_engine_event(osid(first)).await.unwrap();
+    assert!(svc.music_state().await.unwrap().ducked);
+    assert!(!engine_cmds(&mut rx).iter().any(|c| c["action"] == "set_volume"));
+    svc.music_engine_event(osid(second)).await.unwrap();
+    assert!(!svc.music_state().await.unwrap().ducked);
+    assert!(engine_cmds(&mut rx).iter().any(|c| c["action"] == "set_volume" && c["volume"] == 80));
+
+    // a global stop clears it too
+    svc.music_soundboard_press(b).await.unwrap();
+    assert!(svc.music_state().await.unwrap().ducked);
+    assert!(!svc.music_stop_all().await.unwrap().ducked);
 }
 
 // ── .dmix files ────────────────────────────────────────────────────────

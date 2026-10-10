@@ -41,7 +41,7 @@ Fix these when the music phase is built.
 | 11 | Fixed: uploads live in the blob store (`uploads_live_in_the_blob_store`). |
 | 12 | Fixed: volume applies while dragging and from the keyboard (e2e `mixer: add…`). |
 | 13 | Decided: the modes are Off / Soft ×0.5 / Strong ×0.25. The unreachable 0.35 default and the ignored `hold` were dropped. |
-| 14 | Kept as in Python for now: soundboard one-shots do not duck. Open question for the user. |
+| 14 | Fixed (the user's decision, 2026-10-10): soundboard one-shots duck the music, without queueing (`soundboard_oneshots_duck_without_queueing`). |
 | 15 | Kept as in Python for now: the playlist channel is not in the mixer and is not ducked. Open question for the user (`mixer-soundbites-ducking.md`). |
 | 16 | Partly fixed: one connection per call; tags and links are still read per track, which is fine at library sizes. |
 | 17 | Fixed: every picker uses ids. |

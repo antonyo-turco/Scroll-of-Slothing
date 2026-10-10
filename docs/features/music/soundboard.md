@@ -28,7 +28,7 @@
 **Play modes**
 | Mode | Edit-list symbol | What it does |
 |---|---|---|
-| `oneshot` | 1× | `play_oneshot` at volume 80. Does not go through the SFX queue and does not duck the music. |
+| `oneshot` | 1× | `play_oneshot` at volume 80. Does not go through the SFX queue and does not duck the music (Python). **Rust:** it ducks the music like a soundbite, without queueing; overlapping presses keep the music ducked until the last one ends. |
 | `restart` | ↺→ | Stops, then calls `play_track` on the channel whose id is the button id. |
 | `toggle` | ↔ | Starts or stops the channel whose id is the button id. |
 

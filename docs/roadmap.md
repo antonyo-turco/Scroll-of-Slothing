@@ -30,7 +30,7 @@ In order. The parity sprint runs on `sprint/full-parity` and merges back into `d
    - AoE templates: labels and halo, presets, previews, exports.
    - Music: the alpha-test item (everything else is ticked; see `features/music/overview.md`).
    - Install the MSI once and double-click a `.dmix` file (the association only exists in the installed app).
-2. **Open music decisions** (`features/music/known-issues.md`, 14 and 15): should soundboard one-shots duck the music, and should the playlist channel appear in the mixer and be ducked? Both currently behave as in Python.
+2. **Open music decision** (`features/music/known-issues.md`, 15): should the playlist channel appear in the mixer and be ducked? It currently behaves as in Python. (14 is decided: one-shots duck.)
 3. **Release.** Once every checklist is ticked, music included, propose a single descriptive `master` merge and wait for the user's approval.
 
 ### Done in the 2026-10-10 session

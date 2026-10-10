@@ -67,6 +67,7 @@ The legacy importer writes every `music_*` row from the old database to `legacy/
 - No subprocess, IPC or loopback HTTP server: the engine runs in the main webview (see `player-engine.md`).
 - Volume changes apply while dragging and from the keyboard, and ramp over 150 ms.
 - Uploads are stored in the blob store; `.dmix` files carry them embedded.
+- Soundboard one-shots duck the music too (Python left them at full volume over it); they still never queue.
 - Every slot shows whether it is loading, playing or paused (`player-engine.md`, "Playback status"). Python showed only what it had asked for.
 - The known Python bugs are fixed as listed in `known-issues.md`, "Status in the Rust version".
 
@@ -81,7 +82,7 @@ Service tests are in `crates/service/src/music_tests.rs`, engine tests in `app/s
 - [x] Ducking: Off / Soft ×0.5 / Strong ×0.25 while a soundbite plays, restored when the queue empties (`soundbite_ducks_the_music_until_it_ends`, `duck_off_leaves_the_volume_alone`)
 - [x] Soundscapes: save (campaign optional), update in place, load replaces the mix and starts soundbites, delete (`dm_music_soundscape_panel.py`; `soundscapes_save_update_load_delete`)
 - [x] Playlists: duplicates, play from index, prev/next/pause/resume/stop, auto-advance, finish at the end (`dm_music_playlist_panel.py`; `playlist_controls`, `playlist_advances_and_soundboard_toggles`, e2e `playlists…`)
-- [x] Soundboards: oneshot / restart / toggle, stable button ids (`dm_music_soundboard_panel.py`; `soundboard_modes`, `playlist_advances_and_soundboard_toggles`)
+- [x] Soundboards: oneshot (ducks, no queue) / restart / toggle, stable button ids (`dm_music_soundboard_panel.py`; `soundboard_modes`, `soundboard_oneshots_duck_without_queueing`, `playlist_advances_and_soundboard_toggles`)
 - [x] Engine events: ended, error codes (2, 5, 100, 101/150), discovered duration, webview reload (`app.py:282`; `engine_events_update_the_mix`, vitest)
 - [x] Video toggle; YouTube embeds play inside the WebView2 window (verified 2026-10-10, `player-engine.md`)
 - [x] The standalone MCP server drives the app's engine through queued requests (`standalone_process_queues_for_the_app`)

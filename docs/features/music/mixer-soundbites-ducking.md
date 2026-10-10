@@ -73,7 +73,7 @@ If min is larger than max, the two values are swapped.
 - When a queued clip starts, every channel is set to `base_volume × factor`.
 - Volumes are restored only once the queue is empty.
 - While ducked, any `set_volume` or `play_track` is sent at the ducked value. Python changed volume instantly; the Rust version should ramp, about 150 ms through a Web Audio gain node.
-- **Soundboard one-shots do not go through the queue and do not duck.**
+- **Soundboard one-shots do not go through the queue and do not duck** (Python). In the Rust version they duck too (the user's decision, 2026-10-10), still without queueing: the music stays ducked while any soundbite or one-shot plays.
 - The player's default duck factor is 0.35, but no UI option selects it.
 
 ## Global Stop (`app.py:498-514`)
