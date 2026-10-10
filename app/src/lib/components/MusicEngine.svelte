@@ -80,7 +80,7 @@
   });
 </script>
 
-<div class="video" class:visible={videoVisible} aria-hidden={!videoVisible}>
+<div class="video" class:visible={videoVisible} aria-hidden={!videoVisible} inert={!videoVisible}>
   <div class="head">
     <span>YouTube</span>
     <button class="btn icon ghost" aria-label="Hide video" onclick={() => void music.toggleVideo()}>

@@ -31,12 +31,21 @@
     return commands.filter((c) => words.every((w) => c.label.toLowerCase().includes(w)));
   });
 
+  // Focus the input on open; give focus back to where it was on close.
   $effect(() => {
-    if (app.paletteOpen) {
-      query = '';
-      selected = 0;
-      queueMicrotask(() => input?.focus());
-    }
+    if (!app.paletteOpen) return;
+    query = '';
+    selected = 0;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    queueMicrotask(() => input?.focus());
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  });
+
+  const optionId = (i: number) => `palette-opt-${i}`;
+  $effect(() => {
+    document.getElementById(optionId(selected))?.scrollIntoView({ block: 'nearest' });
   });
 
   function close() {
@@ -74,22 +83,30 @@
         class="input"
         placeholder="Type a command or view…"
         aria-label="Command"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="palette-list"
+        aria-autocomplete="list"
+        aria-activedescendant={results.length ? optionId(selected) : undefined}
       />
-      <ul role="listbox">
+      <ul role="listbox" id="palette-list" aria-label="Commands">
         {#each results as c, i (c.id)}
-          <li>
-            <button
-              role="option"
-              aria-selected={i === selected}
-              class:sel={i === selected}
-              onmouseenter={() => (selected = i)}
-              onclick={() => exec(c)}>{c.label}</button
-            >
+          <!-- keyboard handling lives on the combobox input (aria-activedescendant) -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <li
+            id={optionId(i)}
+            role="option"
+            aria-selected={i === selected}
+            class="opt"
+            class:sel={i === selected}
+            onmouseenter={() => (selected = i)}
+            onclick={() => exec(c)}
+          >
+            {c.label}
           </li>
-        {:else}
-          <li class="muted empty">No matching commands</li>
         {/each}
       </ul>
+      {#if !results.length}<p class="muted empty">No matching commands</p>{/if}
     </div>
   </div>
 {/if}
@@ -122,19 +139,17 @@
     max-height: 50vh;
     overflow: auto;
   }
-  li button {
-    width: 100%;
-    text-align: left;
-    border: 0;
-    background: transparent;
+  .opt {
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-sm);
     cursor: pointer;
   }
-  li button.sel {
+  .opt.sel {
     background: var(--accent-soft);
+    outline: 1px solid var(--accent);
   }
   .empty {
+    margin: 0;
     padding: var(--space-3);
   }
 </style>

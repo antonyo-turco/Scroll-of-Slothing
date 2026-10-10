@@ -43,11 +43,12 @@
 
 <svelte:window onkeydown={onKey} />
 
+<a class="skip" href="#content" onclick={(e) => (e.preventDefault(), document.getElementById('content')?.focus())}>Skip to content</a>
 <div class="shell">
   <Rail />
   <div class="main">
     <TopBar />
-    <main>
+    <main id="content" tabindex="-1">
       {#if app.ready && View}
         <View />
       {/if}
@@ -73,5 +74,24 @@
   main {
     flex: 1;
     min-height: 0;
+  }
+  main:focus {
+    outline: none;
+  }
+  /* visible only while focused (first Tab stop) */
+  .skip {
+    position: fixed;
+    left: 8px;
+    top: -48px;
+    z-index: 100;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: var(--accent-contrast, #fff);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .skip:focus {
+    top: 8px;
   }
 </style>

@@ -29,7 +29,7 @@ test('rail navigation and sub-view tabs', async ({ page }) => {
 test('command palette navigates', async ({ page }) => {
   await page.goto('/');
   await page.keyboard.press('Control+k');
-  await page.getByRole('textbox', { name: 'Command' }).fill('cards');
+  await page.getByRole('combobox', { name: 'Command' }).fill('cards');
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/cards$/);
 });

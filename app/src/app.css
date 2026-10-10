@@ -8,7 +8,7 @@
   --text: #1d1d27;
   --text-muted: #6b6b7b;
   --accent: #c9821e;
-  --accent-contrast: #ffffff;
+  --accent-contrast: #1d1d26; /* 5.5:1 on the accent (white was 2.9:1, below WCAG AA) */
   --accent-soft: #f7ead6;
   --danger: #c23b3b;
   --success: #2f8a57;
@@ -51,6 +51,10 @@
     --accent: #e8a840;
     --accent-contrast: #1d1d26;
     --accent-soft: #3a2f1c;
+  /* status colours readable on the dark surfaces (WCAG AA ≥ 4.5:1) */
+  --danger: #f07a7a;
+  --success: #5cc98f;
+  --warning: #f0a838;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.3);
     color-scheme: dark;
   }
@@ -66,6 +70,10 @@
   --accent: #e8a840;
   --accent-contrast: #1d1d26;
   --accent-soft: #3a2f1c;
+  /* status colours readable on the dark surfaces (WCAG AA ≥ 4.5:1) */
+  --danger: #f07a7a;
+  --success: #5cc98f;
+  --warning: #f0a838;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.3);
   color-scheme: dark;
 }
