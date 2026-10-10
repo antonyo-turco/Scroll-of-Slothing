@@ -297,6 +297,9 @@
   .mixer {
     padding: var(--space-3) var(--space-4);
     display: grid;
+    /* one column that may shrink below its content's min width: long track
+       titles and sliders must never widen the page */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
     align-content: start;
   }
@@ -326,14 +329,16 @@
     padding: var(--space-2) var(--space-3);
   }
   .master input[type='range'] {
-    width: 260px;
+    flex: 0 1 320px;
+    min-width: 80px;
   }
   .channels {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
     gap: var(--space-2);
   }
   .channel {
+    min-width: 0;
     padding: var(--space-2) var(--space-3);
     display: grid;
     gap: 6px;
@@ -343,12 +348,22 @@
     display: flex;
     gap: 6px;
     align-items: center;
+    min-width: 0;
+  }
+  .ch-head > :not(.title),
+  .ch-row > :not(input[type='range']) {
+    flex: none;
+  }
+  /* range inputs have an intrinsic min width; let them shrink */
+  input[type='range'] {
+    min-width: 0;
   }
   .ch-row input[type='range'] {
-    flex: 1;
+    flex: 1 1 0;
   }
   .title {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     font-weight: 600;
     font-size: 13px;
     overflow: hidden;
@@ -365,6 +380,7 @@
     border-color: var(--accent);
   }
   .num {
+    flex: none;
     width: 3ch;
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -376,9 +392,17 @@
   }
   .sb {
     display: flex;
-    gap: var(--space-2);
+    flex-wrap: wrap;
+    gap: 4px var(--space-2);
     align-items: center;
     padding: 4px var(--space-3);
+    min-width: 0;
+  }
+  .sb .title {
+    flex: 1 1 12ch;
+  }
+  .sb input[type='range'] {
+    flex: 1 1 100px;
   }
   .num-in {
     width: 64px;

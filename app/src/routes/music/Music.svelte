@@ -110,6 +110,7 @@
   }
   .tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
     align-items: center;
     padding: var(--space-3) var(--space-4);
