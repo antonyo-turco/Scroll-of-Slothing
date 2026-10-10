@@ -122,7 +122,7 @@ Defaults come from Settings.
 - `tile = cells·cell_px`, `step = (cells−ov_cells)·cell_px`
 - `origin` is snapped onto a grid line: `origin + round((v−origin)/period)·period`
 
-**Page selection (`_axis_pages`)**: start at `floor((lo−origin)/step) − 1` and keep every page whose span overlaps the region. Capped at 20000 iterations.
+**Page selection (`_axis_pages`)**: start at `floor((lo−origin)/step) − 1` and keep every page whose span overlaps the region by at least 1 px (or half the region, if smaller). Capped at 20000 iterations.
 
 **Fewest pages (`tiling::fewest_pages`)**: fewer pages means fewer cuts. Columns and rows are independent, so each axis is minimised on its own, for both orientations:
 - When aligning to the grid, the candidate page-grid shifts are whole grid squares within one page; otherwise they are 1/64-page steps.
@@ -175,6 +175,7 @@ Defaults come from Settings.
 - Embedded-grid removal uses an f32 FFT and detects on the spectrum of R+G+B (the same as Python's mean of channel spectra), processing one channel at a time to bound memory. Output matches Python on 99.99 % of pixels.
 - Export and Save as Asset are cancellable background jobs; PDF images are embedded from raw pixels (no temp files).
 - DPI detection reads PNG `pHYs`, JPEG JFIF and BMP headers directly.
+- A page must hold at least 1 px of the print region. Python counted pages that merely touched the region's edge, so a region of exactly 24 squares on 8-square pages, starting on a page boundary, could come out as 5 columns instead of 3 through float rounding. The PDF already skipped those blank pages, but the count, the numbering and the fewest-pages suggestion did not. The golden tiling fixture is unaffected.
 - Landscape pages and the fewest-pages suggestion are new (Python printed portrait only, from the region's corner).
 - Cut lines extend through the margin to the paper edge instead of only outlining the image (Python drew a rectangle), so the white margin of a printer without borderless printing can be trimmed with a ruler or trimmer. The page preview shows them, and a hint asks for a margin of at least 0.2 in.
 

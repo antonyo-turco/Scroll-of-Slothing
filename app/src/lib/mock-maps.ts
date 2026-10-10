@@ -120,13 +120,15 @@ function baseGrid(d: MapDoc): [number, number, number, number] {
   }
 }
 
+// Mirrors core::maps::tiling::axis_pages: a page must hold ≥ 1 px of the region.
 function axisPages(origin: number, step: number, tile: number, lo: number, len: number): number[] {
   const out: number[] = [];
+  const min = Math.min(1, len / 2);
   let i = Math.floor((lo - origin) / step) - 1;
   for (let g = 0; g < 20000; g++, i++) {
     const left = origin + i * step;
-    if (left >= lo + len) break;
-    if (left + tile > lo) out.push(left);
+    if (left >= lo + len - min) break;
+    if (left + tile > lo + min) out.push(left);
   }
   return out;
 }

@@ -72,17 +72,24 @@ fn snap_to_line(v: f64, origin: f64, period: f64) -> f64 {
     origin + ((v - origin) / period).round_ties_even() * period
 }
 
+/// A page must hold at least this much of the region (image px) to count.
+/// Pages that only touch the region's edge (a page boundary on the region's
+/// edge, give or take float rounding) hold no map: the renderer already
+/// skipped crops under 1 px, so they only inflated the count. Python kept them.
+const MIN_OVERLAP_PX: f64 = 1.0;
+
 /// Page positions `(index, left)` along one axis whose span overlaps `[lo, lo+len]`.
 fn axis_pages(origin: f64, step: f64, tile: f64, lo: f64, len: f64) -> Vec<f64> {
     let hi = lo + len;
+    let min = MIN_OVERLAP_PX.min(len / 2.0);
     let mut i = ((lo - origin) / step).floor() - 1.0;
     let mut out = Vec::new();
     for _ in 0..20000 {
         let left = origin + i * step;
-        if left >= hi {
+        if left >= hi - min {
             break;
         }
-        if left + tile > lo {
+        if left + tile > lo + min {
             out.push(left);
         }
         i += 1.0;
@@ -338,6 +345,46 @@ mod tests {
             grid_offset: (0.0, 0.0),
             landscape: false,
         }
+    }
+
+    #[test]
+    fn pages_that_only_touch_the_region_are_not_counted() {
+        // User's map: reference grid 40.31 × 40.09 px, region of exactly
+        // 24 × 22 squares starting on a grid line; A4 portrait holds 8 × 11
+        // squares → 3 × 2 pages. Float rounding used to add a page on each
+        // side that touched the region's edge (5 × 2 = 10).
+        let (cw, ch) = (
+            (570.3170671349525 - 449.3768612285573) / 3.0,
+            (401.8560787316836 - 281.58404052533456) / 3.0,
+        );
+        let p = TileParams {
+            image_w: 1058,
+            image_h: 889,
+            region: Some((
+                46.24284154057334,
+                0.949284710520054,
+                967.5216472511617,
+                881.9949468465599,
+            )),
+            cell_w: cw,
+            cell_h: ch,
+            square_in: 1.0,
+            format: PageFormat::A4,
+            margin_pt: 0.0,
+            offset: (0.0, 0.0),
+            overlap_in: 0.0,
+            align_to_grid: true,
+            grid_offset: (449.3768612285573 % cw, 281.58404052533456 % ch),
+            landscape: false,
+        };
+        let t = plan(&p);
+        assert_eq!((t.cols, t.rows, t.tiles.len()), (3, 2, 6));
+        assert!(t.tiles.iter().all(|t| t.crop.2 - t.crop.0 >= 1.0 && t.crop.3 - t.crop.1 >= 1.0));
+        // and the optimiser does not claim an impossible saving
+        assert!(fewest_pages(&p).is_none_or(|f| f.pages >= 6));
+        // the same region exactly one page wide is one column, not three
+        let one = TileParams { region: Some((46.24284154057334, 0.95, 8.0 * cw, 11.0 * ch)), ..p };
+        assert_eq!(plan(&one).tiles.len(), 1);
     }
 
     #[test]
