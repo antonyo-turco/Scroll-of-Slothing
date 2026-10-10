@@ -699,7 +699,14 @@
           <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
         </div>
         <label class="check"><input type="checkbox" bind:checked={doc.align_to_grid} /> Align pages to grid</label>
-        <label class="check"><input type="checkbox" bind:checked={doc.cut_border} /> Cut border</label>
+        <label class="check" title="Lines along every edge of each page's map, out to the paper edge, to trim the white margin">
+          <input type="checkbox" bind:checked={doc.cut_border} /> Cut lines (trim the white margin)
+        </label>
+        {#if doc.cut_border && (doc.margin_in ?? 0) < 0.2}
+          <p class="small warn" data-testid="margin-hint">
+            Most printers can't print within about 0.2 in (5 mm) of the paper edge. Raise the margin to at least that, or the map's edges and the cut lines are clipped.
+          </p>
+        {/if}
         <div class="row fitrow">
           <span class="small">Fit area</span>
           <input class="input tiny" type="number" min="0" step="0.5" aria-label="Fit width (ft)" bind:value={doc.fit_w_ft} />
@@ -1018,5 +1025,11 @@
     position: absolute;
     color: #d32f2f;
     font-weight: 700;
+  }
+  /* the warning colour marks it; the text stays at full contrast */
+  .warn {
+    margin: 0;
+    padding-left: 8px;
+    border-left: 3px solid var(--warning);
   }
 </style>

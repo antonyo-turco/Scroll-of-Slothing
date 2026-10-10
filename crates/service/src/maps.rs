@@ -597,6 +597,25 @@ impl Service {
                 let x = ((layout.margin_pt + tile.page_x_pt) * k) as i64;
                 let y = ((layout.margin_pt + tile.page_y_pt) * k) as i64;
                 image::imageops::replace(&mut page, &sub, x, y);
+                if doc.cut_border {
+                    // the PDF's cut lines: every image edge, out to the paper edge
+                    let c = s.load_settings().unwrap_or_default().cut_line_color.0;
+                    let (pw, ph) = (i64::from(page.width()), i64::from(page.height()));
+                    let mut put = |px: i64, py: i64| {
+                        if (0..pw).contains(&px) && (0..ph).contains(&py) {
+                            page.put_pixel(px as u32, py as u32, image::Rgb(c));
+                        }
+                    };
+                    let (x1, y1) = (x + i64::from(w) - 1, y + i64::from(h) - 1);
+                    for py in 0..ph {
+                        put(x, py);
+                        put(x1, py);
+                    }
+                    for px in 0..pw {
+                        put(px, y);
+                        put(px, y1);
+                    }
+                }
             }
             imaging::encode_png_fast(&image::DynamicImage::ImageRgb8(page).to_rgba8())
                 .map_err(internal)

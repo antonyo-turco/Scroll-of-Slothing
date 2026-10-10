@@ -79,7 +79,7 @@ Defaults come from Settings.
 | Margin (in) | 0 |
 | Overlap (in) | 0 |
 | Align pages to grid | off |
-| Cut border | off; drawn as a rectangle in the cut-line style |
+| Cut lines (trim the white margin) | off (the `map_cut_border` setting); four lines in the cut-line style along every edge of each page's image, running on to the paper edge. Shown in the page preview too. Warns when the margin is under 0.2 in, because most printers clip that band. |
 
 **Fit check**: target area in feet, default 3×2. `squares = round(region/cell)`, and the printed size in inches is compared with the target in either orientation, showing ✓ or ✗.
 
@@ -127,7 +127,7 @@ Defaults come from Settings.
 **Rendering**
 - The crop is resampled with LANCZOS on a float source box, so tiles meet with sub-pixel accuracy and no seams.
 - `y = H − margin − page_y − h`.
-- Optional cut-border rectangle.
+- Optional cut lines: the image's left and right edges as lines from the top to the bottom of the sheet, its top and bottom edges across the whole sheet (`map_tiles::trim_lines`).
 - Only included tiles are exported.
 
 ## Saving
@@ -167,6 +167,7 @@ Defaults come from Settings.
 - Embedded-grid removal uses an f32 FFT and detects on the spectrum of R+G+B (the same as Python's mean of channel spectra), processing one channel at a time to bound memory. Output matches Python on 99.99 % of pixels.
 - Export and Save as Asset are cancellable background jobs; PDF images are embedded from raw pixels (no temp files).
 - DPI detection reads PNG `pHYs`, JPEG JFIF and BMP headers directly.
+- Cut lines extend through the margin to the paper edge instead of only outlining the image (Python drew a rectangle), so the white margin of a printer without borderless printing can be trimmed with a ruler or trimmer. The page preview shows them, and a hint asks for a margin of at least 0.2 in.
 
 ## Parity checklist (Python `ui/map_paginator_panel.py`, `map_grid.py`, `map_pdf_generator.py`)
 - [ ] Load via file, paste, drop or library; 2000 px proxy; DPI detection
