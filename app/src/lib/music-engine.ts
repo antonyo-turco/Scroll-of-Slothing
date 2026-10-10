@@ -9,6 +9,9 @@
 // - YouTube plays through IFrame API players (volume via setVolume; Web Audio
 //   cannot reach a cross-origin iframe). Looping is manual (seekTo(0)).
 // - One-shots, a single preview slot (auto-stops after N s), video toggle.
+// - Reports a per-slot playback status (loading / playing / paused) through
+//   `onStatus`, so the UI can tell a track that is still loading or buffering
+//   from one that is audible.
 
 import type { EngineCommand, EngineEvent } from './music';
 
@@ -60,6 +63,9 @@ function loadYoutubeApi(): Promise<any> {
 
 type Kind = 'youtube' | 'file';
 
+/** What a slot is actually doing (the service only knows what it asked for). */
+export type PlayStatus = 'loading' | 'playing' | 'paused';
+
 interface Slot {
   id: string;
   kind: Kind;
@@ -74,6 +80,7 @@ interface Slot {
   /** Actions waiting for the YouTube player to be ready. */
   pending: ((p: YTPlayer) => void)[];
   paused: boolean;
+  status?: PlayStatus;
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -84,10 +91,21 @@ export interface EngineOptions {
   mediaUrl: (hash: string) => string;
   emit: (e: EngineEvent) => void;
   onVideoToggle?: (visible: boolean) => void;
+  /** Slot status changes; `null` when the slot is gone. Slots are channel ids,
+   *  `PREVIEW_SLOT` and `ONESHOT_PREFIX + osid`. */
+  onStatus?: (slot: string, status: PlayStatus | null) => void;
 }
 
-const PREVIEW = '__preview';
-const OS = '__os_';
+export const PREVIEW_SLOT = '__preview';
+export const ONESHOT_PREFIX = '__os_';
+const PREVIEW = PREVIEW_SLOT;
+const OS = ONESHOT_PREFIX;
+
+// YT.PlayerState values (the API object may not be loaded yet).
+const YT_ENDED = 0;
+const YT_PLAYING = 1;
+const YT_PAUSED = 2;
+const YT_BUFFERING = 3;
 
 export class MusicEngine {
   #ctx: AudioContext | null = null;
@@ -130,6 +148,7 @@ export class MusicEngine {
         case 'pause_channel':
           this.#with(cmd.channel_id, (s) => {
             s.paused = true;
+            this.#status(s, 'paused');
             if (s.audio) s.audio.pause();
             else this.#yt(s, (p) => p.pauseVideo());
           });
@@ -137,6 +156,7 @@ export class MusicEngine {
         case 'resume_channel':
           this.#with(cmd.channel_id, (s) => {
             s.paused = false;
+            this.#status(s, 'loading'); // until the media reports it is playing
             if (s.audio) void s.audio.play().catch(() => {});
             else this.#yt(s, (p) => p.playVideo());
           });
@@ -191,6 +211,17 @@ export class MusicEngine {
     this.#ctx = null;
   }
 
+  /** Status of one slot (`undefined` when it is not loaded). */
+  statusOf(id: string): PlayStatus | undefined {
+    return this.#slots.get(id)?.status;
+  }
+
+  #status(s: Slot, st: PlayStatus) {
+    if (this.#slots.get(s.id) !== s || s.status === st) return; // stale or unchanged
+    s.status = st;
+    this.opts.onStatus?.(s.id, st);
+  }
+
   #with(id: string, f: (s: Slot) => void) {
     const s = this.#slots.get(id);
     if (s) f(s);
@@ -211,6 +242,7 @@ export class MusicEngine {
     this.#stop(id, true);
     const s: Slot = { id, kind, loop, volume: clamp(volume), paused: false, pending: [] };
     this.#slots.set(id, s);
+    this.#status(s, 'loading');
     const isChannel = !osid && id !== PREVIEW;
     let done = false;
     const ended = () => {
@@ -269,6 +301,9 @@ export class MusicEngine {
     audio.onended = ended;
     audio.onerror = () => failed(5);
     audio.onloadedmetadata = () => duration(audio.duration);
+    audio.onplaying = () => this.#status(s, 'playing');
+    audio.onwaiting = () => !s.paused && this.#status(s, 'loading');
+    audio.onpause = () => s.paused && this.#status(s, 'paused');
     void audio.play().catch((e) => {
       if ((e as DOMException)?.name !== 'AbortError') failed(5);
     });
@@ -311,7 +346,10 @@ export class MusicEngine {
               for (const f of queued) f(p);
             },
             onStateChange: (ev: any) => {
-              if (ev.data === YT.PlayerState.ENDED) {
+              if (ev.data === YT_PLAYING) this.#status(s, 'playing');
+              else if (ev.data === YT_PAUSED) this.#status(s, 'paused');
+              else if (ev.data === YT_BUFFERING) this.#status(s, 'loading');
+              if (ev.data === YT_ENDED) {
                 if (s.loop && !oneshot) {
                   ev.target.seekTo(0);
                   ev.target.playVideo();
@@ -330,11 +368,12 @@ export class MusicEngine {
     const s = this.#slots.get(id);
     if (!s) return;
     this.#slots.delete(id);
+    if (s.status) this.opts.onStatus?.(id, null);
     if (s.timer) clearTimeout(s.timer);
     if (s.audio) {
       const a = s.audio;
       const finish = () => {
-        a.onended = a.onerror = a.onloadedmetadata = null;
+        a.onended = a.onerror = a.onloadedmetadata = a.onplaying = a.onwaiting = a.onpause = null;
         a.pause();
         a.removeAttribute('src');
         a.load();

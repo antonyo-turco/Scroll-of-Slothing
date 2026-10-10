@@ -2,6 +2,7 @@
   // Music library (Python ui/dm_music_library_panel.py).
   import { onDestroy, onMount } from 'svelte';
   import { api } from '../../lib/api';
+  import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { formatDuration, music, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
@@ -77,8 +78,15 @@
     }
   }
 
+  /** Track being previewed (the engine has a single preview slot). */
+  let previewId = $state<string | null>(null);
+  $effect(() => {
+    if (!musicUi.state?.previewing) previewId = null;
+  });
+
   async function preview(t: Track) {
     try {
+      previewId = t.id;
       await music.preview(t.id, 10);
       void musicUi.refresh();
     } catch (e) {
@@ -179,7 +187,10 @@
               tabindex="0"
               onkeydown={(e) => e.key === 'Enter' && preview(t)}
             >
-              <td>{t.source === 'upload' ? '⬆ ' : ''}{t.title}</td>
+              <td>
+                {#if previewId === t.id && musicUi.state?.previewing}<PlayIndicator status={musicUi.previewStatus ?? 'loading'} />{/if}
+                {t.source === 'upload' ? '⬆ ' : ''}{t.title}
+              </td>
               <td class="muted">{t.tags.join(', ')}</td>
               <td>{formatDuration(t.duration)}</td>
               <td>{t.loop_by_default ? 'yes' : 'no'}</td>
@@ -197,7 +208,12 @@
         </tbody>
       </table>
     </div>
-    <div class="status muted">{musicUi.state?.previewing ? 'Previewing…' : `${tracks.length} track(s)`}</div>
+    <div class="status muted">
+      {#if musicUi.state?.previewing}
+        <PlayIndicator status={musicUi.previewStatus ?? 'loading'} />
+        {musicUi.previewStatus === 'playing' ? 'Previewing…' : 'Loading preview…'}
+      {:else}{tracks.length} track(s){/if}
+    </div>
   </section>
 </div>
 

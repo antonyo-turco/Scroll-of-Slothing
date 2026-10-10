@@ -25,6 +25,7 @@
         void music.engineEvent(e).catch((err) => console.warn('[music] engine event', err));
       },
       onVideoToggle: (v) => (videoVisible = v),
+      onStatus: (slot, status) => musicUi.setPlayback(slot, status),
     });
     const offs: (() => void)[] = [];
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -74,6 +75,7 @@
       if (syncTimer) clearTimeout(syncTimer);
       window.removeEventListener('pointerdown', unlock);
       engine.dispose();
+      musicUi.playback = {};
     };
   });
 </script>

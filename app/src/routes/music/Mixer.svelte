@@ -2,6 +2,7 @@
   // Live mixer (Python ui/dm_music_mixer_panel.py): channels, master volume,
   // ducking, soundbites, soundscape save/update and .dmix files.
   import Modal from '../../lib/components/Modal.svelte';
+  import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { pickFile, pickSavePath } from '../../lib/api';
   import { DMIX_EXTENSION, music, type Channel, type ChannelRole, type DuckMode, type Soundbite, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
@@ -192,6 +193,7 @@
     {#each st?.channels ?? [] as c (c.id)}
       <div class="channel card">
         <div class="ch-head">
+          <PlayIndicator status={musicUi.statusFor(c.id, c.is_playing)} />
           <span class="title" title={c.title}>{trunc(c.title)}</span>
           <select class="input role" value={c.role} aria-label="Role" onchange={(e) => musicUi.act('Could not set the role', () => music.channelUpdate(c.id, { role: e.currentTarget.value as ChannelRole }))}>
             {#each ROLES as r (r)}<option value={r}>{r}</option>{/each}
@@ -226,7 +228,7 @@
   </div>
 
   <div class="toolbar">
-    <h2>Soundbites {#if st?.soundbites_running}<span class="pill">running</span>{/if}</h2>
+    <h2>Soundbites <PlayIndicator status={musicUi.oneshotStatus} /> {#if st?.soundbites_running}<span class="pill">running</span>{/if}</h2>
     <div class="spacer"></div>
     {#if st?.sfx_queue}<span class="muted small">{st.sfx_queue} queued</span>{/if}
     <button class="btn" onclick={openSoundbite}>+ Soundbite</button>

@@ -4,6 +4,7 @@
   // button ids, per-button volume and hotkeys (1–9 by position by default).
   import { onMount } from 'svelte';
   import Modal from '../../lib/components/Modal.svelte';
+  import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { BUTTON_COLORS, PLAY_MODE_SYMBOLS, music, type PlayMode, type Soundboard, type SoundboardButton, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
@@ -188,6 +189,7 @@
           {#if b.icon}<span class="ico">{b.icon}</span>{/if}
           <span class="lbl">{b.label}</span>
           <span class="mode">{PLAY_MODE_SYMBOLS[b.play_mode]}</span>
+          {#if musicUi.playback[b.id]}<span class="tile-pi"><PlayIndicator status={musicUi.playback[b.id]} size={12} inherit /></span>{/if}
         </button>
       {:else}
         <p class="muted">This board has no buttons. Click Edit to add some.</p>
@@ -257,6 +259,15 @@
   }
   .tile:active {
     transform: scale(0.97);
+  }
+  .tile {
+    position: relative;
+  }
+  .tile-pi {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.6));
   }
   .tile.on {
     outline: 3px solid #00cc66;

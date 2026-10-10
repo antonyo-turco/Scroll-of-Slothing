@@ -1,7 +1,9 @@
 <script lang="ts">
   import { DESTINATIONS, SETTINGS_DEST, findView, type Destination } from '../nav';
   import { app } from '../state.svelte';
+  import { musicUi } from '../music-ui.svelte';
   import Icon from './Icon.svelte';
+  import PlayIndicator from './PlayIndicator.svelte';
 
   const current = $derived(findView(app.route)?.dest.id);
 
@@ -41,6 +43,9 @@
           {#if !app.sidebarCollapsed}
             <span>{d.label}</span>
             {#if d.disabled}<span class="badge">planned</span>{/if}
+          {/if}
+          {#if d.id === 'music' && musicUi.activity}
+            <span class="rail-pi"><PlayIndicator status={musicUi.activity} size={12} /></span>
           {/if}
         </button>
       </li>
@@ -128,6 +133,18 @@
   .item:disabled {
     opacity: 0.55;
     cursor: default;
+  }
+  .item {
+    position: relative;
+  }
+  .rail-pi {
+    margin-left: auto;
+    display: inline-flex;
+  }
+  .collapsed .rail-pi {
+    position: absolute;
+    top: 3px;
+    right: 6px;
   }
   .badge {
     margin-left: auto;

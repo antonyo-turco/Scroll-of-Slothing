@@ -3,6 +3,7 @@
   // on the dedicated "playlist" channel; duplicates allowed.
   import { onMount } from 'svelte';
   import Modal from '../../lib/components/Modal.svelte';
+  import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { music, type Playlist, type PlaylistAction, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
@@ -104,6 +105,7 @@
 <div class="view">
   {#if pb}
     <div class="now card" aria-label="Now playing">
+      <PlayIndicator status={musicUi.statusFor('playlist', !pb.paused)} size={18} />
       <div class="info">
         <strong>{pb.name} — Track {pb.index + 1}/{pb.track_ids.length}</strong>
         <span class="muted">{pb.title}</span>
