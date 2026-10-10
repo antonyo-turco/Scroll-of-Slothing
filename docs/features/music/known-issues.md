@@ -27,3 +27,22 @@ Fix these when the music phase is built.
 16. **N+1 queries.** `music_list_tracks` runs 3 extra queries per track, and every DB call opens a new connection.
 17. **Name-based lookups.** Combo boxes look items up by name, so duplicate campaign or track names are ambiguous.
 18. **Unrestricted file access.** The loopback `/media` endpoint will serve any absolute path. The risk is low (loopback only, random port), but the new design drops that endpoint entirely.
+
+## Status in the Rust version
+| # | Status |
+|---|---|
+| 1–4 | Gone by design: no subprocess, no stdin IPC, one engine event path (`player-engine.md`). |
+| 5 | Fixed: the live mix is cleared when the app attaches its engine (`attach_clears_stale_live_state`). |
+| 6 | Fixed: deleting a campaign only unlinks shared tracks (`campaign_delete_keeps_shared_tracks`). |
+| 7 | Fixed: soundscapes without a campaign save (`soundscapes_save_update_load_delete`). |
+| 8 | Fixed: editing a playlist can change its campaign (`playlist_controls`). |
+| 9 | Fixed: playlists hold duplicates (`playlist_advances_and_soundboard_toggles`). |
+| 10 | Fixed: button ids survive a save (`playlist_advances_and_soundboard_toggles`). |
+| 11 | Fixed: uploads live in the blob store (`uploads_live_in_the_blob_store`). |
+| 12 | Fixed: volume applies while dragging and from the keyboard (e2e `mixer: add…`). |
+| 13 | Decided: the modes are Off / Soft ×0.5 / Strong ×0.25. The unreachable 0.35 default and the ignored `hold` were dropped. |
+| 14 | Kept as in Python for now: soundboard one-shots do not duck. Open question for the user. |
+| 15 | Kept as in Python for now: the playlist channel is not in the mixer and is not ducked. Open question for the user (`mixer-soundbites-ducking.md`). |
+| 16 | Partly fixed: one connection per call; tags and links are still read per track, which is fine at library sizes. |
+| 17 | Fixed: every picker uses ids. |
+| 18 | Gone: uploads are served by blob hash only (`sleuth://localhost/media/<hash>`). |

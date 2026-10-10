@@ -72,6 +72,39 @@ Lazy start:
 
 Errors appear in a banner that hides itself after 6 s.
 
+## YouTube inside WebView2 (verified 2026-10-10)
+The roadmap flagged a risk that YouTube might refuse to embed in the app window. A probe ran the IFrame API in a standalone WebView2 (Edge WebView2 154). Its page was served from `http://tauri.localhost/`, the packaged app's origin, with the app's CSP and the engine's player parameters:
+- Two public videos reached `PLAYING` after 2–6 s, **unmuted and without a user gesture**, so soundbite timers can start YouTube clips on their own.
+- A video whose owner disallows embedding returned error 150, which the engine already reports in the error banner.
+- Dev mode loads the page from `http://localhost:5173`, an ordinary web origin.
+
+No fallback is needed. If YouTube changes its embed policy, repeat the probe: a minimal wry window serving a page with the CSP and player parameters above from the `tauri` custom protocol.
+
+## Playback status
+The service only knows what it asked the engine to do. The engine reports what each slot is actually doing through `onStatus(slot, status)`:
+
+| Status | File (`<audio>`) | YouTube (`onStateChange`) |
+|---|---|---|
+| `loading` | after `play_track` / `resume_channel`, and on `waiting` (buffering) | after creation, `BUFFERING` (3) |
+| `playing` | `playing` event | `PLAYING` (1) |
+| `paused` | `pause_channel` | `PAUSED` (2), also when YouTube paused itself |
+| gone (`null`) | stop, end, error | stop, end, error |
+
+Slots are channel ids, soundboard button ids, `playlist`, `__preview` and `__os_<osid>` for one-shots. `musicUi.playback` mirrors them. `PlayIndicator.svelte` draws them, Windows Media Player style:
+- **Playing:** four bouncing equalizer bars in the accent colour.
+- **Loading:** a travelling wave of dots.
+- **Paused:** four still, dimmed bars.
+
+The shapes stay distinct with reduced motion, and each has an accessible label ("Playing", "Loading…", "Paused").
+
+The indicator appears on:
+- each mixer channel (a channel the service plays but the engine has not reported on yet shows as loading);
+- the Soundbites header while a clip plays;
+- the playlist "Now playing" card;
+- soundboard tiles of restart and toggle buttons;
+- the previewed library row and the status line;
+- the Music entry of the navigation rail, whenever anything is playing or loading.
+
 ## Requirements for the Rust version
 - Feature parity with every IPC command and event listed above, as service functions.
 - Per-channel volume, loop, pause and resume; a single preview slot; one-shots; a video toggle (show the YouTube player in a small floating panel).

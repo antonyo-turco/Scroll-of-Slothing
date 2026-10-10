@@ -41,7 +41,7 @@ If min is larger than max, the two values are swapped.
 - The track title, truncated to 42 characters.
 - A role select: music, ambient or sfx. This is metadata only and does not change playback.
 - ✕ to remove the channel.
-- A volume slider, 0–100. **It applies only on mouse release, and changes from the keyboard are ignored** (a bug to fix).
+- A volume slider, 0–100. **It applies only on mouse release, and changes from the keyboard are ignored** (a bug to fix; the Rust slider applies live, keyboard included).
 - A ▶/⏸ toggle and a ↻ loop toggle.
 - Every change is written to the database.
 
