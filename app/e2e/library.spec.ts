@@ -73,3 +73,18 @@ test('campaign view: create campaign and session, then jump to its assets', asyn
   await expect(page.getByTestId('asset-card')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Zombie (Token)' })).toBeVisible();
 });
+
+test('open in editor routes each kind to its editor with the asset loaded', async ({ page }) => {
+  const cases: [string, string, RegExp][] = [
+    ['Owlbear (Token)', 'Open in Token Cutter', /#\/tokens\.cutter$/],
+    ['Brazier (Cut-out)', 'Open in Object Cutter', /#\/cutouts\.cutter$/],
+    ['Forest Road (Map)', 'Open in Map Paginator', /#\/maps\.paginator$/],
+  ];
+  for (const [card, open, url] of cases) {
+    await page.goto('/#/library');
+    await page.getByRole('button', { name: card }).click();
+    await page.getByRole('complementary', { name: 'Asset details' }).getByRole('button', { name: open }).click();
+    await expect(page).toHaveURL(url);
+    await expect(page.getByText(/Editing library asset #\d+/)).toBeVisible();
+  }
+});
