@@ -187,6 +187,8 @@ export const api = {
     toBlob(await call<ArrayBuffer | string>('map_preview_page', { doc, index, pxPerPt })),
   mapDewarp: (doc: MapDoc) => call<MapDoc>('map_dewarp', { doc }),
   mapUndoDewarp: (doc: MapDoc) => call<MapDoc>('map_undo_dewarp', { doc }),
+  /** Orientation + page-grid shift with the fewest pages (clears exclusions). */
+  mapFewestPages: (doc: MapDoc) => call<MapDoc>('map_fewest_pages', { doc }),
   mapExportPdf: (doc: MapDoc, path: string) => call<string>('map_export_pdf', { doc, path }),
   mapSaveAsset: (doc: MapDoc, name: string, update?: number | null) =>
     call<string>('map_save_asset', { doc, name, update: update ?? null }),

@@ -48,6 +48,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `map_get` / `map_open` / `map_open_asset` / `map_update` | 5 | Map paginator document: read, open from a file/blob or library asset, merge a partial doc |
 | `map_set_grid` / `map_set_style` / `map_set_filters` / `map_filter_catalog` / `map_remove_grid` | 5 | Grid sizing (4 modes + offset), overlay style, filter preset/pipeline (catalog of 14 filters, 18 presets), embedded-grid removal |
 | `map_dewarp` / `map_undo_dewarp` | 5 | Perspective de-warp from a reference block, and undo |
+| `map_fewest_pages` | 5 | Switch to the orientation and page-grid shift with the fewest pages (fewer cuts) |
 | `map_set_print` / `map_set_region` / `map_toggle_page` / `map_layout` | 5 | Print settings, region and page offset, page include/exclude, tiling + fit check |
 | `map_preview` / `map_preview_page` | 5 | Working preview image; one printed page as an image |
 | `map_export_pdf` / `map_save_asset` | 5 | Tiled PDF export (job); save to the library with full state (job) |

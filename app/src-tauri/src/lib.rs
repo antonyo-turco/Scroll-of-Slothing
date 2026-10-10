@@ -182,6 +182,7 @@ pub fn run() {
             commands::map_preview_page,
             commands::map_dewarp,
             commands::map_undo_dewarp,
+            commands::map_fewest_pages,
             commands::map_export_pdf,
             commands::map_save_asset,
             commands::map_filter_catalog,

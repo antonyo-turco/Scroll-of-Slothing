@@ -158,6 +158,7 @@ fn tiling_matches_python() {
             overlap_in: f(&c["ov"]),
             align_to_grid: c["align"].as_bool().unwrap(),
             grid_offset: pt(&c["goff"]),
+            landscape: false,
         };
         let got = plan(&p);
         close(got.scale_x, f(&c["scale"][0]), &ctx);

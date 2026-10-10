@@ -406,6 +406,8 @@ export interface MapDoc {
   remove_grid: boolean;
   filters: FilterStep[];
   format: PageFormat;
+  /** Pages turned sideways. */
+  landscape: boolean;
   square_in: number;
   calibration_mm: number;
   margin_in: number;
@@ -470,6 +472,17 @@ export interface MapLayout {
   page_w_pt: number;
   page_h_pt: number;
   margin_pt: number;
+  /** A layout with fewer pages, when one exists (`map_fewest_pages` applies it). */
+  fewest: FewestPages | null;
+}
+
+/** core::maps::tiling::FewestPages */
+export interface FewestPages {
+  landscape: boolean;
+  offset: [number, number];
+  pages: number;
+  cols: number;
+  rows: number;
 }
 
 // ── AoE templates ── mirrors core::aoe + crates/service/src/aoe.rs

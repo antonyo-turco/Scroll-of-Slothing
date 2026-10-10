@@ -16,7 +16,7 @@ use sleuth_core::maps::degrid;
 use sleuth_core::maps::filters::{self, FilterStep};
 use sleuth_core::maps::grid::{self, DEFAULT_DPI, GridModel, GridStyle};
 use sleuth_core::maps::homography::{self, Pt};
-use sleuth_core::maps::tiling::{self, FitCheck, Tile, TileParams};
+use sleuth_core::maps::tiling::{self, FewestPages, FitCheck, Tile, TileParams};
 use sleuth_core::units::{PT_PER_INCH, PageFormat};
 use sleuth_pdf::{CutLine, PdfError};
 use sleuth_store::{AssetImages, AssetPatch, NewAsset, Store};
@@ -75,6 +75,8 @@ pub struct MapDoc {
     pub filters: Vec<FilterStep>,
 
     pub format: PageFormat,
+    /// Pages turned sideways.
+    pub landscape: bool,
     pub square_in: f64,
     pub calibration_mm: f64,
     pub margin_in: f64,
@@ -118,6 +120,7 @@ impl Default for MapDoc {
             style: GridStyle::Solid,
             remove_grid: false,
             filters: filters::default_pipeline(),
+            landscape: false,
             format: PageFormat::A4,
             square_in: 1.0,
             calibration_mm: 25.4,
@@ -225,6 +228,7 @@ impl MapDoc {
             overlap_in: finite(self.overlap_in),
             align_to_grid: self.align_to_grid,
             grid_offset: (g.offset_x, g.offset_y),
+            landscape: self.landscape,
         }
     }
 
@@ -269,6 +273,9 @@ pub struct MapLayout {
     pub page_w_pt: f64,
     pub page_h_pt: f64,
     pub margin_pt: f64,
+    /// A layout with fewer pages (orientation and page-grid shift), when one
+    /// exists; `map_fewest_pages` applies it.
+    pub fewest: Option<FewestPages>,
 }
 
 pub fn compute_layout(doc: &MapDoc) -> MapLayout {
@@ -301,7 +308,12 @@ pub fn compute_layout(doc: &MapDoc) -> MapLayout {
             sleuth_core::aoe::fmt_g(doc.square_in)
         )
     };
-    let (pw, ph) = doc.format.size_pt();
+    let (pw, ph) = tiling::page_size_pt(doc.format, doc.landscape);
+    let fewest = if total > 1 {
+        tiling::fewest_pages(&doc.tile_params()).filter(|f| f.pages < total)
+    } else {
+        None
+    };
     MapLayout {
         base_offset: (bx, by),
         work_scale: s,
@@ -319,6 +331,7 @@ pub fn compute_layout(doc: &MapDoc) -> MapLayout {
         page_h_pt: ph,
         margin_pt: finite(doc.margin_in).max(0.0) * PT_PER_INCH,
         grid: g,
+        fewest,
     }
 }
 
@@ -623,6 +636,22 @@ impl Service {
         .await
     }
 
+    /// Switches to the orientation and page-grid shift that print the region
+    /// on the fewest pages. Page selections refer to the old pages, so they
+    /// are cleared. Unchanged when the layout is already the smallest.
+    pub async fn map_fewest_pages(&self, doc: MapDoc) -> Result<MapDoc> {
+        let doc = match compute_layout(&doc).fewest {
+            Some(f) => MapDoc {
+                landscape: f.landscape,
+                page_offset: f.offset,
+                excluded: Vec::new(),
+                ..doc
+            },
+            None => doc,
+        };
+        self.map_set(doc).await
+    }
+
     /// Rectifies the whole map from the reference block (full resolution).
     /// The result becomes the source; the previous one is kept for undo.
     pub async fn map_dewarp(&self, doc: MapDoc) -> Result<MapDoc> {
@@ -711,7 +740,7 @@ impl Service {
         let pdf = sleuth_pdf::map_tiles::render(
             &composite,
             &tiles,
-            doc.format,
+            tiling::page_size_pt(doc.format, doc.landscape),
             margin,
             cut.as_ref(),
             &mut |p| {
@@ -867,6 +896,56 @@ mod tests {
         let page = svc.map_preview_page(doc.clone(), 1, 0.5).await.unwrap();
         assert!(imaging::dimensions(&page).is_some());
         assert!(svc.map_preview_page(doc, 5, 0.5).await.is_err());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn fewest_pages_turns_the_page_and_clears_selections() {
+        let (d, svc) = temp_service();
+        let doc = svc.map_open_file(map_png(d.path())).await.unwrap();
+        // 11 × 7 squares: portrait A4 holds 8 × 11 → 2 pages; landscape 11 × 8 → 1
+        let doc = MapDoc {
+            mode: SizingMode::CellSide,
+            side: 50.0,
+            align_to_grid: true,
+            region: Some((0.0, 0.0, 550.0, 350.0)),
+            excluded: vec![(1, 0)],
+            ..doc
+        };
+        let layout = svc.map_layout(doc.clone()).await.unwrap();
+        assert_eq!(layout.tiles.len(), 2);
+        let f = layout.fewest.expect("a smaller layout exists");
+        assert_eq!((f.landscape, f.pages), (true, 1));
+
+        let better = svc.map_fewest_pages(doc).await.unwrap();
+        assert!(better.landscape && better.excluded.is_empty());
+        assert_eq!(svc.map_get().await.unwrap().unwrap(), better, "autosaved");
+        let layout = svc.map_layout(better.clone()).await.unwrap();
+        assert_eq!((layout.tiles.len(), layout.page_w_pt > layout.page_h_pt), (1, true));
+        assert!(layout.fewest.is_none());
+        // already the smallest: unchanged
+        assert_eq!(svc.map_fewest_pages(better.clone()).await.unwrap(), better);
+        // the PDF pages are landscape too
+        let out = d.path().join("land.pdf");
+        let st = wait(&svc, &svc.map_export_pdf(better, out.clone())).await;
+        assert_eq!(st.state, JobState::Done, "{:?}", st.error);
+        let pdf = lopdf_page_size(&std::fs::read(&out).unwrap());
+        assert!(pdf.0 > pdf.1, "{pdf:?}");
+    }
+
+    /// Width and height of the first page's MediaBox.
+    fn lopdf_page_size(pdf: &[u8]) -> (f64, f64) {
+        let s = String::from_utf8_lossy(pdf);
+        let i = s.find("/MediaBox").unwrap();
+        let nums: Vec<f64> = s[i + 9..]
+            .trim_start()
+            .trim_start_matches('[')
+            .split(']')
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .map(|v| v.parse().unwrap())
+            .collect();
+        (nums[2] - nums[0], nums[3] - nums[1])
     }
 
     #[tokio::test(flavor = "multi_thread")]

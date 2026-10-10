@@ -55,3 +55,29 @@ test('reference tool hides the grid and pages, and sides can be dragged', async 
   await page.getByRole('button', { name: 'Pan' }).click();
   await expect(stage.locator('rect.tile').first()).toBeAttached();
 });
+
+test('orientation and the fewest-pages suggestion', async ({ page }) => {
+  await openMap(page);
+  const inspector = page.getByRole('complementary', { name: 'Map settings' });
+  const summary = page.getByTestId('tiling-summary');
+  const pages = async () => Number((await summary.textContent())!.match(/(\d+) page/)![1]);
+  const orient = inspector.getByRole('group', { name: 'Page orientation' });
+
+  await orient.getByRole('button', { name: 'Portrait' }).click();
+  await expect(summary).toContainText('page');
+  const portrait = await pages();
+  await orient.getByRole('button', { name: 'Landscape' }).click();
+  await expect.poll(pages).not.toBe(-1);
+  const landscape = await pages();
+  expect(portrait).not.toBe(landscape); // the mock map differs between orientations
+
+  // pick the worse orientation: the suggestion appears and fixes it
+  const worse = portrait > landscape ? 'Portrait' : 'Landscape';
+  await orient.getByRole('button', { name: worse }).click();
+  const hint = page.getByTestId('fewest-pages');
+  await expect(hint).toContainText(`${Math.min(portrait, landscape)} page`);
+  await hint.getByRole('button', { name: 'Use fewest pages' }).click();
+  await expect(hint).toBeHidden();
+  await expect.poll(pages).toBe(Math.min(portrait, landscape));
+  await expect(orient.getByRole('button', { name: worse })).toHaveAttribute('aria-pressed', 'false');
+});

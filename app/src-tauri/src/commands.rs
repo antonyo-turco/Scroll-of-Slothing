@@ -615,6 +615,11 @@ pub async fn map_dewarp(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
 }
 
 #[tauri::command]
+pub async fn map_fewest_pages(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
+    svc.map_fewest_pages(doc).await
+}
+
+#[tauri::command]
 pub async fn map_undo_dewarp(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
     svc.map_undo_dewarp(doc).await
 }

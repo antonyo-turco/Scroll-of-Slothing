@@ -74,6 +74,7 @@ Defaults come from Settings.
 | Control | Default |
 |---|---|
 | Page | A4 / Letter |
+| Orientation | Portrait / Landscape (default portrait) |
 | 1 square = N inch | 1.0 |
 | Calibration: a printed 1 in measures _ mm | 25.4 (factor = 25.4/mm) |
 | Margin (in) | 0 |
@@ -106,6 +107,7 @@ Defaults come from Settings.
 **Scale**
 - `sq_pt = square_in × 72 × (25.4/calibration_mm)`
 - `scale_x = sq_pt/cell_w`, `scale_y = sq_pt/cell_h`. The two axes are independent, so rectangular cells still print square.
+- `page = format size, swapped when landscape` (`tiling::page_size_pt`)
 - `usable = page − 2·margin`
 - `overlap_pt = min(overlap_in·72, 0.9·usable)`
 
@@ -121,6 +123,12 @@ Defaults come from Settings.
 - `origin` is snapped onto a grid line: `origin + round((v−origin)/period)·period`
 
 **Page selection (`_axis_pages`)**: start at `floor((lo−origin)/step) − 1` and keep every page whose span overlaps the region. Capped at 20000 iterations.
+
+**Fewest pages (`tiling::fewest_pages`)**: fewer pages means fewer cuts. Columns and rows are independent, so each axis is minimised on its own, for both orientations:
+- When aligning to the grid, the candidate page-grid shifts are whole grid squares within one page; otherwise they are 1/64-page steps.
+- The result is the orientation and shift with the fewest pages. Ties keep portrait and the smallest shift, so a layout that is already minimal stays as it is.
+- `map_layout` returns it as `fewest` only when it beats the current layout.
+- The Pages section then shows "Landscape prints this on N pages instead of M" with **Use fewest pages**. That calls `map_fewest_pages`, which applies it and clears the page selections, because they refer to the old pages.
 
 **Each tile** has `{col, row, crop rect (clipped to region), full page rect, page_x/y pt, w/h pt}`.
 
@@ -167,6 +175,7 @@ Defaults come from Settings.
 - Embedded-grid removal uses an f32 FFT and detects on the spectrum of R+G+B (the same as Python's mean of channel spectra), processing one channel at a time to bound memory. Output matches Python on 99.99 % of pixels.
 - Export and Save as Asset are cancellable background jobs; PDF images are embedded from raw pixels (no temp files).
 - DPI detection reads PNG `pHYs`, JPEG JFIF and BMP headers directly.
+- Landscape pages and the fewest-pages suggestion are new (Python printed portrait only, from the region's corner).
 - Cut lines extend through the margin to the paper edge instead of only outlining the image (Python drew a rectangle), so the white margin of a printer without borderless printing can be trimmed with a ruler or trimmer. The page preview shows them, and a hint asks for a margin of at least 0.2 in.
 
 ## Parity checklist (Python `ui/map_paginator_panel.py`, `map_grid.py`, `map_pdf_generator.py`)

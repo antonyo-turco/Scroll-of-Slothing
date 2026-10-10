@@ -29,6 +29,15 @@ pub struct TileParams {
     pub align_to_grid: bool,
     /// Grid origin in image px (used when aligning to the grid).
     pub grid_offset: (f64, f64),
+    /// Pages turned sideways (Python printed portrait only).
+    #[serde(default)]
+    pub landscape: bool,
+}
+
+/// Page size in points for the format and orientation.
+pub fn page_size_pt(format: PageFormat, landscape: bool) -> (f64, f64) {
+    let (w, h) = format.size_pt();
+    if landscape { (h, w) } else { (w, h) }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -96,7 +105,7 @@ pub fn plan(p: &TileParams) -> TilePlan {
     let sq_pt = p.square_in * PT_PER_INCH;
     let scale_x = sq_pt / p.cell_w;
     let scale_y = sq_pt / p.cell_h;
-    let (pw, ph) = p.format.size_pt();
+    let (pw, ph) = page_size_pt(p.format, p.landscape);
     let usable_w = pw - 2.0 * p.margin_pt;
     let usable_h = ph - 2.0 * p.margin_pt;
     let overlap = (p.overlap_in * PT_PER_INCH).max(0.0).min(usable_w * 0.9).min(usable_h * 0.9);
@@ -151,6 +160,76 @@ pub fn plan(p: &TileParams) -> TilePlan {
         }
     }
     TilePlan { scale_x, scale_y, tiles, cols: cols.len() as u32, rows: rows.len() as u32 }
+}
+
+/// The orientation and page-grid shift that print the region on the fewest
+/// pages (fewer pages, fewer cuts).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FewestPages {
+    pub landscape: bool,
+    /// Page grid shift relative to the region's top-left, image px.
+    pub offset: (f64, f64),
+    pub pages: usize,
+    pub cols: u32,
+    pub rows: u32,
+}
+
+/// Searches both orientations and the page-grid shift for the layout with the
+/// fewest pages. Columns and rows are independent, so each axis is minimised
+/// on its own. Candidate shifts: whole grid squares within one page when
+/// aligning to the grid, otherwise 1/64-page steps. Ties keep portrait and the
+/// smallest shift, so an already optimal layout is left alone.
+pub fn fewest_pages(p: &TileParams) -> Option<FewestPages> {
+    let mut best: Option<FewestPages> = None;
+    for landscape in [false, true] {
+        let base = TileParams { landscape, offset: (0.0, 0.0), ..p.clone() };
+        let (pw, ph) = page_size_pt(p.format, landscape);
+        let sq_pt = p.square_in * PT_PER_INCH;
+        if sq_pt <= 0.0 || p.cell_w <= 0.0 || p.cell_h <= 0.0 {
+            return None;
+        }
+        // one page span along each axis, image px
+        let span = |usable: f64, cell: f64| (usable.max(sq_pt) / sq_pt) * cell;
+        let (span_x, span_y) =
+            (span(pw - 2.0 * p.margin_pt, p.cell_w), span(ph - 2.0 * p.margin_pt, p.cell_h));
+        let candidates = |span: f64, cell: f64| -> Vec<f64> {
+            let mut v = vec![0.0];
+            if p.align_to_grid {
+                let n = (span / cell).ceil().min(400.0) as i64;
+                for k in 1..=n {
+                    v.push(-(k as f64) * cell);
+                    v.push(k as f64 * cell);
+                }
+            } else {
+                for k in 1..64 {
+                    v.push(-span * k as f64 / 64.0);
+                }
+            }
+            v
+        };
+        let axis = |cands: Vec<f64>, x: bool| -> (f64, u32) {
+            let mut out = (0.0_f64, u32::MAX);
+            for o in cands {
+                let q = TileParams { offset: if x { (o, 0.0) } else { (0.0, o) }, ..base.clone() };
+                let t = plan(&q);
+                let n = if x { t.cols } else { t.rows };
+                if n > 0 && (n < out.1 || (n == out.1 && o.abs() < out.0.abs())) {
+                    out = (o, n);
+                }
+            }
+            out
+        };
+        let (ox, cols) = axis(candidates(span_x, p.cell_w), true);
+        let (oy, rows) = axis(candidates(span_y, p.cell_h), false);
+        if cols == u32::MAX || rows == u32::MAX {
+            continue;
+        }
+        let pages = plan(&TileParams { offset: (ox, oy), ..base.clone() }).tiles.len();
+        if best.is_none_or(|b| pages < b.pages) {
+            best = Some(FewestPages { landscape, offset: (ox, oy), pages, cols, rows });
+        }
+    }
+    best
 }
 
 /// Calibration factor: a printed 1 in measured as `mm` millimetres.
@@ -209,6 +288,7 @@ mod tests {
             overlap_in: 0.0,
             align_to_grid: false,
             grid_offset: (0.0, 0.0),
+            landscape: false,
         }
     }
 
@@ -240,5 +320,67 @@ mod tests {
             assert!((k - k.round()).abs() < 1e-9);
             assert_eq!(t.page_rect.2 - t.page_rect.0, 8.0 * 72.0);
         }
+    }
+
+    fn params(w: u32, h: u32) -> TileParams {
+        TileParams {
+            image_w: w,
+            image_h: h,
+            region: None,
+            cell_w: 100.0,
+            cell_h: 100.0,
+            square_in: 1.0,
+            format: PageFormat::A4,
+            margin_pt: 18.0,
+            offset: (0.0, 0.0),
+            overlap_in: 0.0,
+            align_to_grid: true,
+            grid_offset: (0.0, 0.0),
+            landscape: false,
+        }
+    }
+
+    #[test]
+    fn landscape_swaps_the_page() {
+        let p = params(1000, 700);
+        let port = plan(&p);
+        let land = plan(&TileParams { landscape: true, ..p.clone() });
+        // A4 usable 7.77 × 11.19 in → 7 × 11 squares portrait, 11 × 7 landscape
+        assert_eq!((port.cols, port.rows), (2, 1));
+        assert_eq!((land.cols, land.rows), (1, 1));
+        assert_eq!(page_size_pt(PageFormat::A4, true).0, PageFormat::A4.size_pt().1);
+    }
+
+    #[test]
+    fn fewest_pages_picks_the_orientation() {
+        // 10 × 7 squares: portrait 2 pages, landscape 1
+        let f = fewest_pages(&params(1000, 700)).unwrap();
+        assert_eq!((f.landscape, f.pages), (true, 1));
+        // 7 × 11 squares fits portrait exactly: keep it, no shift
+        let f = fewest_pages(&params(700, 1100)).unwrap();
+        assert_eq!((f.landscape, f.pages, f.offset), (false, 1, (0.0, 0.0)));
+    }
+
+    #[test]
+    fn fewest_pages_fixes_a_shifted_layout() {
+        // a page grid dragged off the region start costs an extra column
+        let p = TileParams { offset: (-350.0, 0.0), ..params(1400, 1100) };
+        let dragged = plan(&p).tiles.len();
+        let f = fewest_pages(&p).unwrap();
+        assert!(f.pages < dragged, "{} < {dragged}", f.pages);
+        let applied = plan(&TileParams { landscape: f.landscape, offset: f.offset, ..p });
+        assert_eq!(applied.tiles.len(), f.pages);
+    }
+
+    #[test]
+    fn fewest_pages_free_layout_and_bad_input() {
+        let p = TileParams { align_to_grid: false, ..params(2400, 900) };
+        let f = fewest_pages(&p).unwrap();
+        let both: Vec<usize> = [false, true]
+            .iter()
+            .map(|&l| plan(&TileParams { landscape: l, ..p.clone() }).tiles.len())
+            .collect();
+        assert_eq!(f.pages, *both.iter().min().unwrap());
+        assert!(fewest_pages(&TileParams { cell_w: 0.0, ..p }).is_none());
     }
 }

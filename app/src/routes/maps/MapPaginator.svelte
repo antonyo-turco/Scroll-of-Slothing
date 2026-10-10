@@ -418,6 +418,19 @@
   }
 
   // ── actions ──
+  /** Applies the orientation and page shift with the fewest pages. */
+  async function fewestPages() {
+    if (!doc || !layout?.fewest) return;
+    const before = layout.tiles.length;
+    const f = layout.fewest;
+    try {
+      adopt(await api.mapFewestPages(snap()));
+      app.toast('success', `${before} → ${f.pages} pages · ${f.landscape ? 'landscape' : 'portrait'}`);
+    } catch (e) {
+      app.error('Could not rearrange the pages', e);
+    }
+  }
+
   async function dewarp() {
     if (!doc) return;
     busy = true;
@@ -692,6 +705,10 @@
           <button aria-pressed={doc.format === 'A4'} onclick={() => (doc!.format = 'A4')}>A4</button>
           <button aria-pressed={doc.format === 'Letter'} onclick={() => (doc!.format = 'Letter')}>Letter</button>
         </div>
+        <div class="segmented" role="group" aria-label="Page orientation">
+          <button aria-pressed={!doc.landscape} onclick={() => (doc!.landscape = false)}>Portrait</button>
+          <button aria-pressed={doc.landscape} onclick={() => (doc!.landscape = true)}>Landscape</button>
+        </div>
         <div class="pair">
           <label class="field">1 square = (in) <input class="input" type="number" min="0.05" step="0.05" bind:value={doc.square_in} /></label>
           <label class="field">1 in prints as (mm) <input class="input" type="number" min="1" step="0.1" bind:value={doc.calibration_mm} /></label>
@@ -725,6 +742,15 @@
           <button class="btn" onclick={() => doc && (doc.page_offset = [0, 0])} disabled={!doc.page_offset[0] && !doc.page_offset[1]}>Reset layout</button>
         </div>
         <p class="small" data-testid="tiling-summary">{layout?.summary || 'No pages.'}</p>
+        {#if layout?.fewest}
+          <div class="fewest" data-testid="fewest-pages">
+            <p class="small">
+              {layout.fewest.landscape !== doc.landscape ? (layout.fewest.landscape ? 'Landscape' : 'Portrait') : 'A shifted layout'}
+              prints this on <strong>{layout.fewest.pages}</strong> page{layout.fewest.pages === 1 ? '' : 's'} instead of {layout.tiles.length}.
+            </p>
+            <button class="btn primary" onclick={fewestPages} title="Switch orientation and shift the pages; page selections are cleared">Use fewest pages</button>
+          </div>
+        {/if}
         {#if tiles.length}
           <div class="row">
             <button class="btn icon" aria-label="Previous page" disabled={page <= 0} onclick={() => page--}>‹</button>
@@ -1025,6 +1051,16 @@
     position: absolute;
     color: #d32f2f;
     font-weight: 700;
+  }
+  .fewest {
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+  }
+  .fewest p {
+    margin: 0;
   }
   /* the warning colour marks it; the text stays at full contrast */
   .warn {

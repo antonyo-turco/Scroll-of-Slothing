@@ -964,6 +964,14 @@ impl SleuthServer {
         done(r.await)
     }
 
+    #[tool(
+        description = "Switch the current map to the orientation and page-grid shift that print it on the fewest pages (clears page exclusions). Returns the map; map_layout's `fewest` shows the saving first."
+    )]
+    async fn map_fewest_pages(&self) -> ToolResult {
+        let r = async { self.svc.map_fewest_pages(self.current_map().await?).await };
+        done(r.await)
+    }
+
     #[tool(description = "Undo the last de-warp.")]
     async fn map_undo_dewarp(&self) -> ToolResult {
         let r = async { self.svc.map_undo_dewarp(self.current_map().await?).await };
@@ -971,7 +979,7 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Set print options: format Letter|A4, square_in (printed inches per square), calibration_mm (measured mm of a printed inch), margin_in, overlap_in, align_to_grid, cut_border."
+        description = "Set print options: format Letter|A4, landscape, square_in (printed inches per square), calibration_mm (measured mm of a printed inch), margin_in, overlap_in, align_to_grid, cut_border (cut lines along every page edge, out to the paper edge)."
     )]
     async fn map_set_print(&self, Parameters(p): Parameters<MapPrintParams>) -> ToolResult {
         done(self.map_patch(to_obj(&p)).await)
@@ -1725,6 +1733,8 @@ pub struct MapDewarpParams {
 pub struct MapPrintParams {
     /// Letter | A4
     pub format: Option<String>,
+    /// Turn the pages sideways.
+    pub landscape: Option<bool>,
     pub square_in: Option<f64>,
     pub calibration_mm: Option<f64>,
     pub margin_in: Option<f64>,

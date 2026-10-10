@@ -3,7 +3,7 @@
 
 import type {
   AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout, FilterCatalog, FilterDef, FilterStep,
-  GridModel, MapDoc, MapLayout, PageFormat, Tile,
+  FewestPages, GridModel, MapDoc, MapLayout, PageFormat, Tile,
 } from './types';
 
 type Handler = (args: Record<string, unknown>) => unknown;
@@ -81,7 +81,7 @@ export function defaultMapDoc(): MapDoc {
     source: null, pre_warp: null, name: '', asset_id: null, detected_dpi: 70, dpi_detected: false,
     mode: 'ppi', rows: 35, cols: 55, square_cells: true, ref_n: 3, ref_quad: null, ppi: 70, side: 70,
     offset_x: 0, offset_y: 0, color: [40, 40, 40], thickness: 1, opacity: 160, visible: true, style: 'solid',
-    remove_grid: false, filters: presetPipeline('None (clear all)'), format: 'A4', square_in: 1,
+    remove_grid: false, filters: presetPipeline('None (clear all)'), format: 'A4', landscape: false, square_in: 1,
     calibration_mm: 25.4, margin_in: 0, overlap_in: 0, align_to_grid: false, cut_border: false,
     fit_w_ft: 3, fit_h_ft: 2, region: null, page_offset: [0, 0], excluded: [],
   };
@@ -131,7 +131,7 @@ function axisPages(origin: number, step: number, tile: number, lo: number, len: 
   return out;
 }
 
-export function mockMapLayout(d: MapDoc): MapLayout {
+export function mockMapLayout(d: MapDoc, suggest = true): MapLayout {
   const [cw, ch, bx, by] = baseGrid(d);
   const grid: GridModel = {
     cell_w: cw, cell_h: ch, offset_x: bx + d.offset_x, offset_y: by + d.offset_y,
@@ -139,7 +139,7 @@ export function mockMapLayout(d: MapDoc): MapLayout {
   };
   const [w, h] = d.source ? [d.source.width, d.source.height] : [0, 0];
   const s = Math.min(1, WORK_MAX / Math.max(1, w, h));
-  const [pw, ph] = PAGE_PT[d.format];
+  const [pw, ph] = d.landscape ? [PAGE_PT[d.format][1], PAGE_PT[d.format][0]] : PAGE_PT[d.format];
   const margin = Math.max(0, d.margin_in) * 72;
   const sqPt = d.square_in * 72 * (d.calibration_mm > 0 ? 25.4 / d.calibration_mm : 1);
   const tiles: Tile[] = [];
@@ -193,7 +193,20 @@ export function mockMapLayout(d: MapDoc): MapLayout {
     fit: cw > 0 && sq[0] && sq[1] ? { squares: sq, printed_in: pin, fits } : null,
     summary: total ? `${excluded ? `${total - excluded}/${total} selected · ` : ''}${total} page(s) · ${mc}×${mr} grid · 1 square = ${d.square_in}"` : '',
     page_w_pt: pw, page_h_pt: ph, margin_pt: margin,
+    fewest: suggest && total > 1 ? mockFewest(d, total) : null,
   };
+}
+
+/** Simplified core::maps::tiling::fewest_pages: both orientations, no shift. */
+function mockFewest(d: MapDoc, total: number): FewestPages | null {
+  let best: FewestPages | null = null;
+  for (const landscape of [false, true]) {
+    const l = mockMapLayout({ ...d, landscape, page_offset: [0, 0] }, false);
+    if (l.tiles.length && l.tiles.length < (best?.pages ?? total)) {
+      best = { landscape, offset: [0, 0], pages: l.tiles.length, cols: l.cols, rows: l.rows };
+    }
+  }
+  return best;
 }
 
 function mapSvg(w: number, h: number, label: string): string {
@@ -361,6 +374,11 @@ export function createMapsMockHandlers(emit: Emit): Record<string, Handler> {
       const [cw] = baseGrid(m);
       doc = { ...m, pre_warp: m.source, source: { ...m.source!, hash: `mock-warp-${++seq}` }, side: Math.max(2, Math.round(cw)), ref_quad: null, region: null, excluded: [], page_offset: [0, 0] };
       return doc;
+    },
+    map_fewest_pages: ({ doc: d }) => {
+      const cur = d as MapDoc;
+      const f = mockMapLayout(cur).fewest;
+      return (doc = f ? { ...cur, landscape: f.landscape, page_offset: f.offset, excluded: [] } : cur);
     },
     map_undo_dewarp: ({ doc: d }) => {
       const m = d as MapDoc;

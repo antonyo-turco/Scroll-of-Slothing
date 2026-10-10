@@ -113,6 +113,7 @@ fn template_tiles(c: &AoeConfig, w: i64, h: i64, cell: f64) -> tiling::TilePlan 
         overlap_in: 0.0,
         align_to_grid: false,
         grid_offset: (0.0, 0.0),
+        landscape: false,
     })
 }
 
@@ -334,7 +335,7 @@ impl Service {
             let pdf = sleuth_pdf::map_tiles::render(
                 &img,
                 &plan.tiles,
-                c.page_format,
+                c.page_format.size_pt(),
                 0.0,
                 None,
                 &mut |p| {

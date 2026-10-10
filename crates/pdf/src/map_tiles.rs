@@ -13,22 +13,22 @@ use krilla::Document;
 use krilla::geom::PathBuilder;
 use krilla::page::PageSettings;
 use sleuth_core::maps::tiling::Tile;
-use sleuth_core::units::PageFormat;
 
 use crate::{CutLine, PdfError, Progress, Result, draw_image, raw_rgb_image, stroke_path};
 
-/// Renders `tiles` of `image` (full resolution), one page each, positioned
-/// inside a `margin_pt` page margin. Tiles whose clamped crop is under 1 px
+/// Renders `tiles` of `image` (full resolution), one page each of `page`
+/// `(w, h)` points (portrait or landscape), positioned inside a `margin_pt`
+/// page margin. Tiles whose clamped crop is under 1 px
 /// are skipped like in Python. Returns `None` when no page was drawn.
 pub fn render(
     image: &RgbImage,
     tiles: &[Tile],
-    format: PageFormat,
+    page: (f64, f64),
     margin_pt: f64,
     cut: Option<&CutLine>,
     progress: Progress<'_>,
 ) -> Result<Option<Vec<u8>>> {
-    let (pw, ph) = format.size_pt();
+    let (pw, ph) = page;
     let (iw, ih) = (f64::from(image.width()), f64::from(image.height()));
     let mut doc = Document::new();
     let mut drawn = 0;
@@ -92,6 +92,7 @@ fn trim_lines(x: f32, y: f32, w: f32, h: f32, pw: f32, ph: f32) -> Vec<krilla::g
 #[cfg(test)]
 mod tests {
     use sleuth_core::maps::tiling::{TileParams, plan};
+    use sleuth_core::units::PageFormat;
 
     use super::*;
 
@@ -112,9 +113,10 @@ mod tests {
             overlap_in: 0.0,
             align_to_grid: false,
             grid_offset: (0.0, 0.0),
+            landscape: false,
         };
         let tp = plan(&p);
-        let pdf = render(&img, &tp.tiles, PageFormat::Letter, 18.0, None, &mut |_| true)
+        let pdf = render(&img, &tp.tiles, PageFormat::Letter.size_pt(), 18.0, None, &mut |_| true)
             .unwrap()
             .unwrap();
         let doc = lopdf::Document::load_mem(&pdf).unwrap();
@@ -136,7 +138,7 @@ mod tests {
             h_pt: 200.0,
         };
         let cut = CutLine::from_settings(&sleuth_core::settings::Settings::default());
-        let pdf = render(&img, &[tile], PageFormat::A4, 18.0, Some(&cut), &mut |_| true)
+        let pdf = render(&img, &[tile], PageFormat::A4.size_pt(), 18.0, Some(&cut), &mut |_| true)
             .unwrap()
             .unwrap();
         let doc = lopdf::Document::load_mem(&pdf).unwrap();
@@ -165,7 +167,7 @@ mod tests {
     #[test]
     fn nothing_drawn_is_none_and_cancel_stops() {
         assert!(
-            render(&RgbImage::new(10, 10), &[], PageFormat::A4, 0.0, None, &mut |_| true)
+            render(&RgbImage::new(10, 10), &[], PageFormat::A4.size_pt(), 0.0, None, &mut |_| true)
                 .unwrap()
                 .is_none()
         );
@@ -179,7 +181,14 @@ mod tests {
             w_pt: 10.0,
             h_pt: 10.0,
         };
-        let r = render(&RgbImage::new(10, 10), &[tile], PageFormat::A4, 0.0, None, &mut |_| false);
+        let r = render(
+            &RgbImage::new(10, 10),
+            &[tile],
+            PageFormat::A4.size_pt(),
+            0.0,
+            None,
+            &mut |_| false,
+        );
         assert!(matches!(r, Err(PdfError::Cancelled)));
     }
 }
