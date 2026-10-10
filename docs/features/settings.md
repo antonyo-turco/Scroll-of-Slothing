@@ -64,7 +64,7 @@ Other controls:
 ## Parity checklist (Python `app_settings.py`, `ui/settings_panel.py`)
 - [x] All 14 legacy keys with the same defaults (`app_settings.py:20-38`): `sleuth_core::settings` tests
 - [x] Legacy coercion (`_coerce`): golden fixture `settings_coerce.json`
-- [ ] Cut-line dash patterns (`:14`) and the ReportLab stroke behaviour (`:98`). Dash constants are done and tested; stroke application lands with the PDF crate in Phase 2.
+- [x] Cut-line dash patterns (`:14`) and the ReportLab stroke behaviour (`:98`): the sheet PDFs stroke one cut line per item with the configured dash (`sleuth_pdf::token_sheet` test `cut_border_adds_stroked_paths`, `[2 3]` for dashed)
 - [x] Validation: floats ≥ 0, and square/calibration/width > 0 (`settings_panel.py:149`)
 - [x] Restore defaults with confirmation
 - [x] Start view and the collapsed sidebar are honoured at launch

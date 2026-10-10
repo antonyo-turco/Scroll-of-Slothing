@@ -5,7 +5,7 @@
 - Inside the data dir:
   - `sleuth.db`: SQLite, WAL mode, `foreign_keys=ON`
   - `blobs/ab/cd/<blake3-hex>.<ext>`: content-addressed files
-  - `legacy/music.json`: music data preserved by the legacy importer, kept until the music phase
+  - `legacy/music.json`: music data preserved by the legacy importer; "Import legacy music" (`music_import_legacy`) reads it
 
 ## Tables (migration V1)
 
@@ -76,8 +76,8 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 ### assets_fts
 An FTS5 virtual table over `name`, `aliases` and `tags`. It is kept in sync by the service layer, not by triggers, because tags are stored in another table.
 
-## Designed but not migrated: music
-See `features/music/data-model.md`.
+## Music
+Migration `V2__music.sql`: tracks, the live mix, soundscapes, playlists and soundboards. See `features/music/data-model.md`.
 
 ## Migration policy
 - Migrations are `crates/store/migrations/V{n}__{name}.sql` files, embedded at compile time and applied in order by `crates/store/src/migrate.rs`, which tracks progress in `PRAGMA user_version`. Each migration runs in one transaction together with its version bump.

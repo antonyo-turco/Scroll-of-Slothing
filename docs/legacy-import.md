@@ -18,7 +18,7 @@ sleuth import-legacy <path\to\creatures.db> [--settings <app_settings.json>] [--
 | `music_campaigns` | `campaigns`, keeping the uuid |
 | `sessions` | `sessions`, keeping the uuid |
 | `session_assets`, `asset_campaigns` | `asset_sessions`, `asset_campaigns` |
-| all `music_*` tables | `legacy/music.json` (raw rows, one array per table) |
+| all `music_*` tables | `legacy/music.json` (raw rows, one array per table), then imported by "Import legacy music" (`music_import_legacy`) |
 | `app_meta` | ignored |
 | `app_settings.json` | `settings`. `start_tab` labels are mapped to routes, e.g. "Token Sheet" becomes `tokens.sheet`. |
 | `aoe_presets.json` | `aoe_presets` |

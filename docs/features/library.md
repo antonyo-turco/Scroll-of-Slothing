@@ -106,12 +106,12 @@ Assets imported from the old app have no params. They open with default framing,
 - [x] Pin star; Pinned + session view (tagged mode), via the "★ Pinned" toggle plus the session filter
 - [x] Size select with immediate save (`update_creature_size`), on the card and in the inspector
 - [x] Edit dialog: name, aliases, tags, campaigns, sessions (inspector panel)
-- [ ] Open-in-editor: tokens open in the Token Cutter with their saved framing, and cut-outs in the Object Cutter with their saved trace. Maps follow in Phase 5.
+- [x] Open-in-editor: tokens open in the Token Cutter with their saved framing, cut-outs in the Object Cutter with their saved trace, and maps in the Map Paginator with their saved state (e2e `open in editor routes each kind…`, vitest `ui_navigate`)
 - [x] Export: original, rendered, clipboard, map PDF (`utils.copy_image_to_clipboard`)
 - [x] Bulk actions: delete, add tag, pin, unpin, add to session, add to campaign, export to folder
 - [x] Bulk "add to sheet": tokens go to the token sheet and cut-outs to the object sheet; maps are skipped and counted (as in Python).
 - [x] Import dialog with kind and size per row (`ui/asset_import_dialog.py`), plus drop-to-import
-- [ ] Re-edit routing by kind (`app.py:539-561`), with editor state restore in Phases 2, 3, 5
+- [x] Re-edit routing by kind (`app.py:539-561`), with editor state restore (same tests)
 
 ### Phase 1 implementation notes
 - The import dialog lists file names without thumbnails. The webview cannot read arbitrary local paths, and thumbnails appear in the grid as soon as the import finishes.

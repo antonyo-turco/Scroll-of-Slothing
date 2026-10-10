@@ -1,7 +1,7 @@
 # Architecture
 
 ## Goals
-1. **Parity**: every capability of Orb of Many Functions survives (see `features/`). Music is specified but deferred.
+1. **Parity**: every capability of Orb of Many Functions survives (see `features/`). Music is included (`features/music/`).
 2. **Responsiveness**: the UI thread never waits on pixels or PDFs.
 3. **Clarity**: one minimal, consistent layout for every tool.
 4. **LLM-drivable**: every user action is also an MCP tool.

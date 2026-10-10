@@ -21,7 +21,7 @@ The left rail has 7 destinations instead of Python's 16 tabs. It can collapse to
 | `cards` | Card Printer |
 | `maps.paginator`, `maps.aoe` | Map Paginator, AoE Templates |
 | `campaigns` | Manage Campaigns |
-| `music` (disabled, "planned") | Library, Mixer, Soundscapes, Playlists, Soundboard |
+| `music` (tabs inside the view) | Library, Mixer, Soundscapes, Playlists, Soundboard |
 | `settings` (pinned to the bottom of the rail) | Settings |
 
 Sub-routes appear as segmented tabs in the top bar.
@@ -35,6 +35,7 @@ Sub-routes appear as segmented tabs in the top bar.
 ## Keyboard
 | Keys | Action |
 |---|---|
+| Tab (first stop) | "Skip to content", which moves focus past the rail and top bar |
 | Ctrl+K | Command palette (any route or action) |
 | Ctrl+V | Paste an image into the current editor |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo inside editors (lasso points, map region, de-warp) |
@@ -46,7 +47,7 @@ Sub-routes appear as segmented tabs in the top bar.
 | Space + drag | Pan any canvas |
 | Wheel | Zoom at the cursor |
 | Shift (held) | Disable snapping (map region, reference box, page layout) |
-| 1–9 | (future) soundboard buttons |
+| 1–9, or a button's own hotkey | Soundboard buttons (on the Soundboard tab) |
 
 ## Drag and drop
 Files can be dropped anywhere on the window:
@@ -59,3 +60,16 @@ Files can be dropped anywhere on the window:
 - 8 px spacing grid. System font for the UI. Liberation Sans is used only in previews and PDFs.
 - Icons: one consistent inline SVG set (Lucide); no emoji in the main UI chrome.
 - Minimum target size 28 px. Focus rings are always visible. Every icon-only button has an `aria-label`.
+
+## Accessibility
+Checked by `app/e2e/a11y.spec.ts`. It runs on every `scripts/check.ps1`.
+- **axe scan:** every route and every Music tab, in both light and dark themes, must have no WCAG 2.1 A/AA violations.
+- **Keyboard paths:** the skip link, the rail, the command palette, and dialog focus.
+
+What it relies on:
+- The first Tab stop is "Skip to content", which focuses `<main id="content">`.
+- Dialogs (`Modal.svelte`) focus their first field, keep Tab and Shift+Tab inside, close on Esc, and give focus back to whatever opened them.
+- The command palette is an ARIA combobox: the input owns the keys, and `aria-activedescendant` points at the highlighted option. Esc restores the previous focus.
+- Text on the accent uses `--accent-contrast` (dark, 5.5:1). The dark theme has its own `--danger`, `--success` and `--warning` so status text stays at or above 4.5:1.
+- Hidden live regions that keep running (the YouTube video panel) are `inert`, not just `aria-hidden`.
+- Status glyphs such as the music playback indicator carry `role="img"` and a label, and stay distinguishable with `prefers-reduced-motion`.
