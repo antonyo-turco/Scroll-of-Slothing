@@ -14,7 +14,6 @@ const ROUTES = [
   'cards',
   'maps.paginator',
   'maps.aoe',
-  'campaigns',
   'music',
   'settings',
 ];

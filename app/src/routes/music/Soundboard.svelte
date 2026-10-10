@@ -8,12 +8,7 @@
   import { BUTTON_COLORS, PLAY_MODE_SYMBOLS, music, type PlayMode, type Soundboard, type SoundboardButton, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
-  import type { Campaign } from '../../lib/types';
-
-  let { campaigns }: { campaigns: Campaign[] } = $props();
-
   let boards = $state<Soundboard[]>([]);
-  let campaignId = $state<string | null>(app.campaignId);
   let boardId = $state<string | null>(null);
   let editing = $state(false);
   let draft = $state<SoundboardButton[]>([]);
@@ -23,7 +18,7 @@
 
   async function load() {
     try {
-      boards = await music.soundboardsList(campaignId);
+      boards = await music.soundboardsList();
       if (!boards.some((b) => b.id === boardId)) boardId = boards[0]?.id ?? null;
     } catch (e) {
       app.error('Could not load soundboards', e);
@@ -57,11 +52,10 @@
   // ── new board ──
   let newOpen = $state(false);
   let newName = $state('');
-  let newCampaign = $state('');
   async function createBoard() {
     if (!newName.trim()) return;
     try {
-      const b = await music.soundboardSave({ name: newName.trim(), campaign_id: newCampaign || null, buttons: [] });
+      const b = await music.soundboardSave({ name: newName.trim(), buttons: [] });
       newOpen = false;
       await load();
       boardId = b.id;
@@ -86,7 +80,7 @@
   async function startEdit() {
     if (!board) return;
     try {
-      tracks = await music.tracksList(board.campaign_id ? { campaign_id: board.campaign_id } : {});
+      tracks = await music.tracksList({});
     } catch (e) {
       return app.error('Could not load tracks', e);
     }
@@ -110,7 +104,7 @@
     if (draft.some((b) => !b.track_id)) return app.toast('error', 'Every button needs a track');
     try {
       await music.soundboardSave({
-        id: board.id, name: board.name, campaign_id: board.campaign_id, notes: board.notes,
+        id: board.id, name: board.name, notes: board.notes,
         buttons: draft.map((b, i) => ({ ...b, position: i, hotkey: b.hotkey?.trim() || null })),
       });
       editing = false;
@@ -125,10 +119,6 @@
 
 <div class="view">
   <div class="bar">
-    <select class="input sel" aria-label="Campaign filter" bind:value={campaignId} onchange={() => void load()} disabled={editing}>
-      <option value={null}>All campaigns</option>
-      {#each campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-    </select>
     <select class="input sel" aria-label="Board" bind:value={boardId} disabled={editing}>
       {#each boards as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
     </select>
@@ -138,7 +128,7 @@
       <button class="btn" onclick={() => (editing = false)}>Cancel</button>
       <button class="btn primary" onclick={saveEdit}>Save</button>
     {:else}
-      <button class="btn" onclick={() => ((newName = ''), (newCampaign = campaignId ?? app.campaignId ?? ''), (newOpen = true))}>New Board</button>
+      <button class="btn" onclick={() => ((newName = ''), (newOpen = true))}>New Board</button>
       <button class="btn" disabled={!board} onclick={startEdit}>Edit</button>
       <button class="btn ghost" disabled={!board} onclick={deleteBoard}>Delete Board</button>
     {/if}
@@ -201,12 +191,6 @@
 <Modal title="New soundboard" bind:open={newOpen} width={400}>
   <form class="form" onsubmit={(e) => (e.preventDefault(), void createBoard())}>
     <label class="field"><span class="label">Name</span><input class="input" bind:value={newName} required /></label>
-    <label class="field"><span class="label">Campaign</span>
-      <select class="input" bind:value={newCampaign}>
-        <option value="">(none)</option>
-        {#each campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-      </select>
-    </label>
     <div class="actions">
       <button type="button" class="btn" onclick={() => (newOpen = false)}>Cancel</button>
       <button type="submit" class="btn primary" disabled={!newName.trim()}>Create</button>

@@ -1,5 +1,7 @@
 # Campaigns and sessions
 
+> **Removed from the app (2026-10-11).** The user found them unhelpful because most material is reused across sessions; tags and the ★ Pinned star organise the library instead. The screen, the top-bar picker, all campaign/session filters and links, the Tauri commands and the MCP/CLI tools are gone. The tables (`campaigns`, `sessions`, `asset_campaigns`, `asset_sessions`, music `campaign_id` columns) are kept, unused, so nothing was deleted and the legacy importer still copies them. The spec below is kept for reference.
+
 In Python, campaigns lived in `music_campaigns`, but assets used them too. In the new app they are generic: `campaigns` and `sessions` tables, linked to assets many-to-many. When music is built later, it will reference the same campaigns.
 
 ## Behaviour

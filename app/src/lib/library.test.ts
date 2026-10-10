@@ -15,10 +15,9 @@ describe('LibraryState', () => {
 
   const names = () => lib.items.map((a) => a.name);
 
-  it('loads everything newest-first with reference data', () => {
+  it('loads everything newest-first with the tag counts', () => {
     expect(lib.total).toBe(7);
     expect(names()[0]).toBe('Forest Road');
-    expect(lib.campaigns.map((c) => c.name)).toEqual(['Curse of Strahd']);
     expect(lib.allTags.find((t) => t.name === 'boss')?.count).toBe(2);
   });
 
@@ -40,18 +39,6 @@ describe('LibraryState', () => {
     expect(names()).toEqual(['Ancient Red Dragon']);
     lib.toggleTag('BOSS');
     expect(lib.tags).toEqual(['Dragon']);
-  });
-
-  it('campaign filter includes session-linked assets; changing campaign drops a foreign session', async () => {
-    lib.setCampaign('mock-c1');
-    await lib.refresh();
-    expect(names().sort()).toEqual(['Crypt of the Lich', 'Zombie']);
-    lib.sessionId = 'mock-s1';
-    lib.setCampaign(null);
-    expect(lib.sessionId).toBe('mock-s1');
-    lib.campaigns = [...lib.campaigns, { id: 'other', name: 'Other', created: '', session_count: 0, asset_count: 0 }];
-    lib.setCampaign('other');
-    expect(lib.sessionId).toBeNull();
   });
 
   it('free text uses word prefixes over names, aliases and tags', async () => {

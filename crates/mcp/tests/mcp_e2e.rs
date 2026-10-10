@@ -40,9 +40,7 @@ async fn library_workflow_over_mcp() {
 
     let tools: Vec<String> =
         client.list_all_tools().await.unwrap().into_iter().map(|t| t.name.to_string()).collect();
-    for expected in
-        ["library_search", "library_import", "tags_rename", "sessions_set_assets", "legacy_import"]
-    {
+    for expected in ["library_search", "library_import", "tags_rename", "legacy_import"] {
         assert!(tools.contains(&expected.to_string()), "missing tool {expected}");
     }
 
@@ -76,13 +74,10 @@ async fn library_workflow_over_mcp() {
     assert_eq!(r.content.len(), 2);
     assert!(r.content[1].as_image().is_some(), "thumbnail image attached");
 
-    let r = call("campaigns_create", json!({"name": "Wild Sheep Chase"})).await;
-    let cid = json_of(&r)["id"].as_str().unwrap().to_string();
-    let r = call("sessions_create", json!({"campaign_id": cid, "name": "Session 1"})).await;
-    let sid = json_of(&r)["id"].as_str().unwrap().to_string();
-    call("sessions_set_assets", json!({"id": sid, "asset_ids": [id]})).await;
-    let r = call("library_search", json!({"campaign_id": cid})).await;
-    assert_eq!(json_of(&r)["total"], 1, "campaign filter includes session-linked assets");
+    // campaigns and sessions were removed
+    for gone in ["campaigns_create", "sessions_create", "library_set_campaigns"] {
+        assert!(!tools.contains(&gone.to_string()), "{gone} should be gone");
+    }
 
     // Service errors come back as tool errors, readable by the model.
     let r = call("library_get", json!({"id": 9999})).await;

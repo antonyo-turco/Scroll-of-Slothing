@@ -11,7 +11,7 @@
 | [roadmap.md](roadmap.md) | Phases and status |
 
 ## Feature specs (each one ends with a parity checklist)
-- [Library](features/library.md) · [Tags](features/tags.md) · [Campaigns & sessions](features/campaigns-sessions.md) · [Settings](features/settings.md)
+- [Library](features/library.md) · [Tags](features/tags.md) · [Campaigns & sessions (removed)](features/campaigns-sessions.md) · [Settings](features/settings.md)
 - [Token Cutter](features/token-cutter.md) · [Token Sheet](features/token-sheet.md)
 - [Object Cutter](features/object-cutter.md) · [Object Sheet](features/object-sheet.md)
 - [Cards](features/cards.md)

@@ -7,9 +7,7 @@
   import { DMIX_EXTENSION, music, type Channel, type ChannelRole, type DuckMode, type Soundbite, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
-  import type { Campaign } from '../../lib/types';
-
-  let { campaigns, onImport }: { campaigns: Campaign[]; onImport: (path: string) => Promise<void> } = $props();
+  let { onImport }: { onImport: (path: string) => Promise<void> } = $props();
 
   const st = $derived(musicUi.state);
   const ROLES: ChannelRole[] = ['music', 'ambient', 'sfx'];
@@ -67,7 +65,7 @@
   let sbVol = $state(80);
   async function openSoundbite() {
     try {
-      sbTracks = await music.tracksList(app.campaignId ? { campaign_id: app.campaignId } : {});
+      sbTracks = await music.tracksList({});
       sbTrack = sbTracks[0]?.id ?? '';
       sbMin = 30;
       sbMax = 90;
@@ -86,12 +84,10 @@
   // ── save soundscape dialog ──
   let saveOpen = $state(false);
   let ssName = $state('');
-  let ssCampaign = $state<string>('');
   let ssNotes = $state('');
   let ssTags = $state('');
   function openSave() {
     ssName = '';
-    ssCampaign = app.campaignId ?? '';
     ssNotes = '';
     ssTags = '';
     saveOpen = true;
@@ -101,7 +97,6 @@
     try {
       await music.soundscapeSave({
         name: ssName.trim(),
-        campaign_id: ssCampaign || null,
         notes: ssNotes,
         tags: ssTags.split(',').map((t) => t.trim()).filter(Boolean),
       });
@@ -278,12 +273,6 @@
 <Modal title="Save soundscape" bind:open={saveOpen} width={420}>
   <form class="form" onsubmit={(e) => (e.preventDefault(), void saveSoundscape())}>
     <label class="field"><span class="label">Name</span><input class="input" bind:value={ssName} required /></label>
-    <label class="field"><span class="label">Campaign</span>
-      <select class="input" bind:value={ssCampaign}>
-        <option value="">(none)</option>
-        {#each campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-      </select>
-    </label>
     <label class="field"><span class="label">Notes</span><textarea class="input" rows="2" bind:value={ssNotes}></textarea></label>
     <label class="field"><span class="label">Tags (comma separated)</span><input class="input" bind:value={ssTags} /></label>
     <div class="actions">

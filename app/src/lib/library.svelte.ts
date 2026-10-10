@@ -4,7 +4,7 @@
 import { SvelteSet } from 'svelte/reactivity';
 import { api } from './api';
 import { app } from './state.svelte';
-import type { Asset, AssetQuery, AssetSort, Campaign, Session, TagCount } from './types';
+import type { Asset, AssetQuery, AssetSort, TagCount } from './types';
 
 /** Upper bound fetched in one go; the grid is virtualized so this stays fast. */
 const FETCH_LIMIT = 5000;
@@ -29,8 +29,6 @@ export class LibraryState {
   q = $state('');
   kinds = $state<string[]>([]);
   tags = $state<string[]>([]);
-  campaignId = $state<string | null>(null);
-  sessionId = $state<string | null>(null);
   pinnedOnly = $state(false);
   sort = $state<AssetSort>('newest');
 
@@ -45,18 +43,13 @@ export class LibraryState {
   #anchor: number | null = null;
 
   allTags = $state<TagCount[]>([]);
-  campaigns = $state<Campaign[]>([]);
-  sessions = $state<Session[]>([]);
 
   #gen = 0;
   #timer: ReturnType<typeof setTimeout> | null = null;
 
   readonly active = $derived(this.items.find((a) => a.id === this.activeId) ?? null);
   readonly filtersActive = $derived(
-    !!this.q.trim() || this.kinds.length > 0 || this.tags.length > 0 || !!this.campaignId || !!this.sessionId || this.pinnedOnly,
-  );
-  readonly campaignSessions = $derived(
-    this.campaignId ? this.sessions.filter((s) => s.campaign_id === this.campaignId) : this.sessions,
+    !!this.q.trim() || this.kinds.length > 0 || this.tags.length > 0 || this.pinnedOnly,
   );
 
   query(): AssetQuery {
@@ -64,8 +57,6 @@ export class LibraryState {
       q: this.q.trim() || null,
       kinds: [...this.kinds],
       tags: [...this.tags],
-      campaign_id: this.campaignId,
-      session_id: this.sessionId,
       pinned_only: this.pinnedOnly,
       sort: this.sort,
       limit: FETCH_LIMIT,
@@ -100,10 +91,7 @@ export class LibraryState {
   }
 
   async loadReference(): Promise<void> {
-    const [tags, campaigns, sessions] = await Promise.all([api.tagsList(), api.campaignsList(), api.sessionsList(null)]);
-    this.allTags = tags;
-    this.campaigns = campaigns;
-    this.sessions = sessions;
+    this.allTags = await api.tagsList();
   }
 
   toggleKind(kind: string | null): void {
@@ -119,18 +107,10 @@ export class LibraryState {
     void this.refresh();
   }
 
-  setCampaign(id: string | null): void {
-    this.campaignId = id;
-    if (this.sessionId && !this.campaignSessions.some((s) => s.id === this.sessionId)) this.sessionId = null;
-    void this.refresh();
-  }
-
   clearFilters(): void {
     this.q = '';
     this.kinds = [];
     this.tags = [];
-    this.campaignId = null;
-    this.sessionId = null;
     this.pinnedOnly = false;
     void this.refresh();
   }

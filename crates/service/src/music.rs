@@ -123,9 +123,6 @@ pub struct TrackInput {
     pub loop_by_default: Option<bool>,
     #[serde(default)]
     pub duration: Option<f64>,
-    pub campaign_ids: Vec<String>,
-    #[serde(default)]
-    pub session_ids: Vec<String>,
     #[serde(default)]
     pub tags: Vec<String>,
 }
@@ -155,8 +152,6 @@ pub struct SoundbitePatch {
 pub struct SoundscapeInput {
     pub name: String,
     #[serde(default)]
-    pub campaign_id: Option<String>,
-    #[serde(default)]
     pub notes: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -167,8 +162,6 @@ pub struct PlaylistInput {
     #[serde(default)]
     pub id: Option<String>,
     pub name: String,
-    #[serde(default)]
-    pub campaign_id: Option<String>,
     pub track_ids: Vec<String>,
 }
 
@@ -177,8 +170,6 @@ pub struct SoundboardInput {
     #[serde(default)]
     pub id: Option<String>,
     pub name: String,
-    #[serde(default)]
-    pub campaign_id: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
     pub buttons: Vec<MusicSoundboardButton>,
@@ -407,9 +398,6 @@ impl Service {
         if input.title.trim().is_empty() {
             return Err(invalid("title is required"));
         }
-        if input.campaign_ids.is_empty() {
-            return Err(invalid("pick at least one campaign"));
-        }
         let (url, blob) = match input.source.as_str() {
             "youtube" => {
                 let u = input.url.clone().unwrap_or_default();
@@ -433,8 +421,9 @@ impl Service {
             notes: input.notes.clone().unwrap_or_default(),
             loop_by_default: input.loop_by_default.unwrap_or(true),
             duration: input.duration.or(existing.and_then(|e| e.duration)),
-            campaign_ids: input.campaign_ids.clone(),
-            session_ids: input.session_ids.clone(),
+            // campaigns/sessions are no longer edited; keep any hidden links
+            campaign_ids: existing.map(|e| e.campaign_ids.clone()).unwrap_or_default(),
+            session_ids: existing.map(|e| e.session_ids.clone()).unwrap_or_default(),
             tags: input.tags.clone(),
             legacy_id: None,
         })
@@ -1117,11 +1106,8 @@ impl Service {
 
     // ── soundscapes ─────────────────────────────────────────────────────
 
-    pub async fn music_soundscapes_list(
-        &self,
-        campaign_id: Option<String>,
-    ) -> Result<Vec<MusicSoundscape>> {
-        self.blocking(move |s| Ok(s.music_soundscapes(campaign_id.as_deref())?)).await
+    pub async fn music_soundscapes_list(&self) -> Result<Vec<MusicSoundscape>> {
+        self.blocking(move |s| Ok(s.music_soundscapes(None)?)).await
     }
 
     fn live_content(
@@ -1162,7 +1148,7 @@ impl Service {
             let id = s.music_soundscape_write(
                 None,
                 input.name.trim(),
-                input.campaign_id.as_deref().filter(|c| !c.is_empty()),
+                None,
                 input.notes.as_deref().unwrap_or(""),
                 &input.tags,
                 &ch,
@@ -1243,11 +1229,8 @@ impl Service {
 
     // ── playlists ───────────────────────────────────────────────────────
 
-    pub async fn music_playlists_list(
-        &self,
-        campaign_id: Option<String>,
-    ) -> Result<Vec<MusicPlaylist>> {
-        self.blocking(move |s| Ok(s.music_playlists(campaign_id.as_deref())?)).await
+    pub async fn music_playlists_list(&self) -> Result<Vec<MusicPlaylist>> {
+        self.blocking(move |s| Ok(s.music_playlists(None)?)).await
     }
 
     pub async fn music_playlist_save(&self, input: PlaylistInput) -> Result<MusicPlaylist> {
@@ -1258,12 +1241,11 @@ impl Service {
             for t in &input.track_ids {
                 s.music_track_get(t)?;
             }
-            Ok(s.music_playlist_save(
-                input.id.as_deref().filter(|i| !i.is_empty()),
-                input.name.trim(),
-                input.campaign_id.as_deref().filter(|c| !c.is_empty()),
-                &input.track_ids,
-            )?)
+            let id = input.id.as_deref().filter(|i| !i.is_empty());
+            // campaigns are no longer edited; a replaced playlist keeps its hidden link
+            let campaign =
+                id.and_then(|i| s.music_playlist_get(i).ok()).and_then(|p| p.campaign_id);
+            Ok(s.music_playlist_save(id, input.name.trim(), campaign.as_deref(), &input.track_ids)?)
         })
         .await
     }
@@ -1343,11 +1325,8 @@ impl Service {
 
     // ── soundboards ─────────────────────────────────────────────────────
 
-    pub async fn music_soundboards_list(
-        &self,
-        campaign_id: Option<String>,
-    ) -> Result<Vec<MusicSoundboard>> {
-        self.blocking(move |s| Ok(s.music_soundboards(campaign_id.as_deref())?)).await
+    pub async fn music_soundboards_list(&self) -> Result<Vec<MusicSoundboard>> {
+        self.blocking(move |s| Ok(s.music_soundboards(None)?)).await
     }
 
     pub async fn music_soundboard_save(&self, input: SoundboardInput) -> Result<MusicSoundboard> {
@@ -1365,10 +1344,20 @@ impl Service {
             return Err(invalid(format!("unknown play mode {:?}", b.play_mode)));
         }
         self.blocking(move |s| {
+            let id = input.id.as_deref().filter(|i| !i.is_empty());
+            // campaigns are no longer edited; a replaced board keeps its hidden link
+            let campaign = match id {
+                Some(i) => s
+                    .music_soundboards(None)?
+                    .into_iter()
+                    .find(|b| b.id == i)
+                    .and_then(|b| b.campaign_id),
+                None => None,
+            };
             Ok(s.music_soundboard_save(
-                input.id.as_deref().filter(|i| !i.is_empty()),
+                id,
                 input.name.trim(),
-                input.campaign_id.as_deref().filter(|c| !c.is_empty()),
+                campaign.as_deref(),
                 input.notes.as_deref().unwrap_or(""),
                 &input.buttons,
             )?)

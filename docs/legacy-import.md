@@ -8,6 +8,8 @@ sleuth import-legacy <path\to\creatures.db> [--settings <app_settings.json>] [--
 - The import runs as a job with progress. It reports counts when finished.
 - **The import is idempotent.** Assets are matched on `assets.legacy_id`, campaigns, sessions and tags on their legacy id or name. Running it again skips anything already imported.
 
+> Campaigns, sessions and their links are still imported, into tables the app no longer shows (removed at the user's request on 2026-10-11). Nothing is lost if they ever come back.
+
 ## Mapping
 | Old | New |
 |---|---|

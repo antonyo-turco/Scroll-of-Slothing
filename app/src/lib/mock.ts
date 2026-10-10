@@ -4,8 +4,8 @@
 
 import {
   DEFAULT_SETTINGS, SIZE_INCHES, SIZE_LABELS,
-  type Asset, type AssetQuery, type Border, type Campaign, type PageFormat, type PlacedItem,
-  type ServiceEvent, type Session, type Settings, type SheetItem, type SheetItemPatch, type SheetLayout,
+  type Asset, type AssetQuery, type Border, type PageFormat, type PlacedItem,
+  type ServiceEvent, type Settings, type SheetItem, type SheetItemPatch, type SheetLayout,
   type SizeLabel, type TokenParams, type TokenSheet, type CutoutParams, type ObjectItem,
   type ObjectItemPatch, type ObjectSheet, type SheetMode, type CardOp, type CardOptions, type Deck,
   type DeckLayout,
@@ -21,7 +21,7 @@ export interface Backend {
 
 const ROUTES = [
   'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
-  'cards', 'maps.paginator', 'maps.aoe', 'campaigns', 'settings',
+  'cards', 'maps.paginator', 'maps.aoe', 'music', 'settings',
 ];
 
 function validate(key: string, value: unknown): string | null {
@@ -75,8 +75,6 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
   const listeners = new Set<(e: ServiceEvent) => void>();
   const workspaces = new Map<string, unknown>();
   let assets: Asset[] = [];
-  let campaigns: Campaign[] = [];
-  let sessions: Session[] = [];
   let tags: { id: number; name: string }[] = [];
   let seq = 0;
   const now = () => new Date().toISOString();
@@ -104,11 +102,6 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
   };
   if (opts.seed !== false) {
     for (const [n, k, s, t] of SEED) assets.push(newAsset(n, k, s, t));
-    const c = { id: 'mock-c1', name: 'Curse of Strahd', created: now(), session_count: 1, asset_count: 0 };
-    campaigns.push(c);
-    sessions.push({ id: 'mock-s1', campaign_id: c.id, name: 'Death House', notes: '', created: now(), asset_count: 0 });
-    assets[3].session_ids.push('mock-s1');
-    assets[5].campaign_ids.push(c.id);
   }
 
   const emit = (entity: string, entity_id: string, op = 'update') =>
@@ -130,11 +123,6 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     }
     if (q.kinds?.length) items = items.filter((a) => q.kinds!.includes(a.kind));
     for (const t of q.tags ?? []) items = items.filter((a) => a.tags.some((x) => x.toLowerCase() === t.toLowerCase()));
-    if (q.campaign_id) {
-      const sess = sessions.filter((s) => s.campaign_id === q.campaign_id).map((s) => s.id);
-      items = items.filter((a) => a.campaign_ids.includes(q.campaign_id!) || a.session_ids.some((s) => sess.includes(s)));
-    }
-    if (q.session_id) items = items.filter((a) => a.session_ids.includes(q.session_id!));
     if (q.pinned_only) items = items.filter((a) => a.pinned);
     const byName = (a: Asset, b: Asset) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     const sorters: Record<string, (a: Asset, b: Asset) => number> = {
@@ -150,17 +138,6 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     const off = q.offset ?? 0;
     return { items: items.slice(off, q.limit ? off + q.limit : undefined), total };
   };
-
-  const campaignView = () =>
-    campaigns.map((c) => {
-      const sess = sessions.filter((s) => s.campaign_id === c.id).map((s) => s.id);
-      const n = assets.filter((a) => a.campaign_ids.includes(c.id) || a.session_ids.some((s) => sess.includes(s))).length;
-      return { ...c, session_count: sess.length, asset_count: n };
-    });
-  const sessionView = (cid?: string | null) =>
-    sessions
-      .filter((s) => !cid || s.campaign_id === cid)
-      .map((s) => ({ ...s, asset_count: assets.filter((a) => a.session_ids.includes(s.id)).length }));
 
   const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     app_info: () => ({ version: '0.0.0-mock', data_dir: '(in-memory mock)' }),
@@ -217,18 +194,6 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
         .sort((x, y) => x.localeCompare(y, undefined, { sensitivity: 'base' }));
       return a;
     },
-    library_set_campaigns: ({ id, values }) => {
-      const a = getAsset(id as number);
-      for (const c of values as string[]) if (!campaigns.some((x) => x.id === c)) throw notFound(`campaign_id ${c}`);
-      a.campaign_ids = [...(values as string[])];
-      return a;
-    },
-    library_set_sessions: ({ id, values }) => {
-      const a = getAsset(id as number);
-      for (const s of values as string[]) if (!sessions.some((x) => x.id === s)) throw notFound(`session_id ${s}`);
-      a.session_ids = [...(values as string[])];
-      return a;
-    },
     library_delete: ({ ids }) => {
       const before = assets.length;
       assets = assets.filter((a) => !(ids as number[]).includes(a.id));
@@ -255,16 +220,6 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
       }
     },
     library_bulk_pin: ({ ids, pinned }) => (ids as number[]).forEach((id) => (getAsset(id).pinned = pinned as boolean)),
-    library_bulk_link_session: ({ ids, sessionId }) =>
-      (ids as number[]).forEach((id) => {
-        const a = getAsset(id);
-        if (!a.session_ids.includes(sessionId as string)) a.session_ids.push(sessionId as string);
-      }),
-    library_bulk_link_campaign: ({ ids, campaignId }) =>
-      (ids as number[]).forEach((id) => {
-        const a = getAsset(id);
-        if (!a.campaign_ids.includes(campaignId as string)) a.campaign_ids.push(campaignId as string);
-      }),
 
     tags_list: () =>
       tags
@@ -293,51 +248,6 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
       for (const a of assets) a.tags = a.tags.filter((x) => x.toLowerCase() !== t.name.toLowerCase());
     },
 
-    campaigns_list: () => campaignView(),
-    campaigns_create: ({ name }) => {
-      if (!(name as string).trim()) throw invalid('campaign name must not be empty');
-      const c = { id: `mock-c${++seq}`, name: (name as string).trim(), created: now(), session_count: 0, asset_count: 0 };
-      campaigns.push(c);
-      return c;
-    },
-    campaigns_rename: ({ id, name }) => {
-      const c = campaigns.find((x) => x.id === id);
-      if (!c) throw notFound(`campaign ${id}`);
-      c.name = (name as string).trim();
-    },
-    campaigns_delete: ({ id }) => {
-      const sess = sessions.filter((s) => s.campaign_id === id).map((s) => s.id);
-      campaigns = campaigns.filter((c) => c.id !== id);
-      sessions = sessions.filter((s) => s.campaign_id !== id);
-      for (const a of assets) {
-        a.campaign_ids = a.campaign_ids.filter((c) => c !== id);
-        a.session_ids = a.session_ids.filter((s) => !sess.includes(s));
-      }
-    },
-    sessions_list: ({ campaignId }) => sessionView(campaignId as string | null),
-    sessions_create: ({ campaignId, name, notes }) => {
-      if (!campaigns.some((c) => c.id === campaignId)) throw notFound(`campaign ${campaignId}`);
-      const s = { id: `mock-s${++seq}`, campaign_id: campaignId as string, name: (name as string).trim(), notes: (notes as string) ?? '', created: now(), asset_count: 0 };
-      sessions.push(s);
-      return s;
-    },
-    sessions_update: ({ id, name, notes }) => {
-      const s = sessions.find((x) => x.id === id);
-      if (!s) throw notFound(`session ${id}`);
-      if (typeof name === 'string') s.name = name;
-      if (typeof notes === 'string') s.notes = notes;
-    },
-    sessions_delete: ({ id }) => {
-      sessions = sessions.filter((s) => s.id !== id);
-      for (const a of assets) a.session_ids = a.session_ids.filter((s) => s !== id);
-    },
-    sessions_set_assets: ({ id, assetIds }) => {
-      for (const a of assets) {
-        const has = (assetIds as number[]).includes(a.id);
-        a.session_ids = a.session_ids.filter((s) => s !== id);
-        if (has) a.session_ids.push(id as string);
-      }
-    },
   };
 
   // ── tokens & token sheet ──

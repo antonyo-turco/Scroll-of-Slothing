@@ -13,7 +13,6 @@ fn engine_cmds(rx: &mut tokio::sync::broadcast::Receiver<Event>) -> Vec<Value> {
 }
 
 async fn yt_track(svc: &Service, title: &str) -> Track {
-    let c = svc.campaigns_create("Strahd".into()).await.unwrap();
     svc.music_track_create(TrackInput {
         source: "youtube".into(),
         url: Some(format!("https://youtu.be/{title}")),
@@ -22,8 +21,6 @@ async fn yt_track(svc: &Service, title: &str) -> Track {
         notes: None,
         loop_by_default: Some(true),
         duration: Some(3.0),
-        campaign_ids: vec![c.id],
-        session_ids: vec![],
         tags: vec!["mood".into()],
     })
     .await
@@ -54,12 +51,7 @@ async fn mixer_drives_the_engine_with_ducking_and_soundscapes() {
     assert!(engine_cmds(&mut rx).iter().any(|c| c["action"] == "pause_channel"));
 
     let sc = svc
-        .music_soundscape_save(SoundscapeInput {
-            name: "Storm".into(),
-            campaign_id: None,
-            notes: None,
-            tags: vec![],
-        })
+        .music_soundscape_save(SoundscapeInput { name: "Storm".into(), notes: None, tags: vec![] })
         .await
         .unwrap();
     svc.music_stop_all().await.unwrap();
@@ -87,7 +79,6 @@ async fn playlist_advances_and_soundboard_toggles() {
         .music_playlist_save(PlaylistInput {
             id: None,
             name: "Set".into(),
-            campaign_id: None,
             track_ids: vec![a.id.clone(), b.id.clone(), a.id.clone()],
         })
         .await
@@ -103,7 +94,6 @@ async fn playlist_advances_and_soundboard_toggles() {
         .music_soundboard_save(SoundboardInput {
             id: None,
             name: "Board".into(),
-            campaign_id: None,
             notes: None,
             buttons: vec![MusicSoundboardButton {
                 id: String::new(),
@@ -130,7 +120,6 @@ async fn playlist_advances_and_soundboard_toggles() {
         .music_soundboard_save(SoundboardInput {
             id: Some(board.id.clone()),
             name: "Board".into(),
-            campaign_id: None,
             notes: None,
             buttons: board.buttons.clone(),
         })
@@ -169,11 +158,7 @@ fn is(action: &'static str) -> impl Fn(&Value) -> bool {
     move |c| c["action"] == action
 }
 
-async fn campaign(svc: &Service) -> String {
-    svc.campaigns_create("Barovia".into()).await.unwrap().id
-}
-
-fn yt_input(campaign: &str, title: &str, duration: Option<f64>) -> TrackInput {
+fn yt_input(title: &str, duration: Option<f64>) -> TrackInput {
     TrackInput {
         source: "youtube".into(),
         url: Some(format!("https://youtu.be/{title}")),
@@ -182,8 +167,6 @@ fn yt_input(campaign: &str, title: &str, duration: Option<f64>) -> TrackInput {
         notes: None,
         loop_by_default: Some(true),
         duration,
-        campaign_ids: vec![campaign.into()],
-        session_ids: vec![],
         tags: vec![],
     }
 }
@@ -197,13 +180,9 @@ fn is_invalid<T: std::fmt::Debug>(r: Result<T>) -> bool {
 #[tokio::test(flavor = "multi_thread")]
 async fn track_validation() {
     let (_d, svc) = temp_service();
-    let c = campaign(&svc).await;
-    let ok = yt_input(&c, "ok", None);
+    let ok = yt_input("ok", None);
     assert!(is_invalid(
         svc.music_track_create(TrackInput { title: " ".into(), ..ok.clone() }).await
-    ));
-    assert!(is_invalid(
-        svc.music_track_create(TrackInput { campaign_ids: vec![], ..ok.clone() }).await
     ));
     assert!(is_invalid(
         svc.music_track_create(TrackInput { url: Some("  ".into()), ..ok.clone() }).await
@@ -222,7 +201,6 @@ async fn track_validation() {
 #[tokio::test(flavor = "multi_thread")]
 async fn uploads_live_in_the_blob_store() {
     let (d, svc) = temp_service();
-    let c = campaign(&svc).await;
     let f = d.path().join("drums.ogg");
     std::fs::write(&f, b"OggS fake audio").unwrap();
     let t = svc
@@ -230,7 +208,7 @@ async fn uploads_live_in_the_blob_store() {
             source: "upload".into(),
             url: None,
             file_path: Some(f.clone()),
-            ..yt_input(&c, "Drums", None)
+            ..yt_input("Drums", None)
         })
         .await
         .unwrap();
@@ -247,30 +225,12 @@ async fn uploads_live_in_the_blob_store() {
                 source: "upload".into(),
                 url: None,
                 file_path: None,
-                ..yt_input(&c, "Drums 2", None)
+                ..yt_input("Drums 2", None)
             },
         )
         .await
         .unwrap();
     assert_eq!(t2.blob_hash.as_deref(), Some(h.as_str()));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn campaign_delete_keeps_shared_tracks() {
-    // known issue 6
-    let (_d, svc) = temp_service();
-    let a = campaign(&svc).await;
-    let b = svc.campaigns_create("Other".into()).await.unwrap().id;
-    let t = svc
-        .music_track_create(TrackInput {
-            campaign_ids: vec![a.clone(), b.clone()],
-            ..yt_input(&a, "shared", None)
-        })
-        .await
-        .unwrap();
-    svc.campaigns_delete(a).await.unwrap();
-    let t = svc.music_track_get(t.id).await.unwrap();
-    assert_eq!(t.campaign_ids, vec![b]);
 }
 
 // ── live mix ───────────────────────────────────────────────────────────
@@ -279,8 +239,7 @@ async fn campaign_delete_keeps_shared_tracks() {
 async fn channel_rules_volume_role_and_loop() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let t = svc.music_track_create(yt_input(&c, "hit", None)).await.unwrap();
+    let t = svc.music_track_create(yt_input("hit", None)).await.unwrap();
     // the sfx role forces looping off, volumes clamp to 0..100
     let st = svc
         .music_channel_add(t.id.clone(), Some("sfx".into()), Some(150), Some(true), false)
@@ -335,9 +294,8 @@ async fn channel_rules_volume_role_and_loop() {
 async fn play_all_pause_all_and_stop_all() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let a = svc.music_track_create(yt_input(&c, "a", Some(2.0))).await.unwrap();
-    let b = svc.music_track_create(yt_input(&c, "b", Some(2.0))).await.unwrap();
+    let a = svc.music_track_create(yt_input("a", Some(2.0))).await.unwrap();
+    let b = svc.music_track_create(yt_input("b", Some(2.0))).await.unwrap();
     svc.music_channel_add(a.id.clone(), None, None, None, true).await.unwrap();
     svc.music_channel_add(b.id.clone(), None, None, None, true).await.unwrap();
     svc.music_soundbite_add(a.id.clone(), 300.0, 600.0, 50).await.unwrap();
@@ -364,8 +322,7 @@ async fn play_all_pause_all_and_stop_all() {
 async fn attach_clears_stale_live_state() {
     // known issue 5: rows left playing by a crash are cleared on launch
     let (d, svc) = temp_service();
-    let c = campaign(&svc).await;
-    let t = svc.music_track_create(yt_input(&c, "a", None)).await.unwrap();
+    let t = svc.music_track_create(yt_input("a", None)).await.unwrap();
     svc.music_channel_add(t.id.clone(), None, None, None, true).await.unwrap();
     svc.music_soundbite_add(t.id.clone(), 5.0, 9.0, 80).await.unwrap();
     drop(svc);
@@ -380,8 +337,7 @@ async fn attach_clears_stale_live_state() {
 async fn engine_events_update_the_mix() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let t = svc.music_track_create(yt_input(&c, "a", None)).await.unwrap();
+    let t = svc.music_track_create(yt_input("a", None)).await.unwrap();
     let st = svc.music_channel_add(t.id.clone(), None, None, Some(false), true).await.unwrap();
     let ch = st.channels[0].id.clone();
     // the engine reports the duration of tracks that had none
@@ -418,9 +374,8 @@ async fn engine_events_update_the_mix() {
 async fn soundbite_ducks_the_music_until_it_ends() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let music = svc.music_track_create(yt_input(&c, "music", None)).await.unwrap();
-    let bell = svc.music_track_create(yt_input(&c, "bell", Some(20.0))).await.unwrap();
+    let music = svc.music_track_create(yt_input("music", None)).await.unwrap();
+    let bell = svc.music_track_create(yt_input("bell", Some(20.0))).await.unwrap();
     svc.music_channel_add(music.id.clone(), Some("music".into()), Some(80), None, true)
         .await
         .unwrap();
@@ -455,9 +410,8 @@ async fn soundbite_ducks_the_music_until_it_ends() {
 async fn duck_off_leaves_the_volume_alone() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let music = svc.music_track_create(yt_input(&c, "music", None)).await.unwrap();
-    let bell = svc.music_track_create(yt_input(&c, "bell", Some(20.0))).await.unwrap();
+    let music = svc.music_track_create(yt_input("music", None)).await.unwrap();
+    let bell = svc.music_track_create(yt_input("bell", Some(20.0))).await.unwrap();
     svc.music_channel_add(music.id.clone(), None, Some(80), None, true).await.unwrap();
     let st = svc.music_soundbite_add(bell.id.clone(), 300.0, 600.0, 70).await.unwrap();
     let mut rx = svc.subscribe();
@@ -470,8 +424,7 @@ async fn duck_off_leaves_the_volume_alone() {
 async fn sfx_queue_is_capped_and_cleared_by_stop_all() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let bell = svc.music_track_create(yt_input(&c, "bell", Some(60.0))).await.unwrap();
+    let bell = svc.music_track_create(yt_input("bell", Some(60.0))).await.unwrap();
     let st = svc.music_soundbite_add(bell.id.clone(), 300.0, 600.0, 70).await.unwrap();
     let sb = st.soundbites[0].id.clone();
     let mut rx = svc.subscribe();
@@ -493,8 +446,7 @@ async fn sfx_queue_is_capped_and_cleared_by_stop_all() {
 async fn soundbite_timers_fire_and_stop_with_pause_all() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let bell = svc.music_track_create(yt_input(&c, "bell", Some(0.2))).await.unwrap();
+    let bell = svc.music_track_create(yt_input("bell", Some(0.2))).await.unwrap();
     // intervals clamp to ≥ 1 s and are reordered
     let st = svc.music_soundbite_add(bell.id.clone(), 0.0, 0.5, 60).await.unwrap();
     assert_eq!((st.soundbites[0].min_interval, st.soundbites[0].max_interval), (1.0, 1.0));
@@ -526,8 +478,7 @@ async fn soundbite_timers_fire_and_stop_with_pause_all() {
 async fn preview_slot_and_video_toggle() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let t = svc.music_track_create(yt_input(&c, "a", None)).await.unwrap();
+    let t = svc.music_track_create(yt_input("a", None)).await.unwrap();
     let mut rx = svc.subscribe();
     svc.music_preview(t.id.clone(), Some(9999.0)).await.unwrap();
     let cmds = engine_cmds(&mut rx);
@@ -553,8 +504,7 @@ async fn standalone_process_queues_for_the_app() {
     let (d, app) = temp_service();
     app.music_attach_engine().await.unwrap();
     let mcp = Service::open(d.path()).unwrap();
-    let c = campaign(&mcp).await;
-    let t = mcp.music_track_create(yt_input(&c, "a", None)).await.unwrap();
+    let t = mcp.music_track_create(yt_input("a", None)).await.unwrap();
     let st = mcp.music_channel_add(t.id.clone(), None, None, None, true).await.unwrap();
     assert!(!st.engine_attached);
     mcp.music_preview(t.id.clone(), Some(5.0)).await.unwrap();
@@ -580,33 +530,25 @@ async fn standalone_process_queues_for_the_app() {
 async fn soundscapes_save_update_load_delete() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let a = svc.music_track_create(yt_input(&c, "a", None)).await.unwrap();
-    let b = svc.music_track_create(yt_input(&c, "b", None)).await.unwrap();
+    let a = svc.music_track_create(yt_input("a", None)).await.unwrap();
+    let b = svc.music_track_create(yt_input("b", None)).await.unwrap();
     svc.music_channel_add(a.id.clone(), Some("ambient".into()), Some(55), None, true)
         .await
         .unwrap();
     svc.music_soundbite_add(b.id.clone(), 10.0, 20.0, 66).await.unwrap();
     assert!(is_invalid(
-        svc.music_soundscape_save(SoundscapeInput {
-            name: "  ".into(),
-            campaign_id: None,
-            notes: None,
-            tags: vec![]
-        })
-        .await
+        svc.music_soundscape_save(SoundscapeInput { name: "  ".into(), notes: None, tags: vec![] })
+            .await
     ));
-    // known issue 7: no campaign is fine
     let sc = svc
         .music_soundscape_save(SoundscapeInput {
             name: "Cave".into(),
-            campaign_id: Some(String::new()),
             notes: Some("drip".into()),
             tags: vec!["dark".into()],
         })
         .await
         .unwrap();
-    assert_eq!((sc.campaign_id.as_deref(), sc.channels.len(), sc.soundbites.len()), (None, 1, 1));
+    assert_eq!((sc.channels.len(), sc.soundbites.len()), (1, 1));
     assert_eq!(svc.music_state().await.unwrap().soundscape_name.as_deref(), Some("Cave"));
 
     // update overwrites the mix and keeps the name, notes and tags
@@ -624,7 +566,7 @@ async fn soundscapes_save_update_load_delete() {
     assert!(st.soundbites_running && st.channels.iter().all(|c| c.is_playing));
     svc.music_soundscape_delete(sc.id.clone()).await.unwrap();
     assert!(svc.music_state().await.unwrap().soundscape_id.is_none());
-    assert!(svc.music_soundscapes_list(None).await.unwrap().is_empty());
+    assert!(svc.music_soundscapes_list().await.unwrap().is_empty());
 }
 
 // ── playlists ──────────────────────────────────────────────────────────
@@ -633,25 +575,21 @@ async fn soundscapes_save_update_load_delete() {
 async fn playlist_controls() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
     let mut ids = vec![];
     for n in ["one", "two", "three"] {
-        ids.push(svc.music_track_create(yt_input(&c, n, None)).await.unwrap().id);
+        ids.push(svc.music_track_create(yt_input(n, None)).await.unwrap().id);
     }
-    let input = |id: Option<String>, name: &str, campaign_id: Option<String>, track_ids| {
-        PlaylistInput { id, name: name.into(), campaign_id, track_ids }
+    let input = |id: Option<String>, name: &str, track_ids| PlaylistInput {
+        id,
+        name: name.into(),
+        track_ids,
     };
-    assert!(is_invalid(svc.music_playlist_save(input(None, "", None, ids.clone())).await));
-    let empty = svc.music_playlist_save(input(None, "Empty", None, vec![])).await.unwrap();
+    assert!(is_invalid(svc.music_playlist_save(input(None, "", ids.clone())).await));
+    let empty = svc.music_playlist_save(input(None, "Empty", vec![])).await.unwrap();
     assert!(is_invalid(svc.music_playlist_play(empty.id.clone(), None).await));
-    let pl =
-        svc.music_playlist_save(input(None, "Set", Some(c.clone()), ids.clone())).await.unwrap();
-    // known issue 8: the campaign can be changed on edit
-    let pl = svc
-        .music_playlist_save(input(Some(pl.id.clone()), "Set", None, ids.clone()))
-        .await
-        .unwrap();
-    assert_eq!(pl.campaign_id, None);
+    let pl = svc.music_playlist_save(input(None, "Set", ids.clone())).await.unwrap();
+    // replacing keeps the id
+    let pl = svc.music_playlist_save(input(Some(pl.id.clone()), "Set", ids.clone())).await.unwrap();
 
     let mut rx = svc.subscribe();
     let st = svc.music_playlist_play(pl.id.clone(), Some(99)).await.unwrap();
@@ -716,12 +654,10 @@ fn button(track: &str, mode: &str, looping: bool) -> MusicSoundboardButton {
 async fn soundboard_modes() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let t = svc.music_track_create(yt_input(&c, "boom", Some(1.0))).await.unwrap();
+    let t = svc.music_track_create(yt_input("boom", Some(1.0))).await.unwrap();
     let bad = |mode: &str, track: Option<String>| SoundboardInput {
         id: None,
         name: "B".into(),
-        campaign_id: None,
         notes: None,
         buttons: vec![MusicSoundboardButton { track_id: track, ..button(&t.id, mode, false) }],
     };
@@ -731,7 +667,6 @@ async fn soundboard_modes() {
         .music_soundboard_save(SoundboardInput {
             id: None,
             name: "Board".into(),
-            campaign_id: None,
             notes: None,
             buttons: vec![button(&t.id, "oneshot", false), button(&t.id, "restart", false)],
         })
@@ -777,23 +712,21 @@ async fn soundboard_modes() {
             .any(|c| c["channel_id"] == rs.as_str() && c["action"] == "play_track")
     );
     svc.music_soundboard_delete(board.id).await.unwrap();
-    assert!(svc.music_soundboards_list(None).await.unwrap().is_empty());
+    assert!(svc.music_soundboards_list().await.unwrap().is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn soundboard_oneshots_duck_without_queueing() {
     let (_d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
-    let music = svc.music_track_create(yt_input(&c, "music", None)).await.unwrap();
-    let boom = svc.music_track_create(yt_input(&c, "boom", Some(20.0))).await.unwrap();
+    let music = svc.music_track_create(yt_input("music", None)).await.unwrap();
+    let boom = svc.music_track_create(yt_input("boom", Some(20.0))).await.unwrap();
     svc.music_channel_add(music.id.clone(), None, Some(80), None, true).await.unwrap();
     svc.music_set_duck(DuckMode::Strong).await.unwrap();
     let board = svc
         .music_soundboard_save(SoundboardInput {
             id: None,
             name: "FX".into(),
-            campaign_id: None,
             notes: None,
             buttons: vec![button(&boom.id, "oneshot", false)],
         })
@@ -838,7 +771,6 @@ async fn soundboard_oneshots_duck_without_queueing() {
 async fn dmix_embeds_uploads_and_carries_settings() {
     let (d, svc) = temp_service();
     svc.music_attach_engine().await.unwrap();
-    let c = campaign(&svc).await;
     let f = d.path().join("wind.mp3");
     std::fs::write(&f, b"ID3 wind").unwrap();
     let up = svc
@@ -846,11 +778,11 @@ async fn dmix_embeds_uploads_and_carries_settings() {
             source: "upload".into(),
             url: None,
             file_path: Some(f),
-            ..yt_input(&c, "Wind", Some(12.0))
+            ..yt_input("Wind", Some(12.0))
         })
         .await
         .unwrap();
-    let yt = svc.music_track_create(yt_input(&c, "rain", None)).await.unwrap();
+    let yt = svc.music_track_create(yt_input("rain", None)).await.unwrap();
     // an empty mix cannot be exported
     assert!(is_invalid(svc.music_mix_export(d.path().join("x.dmix"), None).await));
     svc.music_channel_add(up.id.clone(), Some("ambient".into()), Some(33), Some(false), true)
@@ -881,7 +813,7 @@ async fn dmix_embeds_uploads_and_carries_settings() {
     // importing again reuses everything and overwrites the same soundscape
     let r2 = other.music_mix_import(path, true).await.unwrap();
     assert_eq!((r2.tracks_created, r2.soundscape_id.as_str()), (0, r.soundscape_id.as_str()));
-    assert_eq!(other.music_soundscapes_list(None).await.unwrap().len(), 1);
+    assert_eq!(other.music_soundscapes_list().await.unwrap().len(), 1);
 
     // rejects other files and newer versions
     let bad = d.path().join("bad.dmix");
@@ -899,7 +831,8 @@ async fn dmix_embeds_uploads_and_carries_settings() {
 async fn legacy_music_import_is_idempotent() {
     let (d, svc) = temp_service();
     assert!(is_invalid(svc.music_import_legacy().await));
-    let c = campaign(&svc).await;
+    // campaigns are hidden now, but legacy links are still preserved
+    let c = svc.store().create_campaign("Barovia").unwrap().id;
     let local = d.path().join("old.wav");
     std::fs::write(&local, b"RIFF old").unwrap();
     let dump = json!({
@@ -940,14 +873,14 @@ async fn legacy_music_import_is_idempotent() {
     let old = tracks.iter().find(|t| t.title == "Old").unwrap();
     assert_eq!((old.source.as_str(), old.loop_by_default), ("upload", false));
     assert!(old.campaign_ids.is_empty(), "unknown campaigns are dropped");
-    let sc = &svc.music_soundscapes_list(None).await.unwrap()[0];
+    let sc = &svc.music_soundscapes_list().await.unwrap()[0];
     assert_eq!((sc.campaign_id.as_deref(), sc.channels.len()), (None, 1));
-    let pl = &svc.music_playlists_list(None).await.unwrap()[0];
+    let pl = &svc.music_playlists_list().await.unwrap()[0];
     assert_eq!(
         pl.items.iter().map(|i| i.title.as_str()).collect::<Vec<_>>(),
         vec!["Tavern", "Old"]
     );
-    let sb = &svc.music_soundboards_list(None).await.unwrap()[0];
+    let sb = &svc.music_soundboards_list().await.unwrap()[0];
     assert_eq!(sb.buttons[0].play_mode, "oneshot");
 
     let again = svc.music_import_legacy().await.unwrap();

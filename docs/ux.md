@@ -11,7 +11,9 @@
 - **Destructive actions ask for confirmation**: delete, clear all, overwrite preset, restore defaults.
 
 ## Navigation
-The left rail has 7 destinations instead of Python's 16 tabs. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
+Campaigns and sessions (the Python "Manage Campaigns" tab, the top-bar campaign picker, and every campaign or session filter) were removed at the user's request on 2026-10-11. Most material is reused across sessions; tags and the ★ Pinned star organise it instead. See `features/campaigns-sessions.md`.
+
+The left rail has 6 destinations instead of Python's 16 tabs. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
 
 | Route | Python tabs it replaces |
 |---|---|
@@ -20,14 +22,12 @@ The left rail has 7 destinations instead of Python's 16 tabs. It can collapse to
 | `cutouts.cutter`, `cutouts.sheet` | Object Cutter, Object Sheet |
 | `cards` | Card Printer |
 | `maps.paginator`, `maps.aoe` | Map Paginator, AoE Templates |
-| `campaigns` | Manage Campaigns |
 | `music` (tabs inside the view) | Library, Mixer, Soundscapes, Playlists, Soundboard |
 | `settings` (pinned to the bottom of the rail) | Settings |
 
 Sub-routes appear as segmented tabs in the top bar.
 
 ## Global elements
-- **Campaign context**: a picker in the top bar, also persisted. It filters the Library and is the default campaign for new links.
 - **Print tray**: a badge at the bottom of the rail showing how many items are on the token and object sheets. Clicking it opens that sheet.
 - **Jobs tray**: shows each running export or import with progress and cancel. It shows "Open file" / "Show in folder" when a job finishes.
 - **Toasts**: successes and errors. Errors include a "details" expander.

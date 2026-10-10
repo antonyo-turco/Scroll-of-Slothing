@@ -20,12 +20,8 @@ class AppState {
   toasts = $state<Toast[]>([]);
   paletteOpen = $state(false);
   ready = $state(false);
-  /** Global campaign context (persisted in workspace `ui.campaign`). */
-  campaignId = $state<string | null>(null);
   /** Bumped (debounced) whenever persistent data changes; views refetch on change. */
   dataVersion = $state(0);
-  /** One-shot filter handed to the Library when navigating there (e.g. from a session). */
-  libraryPreset = $state<{ sessionId?: string; campaignId?: string } | null>(null);
   /** One-shot request for an editor view to open a library asset. */
   openRequest = $state<{ route: string; assetId: number } | null>(null);
   #bumpTimer: ReturnType<typeof setTimeout> | null = null;
@@ -44,7 +40,6 @@ class AppState {
     this.applyTheme();
     this.#unlisten = await api.onEvent((e) => this.onEvent(e));
     this.jobs = await api.jobsList().catch(() => []);
-    this.campaignId = await api.workspaceGet<string>('ui.campaign').catch(() => null);
     window.addEventListener('hashchange', () => {
       const id = location.hash.replace(/^#\/?/, '');
       if (isRoute(id)) this.route = id;
@@ -120,11 +115,6 @@ class AppState {
       this.#bumpTimer = null;
       this.dataVersion++;
     }, 150);
-  }
-
-  async setCampaign(id: string | null): Promise<void> {
-    this.campaignId = id;
-    await api.workspaceSet('ui.campaign', id).catch((e) => this.error('Could not save campaign', e));
   }
 
   toast(kind: Toast['kind'], text: string, detail?: string): void {

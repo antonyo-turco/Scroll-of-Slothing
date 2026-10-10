@@ -7,18 +7,13 @@
   import { music, type Playlist, type PlaylistAction, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
-  import type { Campaign } from '../../lib/types';
-
-  let { campaigns }: { campaigns: Campaign[] } = $props();
-
   let list = $state<Playlist[]>([]);
-  let campaignId = $state<string | null>(app.campaignId);
   let open = $state<Record<string, boolean>>({});
   const pb = $derived(musicUi.state?.playlist ?? null);
 
   async function load() {
     try {
-      list = await music.playlistsList(campaignId);
+      list = await music.playlistsList();
     } catch (e) {
       app.error('Could not load playlists', e);
     }
@@ -48,7 +43,6 @@
   let edOpen = $state(false);
   let edId = $state<string | null>(null);
   let edName = $state('');
-  let edCampaign = $state('');
   let edItems = $state<{ key: number; track_id: string; title: string }[]>([]);
   let allTracks = $state<Track[]>([]);
   let pickAll = $state<string[]>([]);
@@ -63,7 +57,6 @@
     }
     edId = p?.id ?? null;
     edName = p?.name ?? '';
-    edCampaign = p?.campaign_id ?? app.campaignId ?? '';
     edItems = (p?.items ?? []).map((i) => ({ key: ++keySeq, track_id: i.track_id, title: i.title }));
     pickAll = [];
     pickMine = [];
@@ -93,7 +86,7 @@
   async function saveEditor() {
     if (!edName.trim()) return;
     try {
-      await music.playlistSave({ id: edId, name: edName.trim(), campaign_id: edCampaign || null, track_ids: edItems.map((i) => i.track_id) });
+      await music.playlistSave({ id: edId, name: edName.trim(), track_ids: edItems.map((i) => i.track_id) });
       edOpen = false;
       void load();
     } catch (e) {
@@ -117,10 +110,6 @@
     </div>
   {/if}
   <div class="bar">
-    <select class="input filter" aria-label="Campaign filter" bind:value={campaignId} onchange={() => void load()}>
-      <option value={null}>All campaigns</option>
-      {#each campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-    </select>
     <button class="btn primary" onclick={() => openEditor(null)}>+ New Playlist</button>
   </div>
   {#each list as p (p.id)}
@@ -153,12 +142,6 @@
   <form class="form" onsubmit={(e) => (e.preventDefault(), void saveEditor())}>
     <div class="row">
       <label class="field grow"><span class="label">Name</span><input class="input" bind:value={edName} required /></label>
-      <label class="field"><span class="label">Campaign</span>
-        <select class="input" bind:value={edCampaign}>
-          <option value="">(none)</option>
-          {#each campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-        </select>
-      </label>
     </div>
     <div class="lists">
       <label class="field"><span class="label">All Tracks</span>
@@ -207,9 +190,6 @@
     display: flex;
     gap: var(--space-2);
     align-items: center;
-  }
-  .filter {
-    width: auto;
   }
   .pl {
     padding: var(--space-2) var(--space-3);

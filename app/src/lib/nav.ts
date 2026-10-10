@@ -43,8 +43,6 @@ export const DESTINATIONS: Destination[] = [
     { id: 'maps.paginator', label: 'Paginator', phase: 5, load: () => import('../routes/maps/MapPaginator.svelte') },
     { id: 'maps.aoe', label: 'AoE templates', phase: 5, load: () => import('../routes/aoe/AoeTemplates.svelte') },
   ] },
-  { id: 'campaigns', label: 'Campaigns', icon: 'flag',
-    views: [{ id: 'campaigns', label: 'Campaigns', phase: 1, load: () => import('../routes/Campaigns.svelte') }] },
   { id: 'music', label: 'Music', icon: 'music',
     views: [{ id: 'music', label: 'Music', phase: 7, load: () => import('../routes/music/Music.svelte') }] },
 ];

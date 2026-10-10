@@ -32,6 +32,9 @@ In order. The parity sprint runs on `sprint/full-parity` and merges back into `d
    - Install the MSI once and double-click a `.dmix` file (the association only exists in the installed app).
 2. **Release.** Once every checklist is ticked, music included, propose a single descriptive `master` merge and wait for the user's approval.
 
+### Removed
+- Campaigns and sessions (2026-10-11, at the user's request): UI, filters, links, commands and MCP/CLI tools are gone; the tables stay, unused. See `features/campaigns-sessions.md`.
+
 ### Open questions (not blocking)
 - Music (`features/music/known-issues.md`, 15): should the playlist channel appear in the mixer and be ducked? It behaves as in Python until the user decides.
 

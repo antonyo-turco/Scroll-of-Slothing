@@ -3,8 +3,8 @@
 // so the UI can be developed and tested without the native shell.
 
 import type {
-  AppInfo, Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, ExportWhat, ImportFile,
-  ImportReport, JobStatus, PageFormat, RenameOutcome, ServiceEvent, Session, Settings, SettingsUpdate,
+  AppInfo, Asset, AssetPage, AssetPatch, AssetQuery, Border, ExportWhat, ImportFile,
+  ImportReport, JobStatus, PageFormat, RenameOutcome, ServiceEvent, Settings, SettingsUpdate,
   SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenParams, TokenSheet,
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
@@ -77,8 +77,6 @@ export const api = {
   libraryGet: (id: number) => call<Asset>('library_get', { id }),
   libraryUpdate: (id: number, patch: AssetPatch) => call<Asset>('library_update', { id, patch }),
   librarySetTags: (id: number, values: string[]) => call<Asset>('library_set_tags', { id, values }),
-  librarySetCampaigns: (id: number, values: string[]) => call<Asset>('library_set_campaigns', { id, values }),
-  librarySetSessions: (id: number, values: string[]) => call<Asset>('library_set_sessions', { id, values }),
   libraryDelete: (ids: number[]) => call<number>('library_delete', { ids }),
   libraryImport: (files: ImportFile[]) => call<ImportReport>('library_import', { files }),
   libraryExport: (id: number, what: ExportWhat, path: string) => call<string>('library_export', { id, what, path }),
@@ -86,27 +84,12 @@ export const api = {
   libraryCopyToClipboard: (id: number) => call<void>('library_copy_to_clipboard', { id }),
   libraryBulkTag: (ids: number[], tag: string) => call<void>('library_bulk_tag', { ids, tag }),
   libraryBulkPin: (ids: number[], pinned: boolean) => call<void>('library_bulk_pin', { ids, pinned }),
-  libraryBulkLinkSession: (ids: number[], sessionId: string) =>
-    call<void>('library_bulk_link_session', { ids, sessionId }),
-  libraryBulkLinkCampaign: (ids: number[], campaignId: string) =>
-    call<void>('library_bulk_link_campaign', { ids, campaignId }),
 
   tagsList: () => call<TagCount[]>('tags_list'),
   tagsRename: (id: number, name: string) => call<RenameOutcome>('tags_rename', { id, name }),
   tagsMerge: (src: number, dst: number) => call<void>('tags_merge', { src, dst }),
   tagsDelete: (id: number) => call<void>('tags_delete', { id }),
 
-  campaignsList: () => call<Campaign[]>('campaigns_list'),
-  campaignsCreate: (name: string) => call<Campaign>('campaigns_create', { name }),
-  campaignsRename: (id: string, name: string) => call<void>('campaigns_rename', { id, name }),
-  campaignsDelete: (id: string) => call<void>('campaigns_delete', { id }),
-  sessionsList: (campaignId?: string | null) => call<Session[]>('sessions_list', { campaignId }),
-  sessionsCreate: (campaignId: string, name: string, notes = '') =>
-    call<Session>('sessions_create', { campaignId, name, notes }),
-  sessionsUpdate: (id: string, name?: string | null, notes?: string | null) =>
-    call<void>('sessions_update', { id, name, notes }),
-  sessionsDelete: (id: string) => call<void>('sessions_delete', { id }),
-  sessionsSetAssets: (id: string, assetIds: number[]) => call<void>('sessions_set_assets', { id, assetIds }),
 
   tokenBordersList: () => call<Border[]>('token_borders_list'),
   tokenBordersAdd: (path: string, name?: string | null) => call<Border>('token_borders_add', { path, name }),

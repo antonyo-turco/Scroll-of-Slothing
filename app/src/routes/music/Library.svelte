@@ -1,40 +1,30 @@
 <script lang="ts">
   // Music library (Python ui/dm_music_library_panel.py).
   import { onDestroy, onMount } from 'svelte';
-  import { api } from '../../lib/api';
   import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { formatDuration, music, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
-  import type { Campaign, Session } from '../../lib/types';
   import TrackDialog from './TrackDialog.svelte';
-
-  let { campaigns, sessions, onCampaignsChanged }: { campaigns: Campaign[]; sessions: Session[]; onCampaignsChanged: () => void } = $props();
 
   let tracks = $state<Track[]>([]);
   let allTracks = $state<Track[]>([]);
-  let campaignId = $state<string | null>(app.campaignId);
-  let sessionId = $state<string | null>(null);
   let tagFilter = $state('');
   let selectedTags = $state<string[]>([]);
   let text = $state('');
   let selected = $state<string | null>(null);
   let dialogOpen = $state(false);
   let editing = $state<Track | null>(null);
-  let newCampaign = $state('');
-  let addingCampaign = $state(false);
   let flash = $state<string | null>(null);
   let seq = 0;
 
   const allTags = $derived([...new Set(allTracks.flatMap((t) => t.tags))].sort((a, b) => a.localeCompare(b)));
-  const campaignSessions = $derived(campaignId ? sessions.filter((s) => s.campaign_id === campaignId) : []);
-  const campaignNames = (t: Track) => t.campaign_ids.map((id) => campaigns.find((c) => c.id === id)?.name ?? '?').join(', ');
 
   async function load() {
     const my = ++seq;
     try {
       const [list, all] = await Promise.all([
-        music.tracksList({ campaign_id: campaignId, session_id: sessionId, tags: selectedTags, text }),
+        music.tracksList({ tags: selectedTags, text }),
         music.tracksList({}),
       ]);
       if (my !== seq) return;
@@ -57,26 +47,6 @@
   onDestroy(() => {
     if (musicUi.state?.previewing) void music.stopPreview().catch(() => {});
   });
-
-  function setCampaign(id: string | null) {
-    campaignId = id;
-    sessionId = null;
-    void load();
-  }
-
-  async function addCampaign() {
-    const name = newCampaign.trim();
-    if (!name) return;
-    try {
-      const c = await api.campaignsCreate(name);
-      newCampaign = '';
-      addingCampaign = false;
-      onCampaignsChanged();
-      setCampaign(c.id);
-    } catch (e) {
-      app.error('Could not create the campaign', e);
-    }
-  }
 
   /** Track being previewed (the engine has a single preview slot). */
   let previewId = $state<string | null>(null);
@@ -112,7 +82,6 @@
   }
 
   function openDialog(t: Track | null) {
-    if (!t && !campaigns.length) return app.toast('info', 'Create a campaign first');
     editing = t;
     dialogOpen = true;
   }
@@ -122,29 +91,6 @@
 
 <div class="lib">
   <aside class="side">
-    <h3>Campaigns</h3>
-    <button class="item" aria-pressed={campaignId === null} onclick={() => setCampaign(null)}>All</button>
-    {#each campaigns as c (c.id)}
-      <button class="item" aria-pressed={campaignId === c.id} onclick={() => setCampaign(c.id)}>{c.name}</button>
-    {/each}
-    {#if addingCampaign}
-      <form class="inline" onsubmit={(e) => (e.preventDefault(), void addCampaign())}>
-        <input class="input" bind:value={newCampaign} placeholder="Campaign name" aria-label="New campaign name" />
-      </form>
-    {:else}
-      <button class="item add" onclick={() => (addingCampaign = true)}>+ Campaign</button>
-    {/if}
-
-    <h3>Sessions</h3>
-    {#if !campaignId}
-      <p class="muted hint">Select a campaign to filter by session.</p>
-    {:else}
-      <button class="item" aria-pressed={sessionId === null} onclick={() => ((sessionId = null), void load())}>All</button>
-      {#each campaignSessions as s (s.id)}
-        <button class="item" aria-pressed={sessionId === s.id} onclick={() => ((sessionId = s.id), void load())}>{s.name}</button>
-      {/each}
-    {/if}
-
     <h3>Tags</h3>
     <div class="tagfilter">
       <input class="input" bind:value={tagFilter} placeholder="filter" aria-label="Filter tags" />
@@ -176,7 +122,7 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Title</th><th>Tags</th><th>Length</th><th>Loop</th><th>Campaign(s)</th><th class="actions"></th></tr>
+          <tr><th>Title</th><th>Tags</th><th>Length</th><th>Loop</th><th class="actions"></th></tr>
         </thead>
         <tbody>
           {#each tracks as t (t.id)}
@@ -194,7 +140,6 @@
               <td class="muted">{t.tags.join(', ')}</td>
               <td>{formatDuration(t.duration)}</td>
               <td>{t.loop_by_default ? 'yes' : 'no'}</td>
-              <td class="muted">{campaignNames(t)}</td>
               <td class="actions">
                 <button class="btn ghost" title="Preview 10 s" aria-label="Preview {t.title}" onclick={(e) => (e.stopPropagation(), void preview(t))}>▶</button>
                 <button class="btn ghost" title="Add to mix" aria-label="Add {t.title} to mix" onclick={(e) => (e.stopPropagation(), void addToMix(t))}>{flash === t.id ? '✓' : '+'}</button>
@@ -203,7 +148,7 @@
               </td>
             </tr>
           {:else}
-            <tr><td colspan="6" class="muted empty">No tracks. Add a YouTube link or upload an audio file.</td></tr>
+            <tr><td colspan="5" class="muted empty">No tracks. Add a YouTube link or upload an audio file.</td></tr>
           {/each}
         </tbody>
       </table>
@@ -217,7 +162,7 @@
   </section>
 </div>
 
-<TrackDialog bind:open={dialogOpen} track={editing} {campaigns} {sessions} {allTags} onSaved={() => void load()} />
+<TrackDialog bind:open={dialogOpen} track={editing} {allTags} onSaved={() => void load()} />
 
 <style>
   .lib {
@@ -243,30 +188,6 @@
   }
   h3:first-child {
     margin-top: 0;
-  }
-  .item {
-    text-align: left;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font: inherit;
-    font-size: 13px;
-  }
-  .item:hover {
-    background: var(--surface-2);
-  }
-  .item[aria-pressed='true'] {
-    background: var(--accent-soft);
-  }
-  .item.add {
-    color: var(--text-muted);
-  }
-  .hint {
-    font-size: 12px;
-    margin: 0;
   }
   .tagfilter {
     display: flex;

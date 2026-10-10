@@ -53,15 +53,10 @@ export interface TrackInput {
   notes?: string;
   loop_by_default?: boolean;
   duration?: number | null;
-  /** At least one campaign is required (Python rule). */
-  campaign_ids: string[];
-  session_ids?: string[];
   tags?: string[];
 }
 
 export interface TrackQuery {
-  campaign_id?: string | null;
-  session_id?: string | null;
   /** Tags combined with AND. */
   tags?: string[];
   /** Live title search. */
@@ -192,7 +187,6 @@ export interface Soundscape {
 
 export interface SoundscapeInput {
   name: string;
-  campaign_id?: string | null;
   notes?: string;
   tags?: string[];
 }
@@ -216,7 +210,6 @@ export interface PlaylistInput {
   /** Omit to create. */
   id?: string | null;
   name: string;
-  campaign_id?: string | null;
   /** Ordered; duplicates allowed. */
   track_ids: string[];
 }
@@ -256,7 +249,6 @@ export interface Soundboard {
 export interface SoundboardInput {
   id?: string | null;
   name: string;
-  campaign_id?: string | null;
   notes?: string;
   /** Rows without a track are rejected. */
   buttons: SoundboardButton[];
@@ -400,7 +392,7 @@ export const music = {
   sync: () => call<void>('music_sync'),
 
   // soundscapes
-  soundscapesList: (campaignId: string | null = null) => call<Soundscape[]>('music_soundscapes_list', { campaignId }),
+  soundscapesList: () => call<Soundscape[]>('music_soundscapes_list'),
   soundscapeSave: (input: SoundscapeInput) => call<Soundscape>('music_soundscape_save', { input }),
   /** Overwrites the soundscape with the current live mix. */
   soundscapeUpdate: (id: string) => call<Soundscape>('music_soundscape_update', { id }),
@@ -408,14 +400,14 @@ export const music = {
   soundscapeDelete: (id: string) => call<void>('music_soundscape_delete', { id }),
 
   // playlists
-  playlistsList: (campaignId: string | null = null) => call<Playlist[]>('music_playlists_list', { campaignId }),
+  playlistsList: () => call<Playlist[]>('music_playlists_list'),
   playlistSave: (input: PlaylistInput) => call<Playlist>('music_playlist_save', { input }),
   playlistDelete: (id: string) => call<void>('music_playlist_delete', { id }),
   playlistPlay: (id: string, index = 0) => call<MixerState>('music_playlist_play', { id, index }),
   playlistControl: (action: PlaylistAction) => call<MixerState>('music_playlist_control', { action }),
 
   // soundboards
-  soundboardsList: (campaignId: string | null = null) => call<Soundboard[]>('music_soundboards_list', { campaignId }),
+  soundboardsList: () => call<Soundboard[]>('music_soundboards_list'),
   soundboardSave: (input: SoundboardInput) => call<Soundboard>('music_soundboard_save', { input }),
   soundboardDelete: (id: string) => call<void>('music_soundboard_delete', { id }),
   soundboardPress: (buttonId: string) => call<MixerState>('music_soundboard_press', { buttonId }),

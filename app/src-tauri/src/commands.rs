@@ -13,11 +13,10 @@ use sleuth_core::settings::Settings;
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    Asset, AssetPage, AssetPatch, AssetQuery, Border, Campaign, CardOptions, CardSummary,
-    CutoutDraft, Deck, DeckSummary, ExportWhat, ImportFile, ImportReport, JobId, JobStatus,
-    LegacyImportOptions, ObjectItemPatch, ObjectSheet, RenameOutcome, Service, ServiceError,
-    Session, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft,
-    TokenSheet,
+    Asset, AssetPage, AssetPatch, AssetQuery, Border, CardOptions, CardSummary, CutoutDraft, Deck,
+    DeckSummary, ExportWhat, ImportFile, ImportReport, JobId, JobStatus, LegacyImportOptions,
+    ObjectItemPatch, ObjectSheet, RenameOutcome, Service, ServiceError, SettingsUpdate,
+    SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenSheet,
 };
 use tauri::State;
 use tauri::ipc::Response;
@@ -108,16 +107,6 @@ pub async fn library_set_tags(svc: Svc<'_>, id: i64, values: Vec<String>) -> Res
 }
 
 #[tauri::command]
-pub async fn library_set_campaigns(svc: Svc<'_>, id: i64, values: Vec<String>) -> Res<Asset> {
-    svc.library_set_campaigns(id, values).await
-}
-
-#[tauri::command]
-pub async fn library_set_sessions(svc: Svc<'_>, id: i64, values: Vec<String>) -> Res<Asset> {
-    svc.library_set_sessions(id, values).await
-}
-
-#[tauri::command]
 pub async fn library_delete(svc: Svc<'_>, ids: Vec<i64>) -> Res<usize> {
     svc.library_delete(ids).await
 }
@@ -157,20 +146,6 @@ pub async fn library_bulk_pin(svc: Svc<'_>, ids: Vec<i64>, pinned: bool) -> Res<
     svc.library_bulk_pin(ids, pinned).await
 }
 
-#[tauri::command]
-pub async fn library_bulk_link_session(svc: Svc<'_>, ids: Vec<i64>, session_id: String) -> Res<()> {
-    svc.library_bulk_link_session(ids, session_id).await
-}
-
-#[tauri::command]
-pub async fn library_bulk_link_campaign(
-    svc: Svc<'_>,
-    ids: Vec<i64>,
-    campaign_id: String,
-) -> Res<()> {
-    svc.library_bulk_link_campaign(ids, campaign_id).await
-}
-
 // ── tags ──
 
 #[tauri::command]
@@ -191,63 +166,6 @@ pub async fn tags_merge(svc: Svc<'_>, src: i64, dst: i64) -> Res<()> {
 #[tauri::command]
 pub async fn tags_delete(svc: Svc<'_>, id: i64) -> Res<()> {
     svc.tags_delete(id).await
-}
-
-// ── campaigns & sessions ──
-
-#[tauri::command]
-pub async fn campaigns_list(svc: Svc<'_>) -> Res<Vec<Campaign>> {
-    svc.campaigns_list().await
-}
-
-#[tauri::command]
-pub async fn campaigns_create(svc: Svc<'_>, name: String) -> Res<Campaign> {
-    svc.campaigns_create(name).await
-}
-
-#[tauri::command]
-pub async fn campaigns_rename(svc: Svc<'_>, id: String, name: String) -> Res<()> {
-    svc.campaigns_rename(id, name).await
-}
-
-#[tauri::command]
-pub async fn campaigns_delete(svc: Svc<'_>, id: String) -> Res<()> {
-    svc.campaigns_delete(id).await
-}
-
-#[tauri::command]
-pub async fn sessions_list(svc: Svc<'_>, campaign_id: Option<String>) -> Res<Vec<Session>> {
-    svc.sessions_list(campaign_id).await
-}
-
-#[tauri::command]
-pub async fn sessions_create(
-    svc: Svc<'_>,
-    campaign_id: String,
-    name: String,
-    notes: Option<String>,
-) -> Res<Session> {
-    svc.sessions_create(campaign_id, name, notes.unwrap_or_default()).await
-}
-
-#[tauri::command]
-pub async fn sessions_update(
-    svc: Svc<'_>,
-    id: String,
-    name: Option<String>,
-    notes: Option<String>,
-) -> Res<()> {
-    svc.sessions_update(id, name, notes).await
-}
-
-#[tauri::command]
-pub async fn sessions_delete(svc: Svc<'_>, id: String) -> Res<()> {
-    svc.sessions_delete(id).await
-}
-
-#[tauri::command]
-pub async fn sessions_set_assets(svc: Svc<'_>, id: String, asset_ids: Vec<i64>) -> Res<()> {
-    svc.sessions_set_assets(id, asset_ids).await
 }
 
 // ── tokens ──
@@ -877,11 +795,8 @@ pub async fn music_sync(svc: Svc<'_>) -> Res<()> {
 }
 
 #[tauri::command]
-pub async fn music_soundscapes_list(
-    svc: Svc<'_>,
-    campaign_id: Option<String>,
-) -> Res<Vec<MusicSoundscape>> {
-    svc.music_soundscapes_list(campaign_id).await
+pub async fn music_soundscapes_list(svc: Svc<'_>) -> Res<Vec<MusicSoundscape>> {
+    svc.music_soundscapes_list().await
 }
 
 #[tauri::command]
@@ -905,11 +820,8 @@ pub async fn music_soundscape_delete(svc: Svc<'_>, id: String) -> Res<()> {
 }
 
 #[tauri::command]
-pub async fn music_playlists_list(
-    svc: Svc<'_>,
-    campaign_id: Option<String>,
-) -> Res<Vec<MusicPlaylist>> {
-    svc.music_playlists_list(campaign_id).await
+pub async fn music_playlists_list(svc: Svc<'_>) -> Res<Vec<MusicPlaylist>> {
+    svc.music_playlists_list().await
 }
 
 #[tauri::command]
@@ -937,11 +849,8 @@ pub async fn music_playlist_control(svc: Svc<'_>, action: String) -> Res<MixerSt
 }
 
 #[tauri::command]
-pub async fn music_soundboards_list(
-    svc: Svc<'_>,
-    campaign_id: Option<String>,
-) -> Res<Vec<MusicSoundboard>> {
-    svc.music_soundboards_list(campaign_id).await
+pub async fn music_soundboards_list(svc: Svc<'_>) -> Res<Vec<MusicSoundboard>> {
+    svc.music_soundboards_list().await
 }
 
 #[tauri::command]

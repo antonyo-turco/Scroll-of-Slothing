@@ -11,7 +11,7 @@
 > - MCP: the `music_*` tools, listed in `docs/mcp-tools.md`.
 
 The Python app has a DM music system for live sessions:
-- a **library** of YouTube links and uploaded audio files, tagged and assigned to campaigns and sessions;
+- a **library** of YouTube links and uploaded audio files, tagged (Python also assigned them to campaigns and sessions);
 - a live **mixer** of looping channels, plus randomly timed **soundbites** that can duck the music;
 - saved mixes called **soundscapes**;
 - **playlists** that auto-advance;
@@ -64,6 +64,7 @@ YouTube also needs a real page origin to embed videos. The Tauri app origin prov
 The legacy importer writes every `music_*` row from the old database to `legacy/music.json`. "Import legacy music" (`music_import_legacy`) imports it from there; it is idempotent.
 
 ## Intentional changes
+- Campaigns and sessions were removed at the user's request on 2026-10-11: tracks no longer need a campaign, and the library, playlists, soundscapes and soundboards have no campaign filter or field. Links already stored are kept (editing a track or replacing a playlist or board preserves them) and the legacy import still copies them.
 - No subprocess, IPC or loopback HTTP server: the engine runs in the main webview (see `player-engine.md`).
 - Volume changes apply while dragging and from the keyboard, and ramp over 150 ms.
 - Uploads are stored in the blob store; `.dmix` files carry them embedded.
@@ -73,14 +74,14 @@ The legacy importer writes every `music_*` row from the old database to `legacy/
 
 ## Parity checklist (Python `ui/dm_music_*.py`, `db/creature_db.py:647-1546`, `app.py:398-514`)
 Service tests are in `crates/service/src/music_tests.rs`, engine tests in `app/src/lib/music-engine.test.ts`, UI smoke tests in `app/e2e/music.spec.ts`.
-- [x] Tracks: YouTube and upload sources, validation, campaigns/sessions/tags, edit keeps the upload (`dm_music_track_dialog.py`; `track_validation`, `uploads_live_in_the_blob_store`)
-- [x] Library search, tag and campaign filters; 10 s preview in a single slot (`dm_music_library_panel.py`; `preview_slot_and_video_toggle`, e2e `library filters…`)
+- [x] Tracks: YouTube and upload sources, validation, tags, edit keeps the upload (`dm_music_track_dialog.py`; `track_validation`, `uploads_live_in_the_blob_store`)
+- [x] Library search and tag filters; 10 s preview in a single slot (`dm_music_library_panel.py`; `preview_slot_and_video_toggle`, e2e `library filters…`)
 - [x] Live channels: volume 0–100, loop, play/pause, role, sfx forces loop off (`dm_music_mixer_panel.py`; `channel_rules_volume_role_and_loop`)
 - [x] ▶ All / ⏸ All (also stops soundbite timers) / ⏹ Stop All keeps duck mode and master (`app.py:498-514`; `play_all_pause_all_and_stop_all`)
 - [x] Soundbite scheduler: uniform random interval, clamped 1–3600 s, swapped when min > max (`dm_music_player.py:304-335`; `soundbite_timers_fire_and_stop_with_pause_all`)
 - [x] SFX queue: one clip at a time, at most 12 waiting, cleared by a global stop (`sfx_queue_is_capped_and_cleared_by_stop_all`)
 - [x] Ducking: Off / Soft ×0.5 / Strong ×0.25 while a soundbite plays, restored when the queue empties (`soundbite_ducks_the_music_until_it_ends`, `duck_off_leaves_the_volume_alone`)
-- [x] Soundscapes: save (campaign optional), update in place, load replaces the mix and starts soundbites, delete (`dm_music_soundscape_panel.py`; `soundscapes_save_update_load_delete`)
+- [x] Soundscapes: save, update in place, load replaces the mix and starts soundbites, delete (`dm_music_soundscape_panel.py`; `soundscapes_save_update_load_delete`)
 - [x] Playlists: duplicates, play from index, prev/next/pause/resume/stop, auto-advance, finish at the end (`dm_music_playlist_panel.py`; `playlist_controls`, `playlist_advances_and_soundboard_toggles`, e2e `playlists…`)
 - [x] Soundboards: oneshot (ducks, no queue) / restart / toggle, stable button ids (`dm_music_soundboard_panel.py`; `soundboard_modes`, `soundboard_oneshots_duck_without_queueing`, `playlist_advances_and_soundboard_toggles`)
 - [x] Engine events: ended, error codes (2, 5, 100, 101/150), discovered duration, webview reload (`app.py:282`; `engine_events_update_the_mix`, vitest)

@@ -52,15 +52,6 @@
     if (t && !asset.tags.some((x) => x.toLowerCase() === t.toLowerCase())) void setTags([...asset.tags, t]);
   }
 
-  async function toggleLink(kind: 'campaign' | 'session', id: string, on: boolean) {
-    const cur = kind === 'campaign' ? asset.campaign_ids : asset.session_ids;
-    const next = on ? [...cur, id] : cur.filter((x) => x !== id);
-    const a = await run('Could not save links', () =>
-      kind === 'campaign' ? api.librarySetCampaigns(asset.id, next) : api.librarySetSessions(asset.id, next),
-    );
-    if (a) lib.patchItem(a);
-  }
-
   async function exportFile(what: ExportWhat) {
     const ext = what === 'pdf' ? 'pdf' : 'png';
     const path = isTauri()
@@ -160,24 +151,6 @@
       </datalist>
     </div>
   </div>
-
-  {#if lib.campaigns.length}
-    <details class="links" open={asset.campaign_ids.length + asset.session_ids.length > 0}>
-      <summary class="label">Campaigns &amp; sessions</summary>
-      {#each lib.campaigns as c (c.id)}
-        <label class="check">
-          <input type="checkbox" checked={asset.campaign_ids.includes(c.id)} onchange={(e) => toggleLink('campaign', c.id, e.currentTarget.checked)} />
-          {c.name}
-        </label>
-        {#each lib.sessions.filter((s) => s.campaign_id === c.id) as s (s.id)}
-          <label class="check nested">
-            <input type="checkbox" checked={asset.session_ids.includes(s.id)} onchange={(e) => toggleLink('session', s.id, e.currentTarget.checked)} />
-            {s.name}
-          </label>
-        {/each}
-      {/each}
-    </details>
-  {/if}
 
   <div class="actions">
     <button class="btn primary" onclick={openEditor} title={editorView ? `Available in phase ${editorView.phase}` : ''}>
@@ -281,27 +254,6 @@
   }
   .chip-input:focus {
     outline: none;
-  }
-  .links {
-    display: grid;
-    gap: 4px;
-  }
-  .links summary {
-    cursor: pointer;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  .check {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    font-size: 13px;
-  }
-  .check.nested {
-    padding-left: 22px;
-  }
-  .check input {
-    accent-color: var(--accent);
   }
   .actions {
     display: grid;

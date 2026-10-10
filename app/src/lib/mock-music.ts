@@ -19,9 +19,9 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
   const id = (p: string) => `mock-${p}-${++seq}`;
   const now = () => new Date().toISOString();
   const tracks: Track[] = [
-    { id: 'mock-t1', source: 'youtube', url: 'https://youtu.be/dQw4w9WgXcQ', blob_hash: null, title: 'Tavern Ambience', notes: '', loop_by_default: true, duration: 3600, added_at: now(), campaign_ids: ['mock-c1'], session_ids: [], tags: ['tavern'] },
-    { id: 'mock-t2', source: 'upload', url: null, blob_hash: 'mock-audio-1', title: 'Thunder Clap', notes: '', loop_by_default: false, duration: 4, added_at: now(), campaign_ids: ['mock-c1'], session_ids: [], tags: ['sfx'] },
-    { id: 'mock-t3', source: 'youtube', url: 'https://youtu.be/abc', blob_hash: null, title: 'Battle Drums', notes: '', loop_by_default: true, duration: 245, added_at: now(), campaign_ids: ['mock-c1'], session_ids: [], tags: ['battle'] },
+    { id: 'mock-t1', source: 'youtube', url: 'https://youtu.be/dQw4w9WgXcQ', blob_hash: null, title: 'Tavern Ambience', notes: '', loop_by_default: true, duration: 3600, added_at: now(), campaign_ids: [], session_ids: [], tags: ['tavern'] },
+    { id: 'mock-t2', source: 'upload', url: null, blob_hash: 'mock-audio-1', title: 'Thunder Clap', notes: '', loop_by_default: false, duration: 4, added_at: now(), campaign_ids: [], session_ids: [], tags: ['sfx'] },
+    { id: 'mock-t3', source: 'youtube', url: 'https://youtu.be/abc', blob_hash: null, title: 'Battle Drums', notes: '', loop_by_default: true, duration: 245, added_at: now(), campaign_ids: [], session_ids: [], tags: ['battle'] },
   ];
   let channels: Channel[] = [];
   let soundbites: Soundbite[] = [];
@@ -57,8 +57,6 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
     music_tracks_list: ({ query }) => {
       const q = (query ?? {}) as TrackQuery;
       return tracks
-        .filter((t) => !q.campaign_id || t.campaign_ids.includes(q.campaign_id))
-        .filter((t) => !q.session_id || t.session_ids.includes(q.session_id))
         .filter((t) => (q.tags ?? []).every((g) => t.tags.includes(g)))
         .filter((t) => !q.text || t.title.toLowerCase().includes(q.text.toLowerCase()))
         .sort((a, b) => b.added_at.localeCompare(a.added_at));
@@ -66,12 +64,11 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
     music_track_get: ({ id: tid }) => track(tid as string),
     music_track_create: ({ input }) => {
       const i = input as TrackInput;
-      if (!i.campaign_ids?.length) throw err('invalid_input', 'invalid input: pick at least one campaign');
       const t: Track = {
         id: id('t'), source: i.source, url: i.source === 'youtube' ? (i.url ?? '') : null,
         blob_hash: i.source === 'upload' ? `mock-audio-${seq}` : null, title: i.title, notes: i.notes ?? '',
         loop_by_default: i.loop_by_default ?? true, duration: i.duration ?? null, added_at: now(),
-        campaign_ids: i.campaign_ids, session_ids: i.session_ids ?? [], tags: i.tags ?? [],
+        campaign_ids: [], session_ids: [], tags: i.tags ?? [],
       };
       tracks.push(t);
       emitRaw({ type: 'store_changed', entity: 'music_track', entity_id: t.id, op: 'insert' });
@@ -82,8 +79,8 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
       const i = input as TrackInput;
       Object.assign(t, {
         title: i.title, notes: i.notes ?? t.notes, loop_by_default: i.loop_by_default ?? t.loop_by_default,
-        url: i.source === 'youtube' ? (i.url ?? t.url) : t.url, campaign_ids: i.campaign_ids,
-        session_ids: i.session_ids ?? t.session_ids, tags: i.tags ?? t.tags, duration: i.duration ?? t.duration,
+        url: i.source === 'youtube' ? (i.url ?? t.url) : t.url,
+        tags: i.tags ?? t.tags, duration: i.duration ?? t.duration,
       });
       return t;
     },
@@ -176,12 +173,12 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
     },
     music_sync: () => undefined,
 
-    music_soundscapes_list: ({ campaignId }) => soundscapes.filter((s) => !campaignId || s.campaign_id === campaignId),
+    music_soundscapes_list: () => soundscapes,
     music_soundscape_save: ({ input }) => {
       const i = input as SoundscapeInput;
       if (!i.name?.trim()) throw err('invalid_input', 'invalid input: name is required');
       const s: Soundscape = {
-        id: id('ss'), name: i.name.trim(), campaign_id: i.campaign_id ?? null, notes: i.notes ?? '', created_at: now(), tags: i.tags ?? [],
+        id: id('ss'), name: i.name.trim(), campaign_id: null, notes: i.notes ?? '', created_at: now(), tags: i.tags ?? [],
         channels: channels.map((c) => ({ track_id: c.track_id, title: c.title, volume: c.volume, is_looping: c.is_looping, role: c.role })),
         soundbites: soundbites.map((b) => ({ track_id: b.track_id, title: b.title, volume: b.volume, min_interval: b.min_interval, max_interval: b.max_interval })),
       };
@@ -212,13 +209,13 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
       if (i >= 0) soundscapes.splice(i, 1);
     },
 
-    music_playlists_list: ({ campaignId }) => playlists.filter((p) => !campaignId || p.campaign_id === campaignId),
+    music_playlists_list: () => playlists,
     music_playlist_save: ({ input }) => {
       const i = input as PlaylistInput;
       const items = i.track_ids.map((t) => ({ id: id('pi'), track_id: t, title: track(t).title }));
       let p = playlists.find((x) => x.id === i.id);
-      if (p) Object.assign(p, { name: i.name, campaign_id: i.campaign_id ?? null, items });
-      else playlists.push((p = { id: id('pl'), name: i.name, campaign_id: i.campaign_id ?? null, created_at: now(), items }));
+      if (p) Object.assign(p, { name: i.name, items });
+      else playlists.push((p = { id: id('pl'), name: i.name, campaign_id: null, created_at: now(), items }));
       return p;
     },
     music_playlist_delete: ({ id: pid }) => {
@@ -249,14 +246,14 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
       return mixChanged();
     },
 
-    music_soundboards_list: ({ campaignId }) => boards.filter((b) => !campaignId || b.campaign_id === campaignId),
+    music_soundboards_list: () => boards,
     music_soundboard_save: ({ input }) => {
       const i = input as SoundboardInput;
       if (i.buttons.some((b) => !b.track_id)) throw err('invalid_input', 'invalid input: every button needs a track');
       const buttons = i.buttons.map((b, n) => ({ ...b, id: b.id || id('btn'), position: n }));
       let b = boards.find((x) => x.id === i.id);
-      if (b) Object.assign(b, { name: i.name, campaign_id: i.campaign_id ?? null, notes: i.notes ?? '', buttons });
-      else boards.push((b = { id: id('sbd'), name: i.name, campaign_id: i.campaign_id ?? null, notes: i.notes ?? '', created_at: now(), buttons }));
+      if (b) Object.assign(b, { name: i.name, notes: i.notes ?? '', buttons });
+      else boards.push((b = { id: id('sbd'), name: i.name, campaign_id: null, notes: i.notes ?? '', created_at: now(), buttons }));
       return b;
     },
     music_soundboard_delete: ({ id: bid }) => {

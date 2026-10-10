@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 use crate::units::PageFormat;
 
 /// Navigable views. The string ids are stable and persisted (`start_view`).
-pub const ROUTES: [&str; 11] = [
+pub const ROUTES: [&str; 10] = [
     "library",
     "tokens.cutter",
     "tokens.sheet",
@@ -19,7 +19,6 @@ pub const ROUTES: [&str; 11] = [
     "cards",
     "maps.paginator",
     "maps.aoe",
-    "campaigns",
     "music",
     "settings",
 ];
@@ -27,8 +26,8 @@ pub const ROUTES: [&str; 11] = [
 /// Maps a Python sidebar label (the old `start_tab` value) to a route id.
 pub fn route_for_legacy_tab(label: &str) -> Option<&'static str> {
     Some(match label {
-        "Manage Campaigns" => "campaigns",
-        "Tagged Assets" | "Assets" => "library",
+        // Campaigns and sessions were removed; their tab opens the Library.
+        "Manage Campaigns" | "Tagged Assets" | "Assets" => "library",
         "Token Cutter" => "tokens.cutter",
         "Token Sheet" => "tokens.sheet",
         "Object Cutter" => "cutouts.cutter",

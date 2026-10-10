@@ -43,9 +43,6 @@ enum Cmd {
     /// Tags.
     #[command(subcommand)]
     Tags(TagsCmd),
-    /// Campaigns and sessions.
-    #[command(subcommand)]
-    Campaigns(CampaignsCmd),
     /// Settings.
     #[command(subcommand)]
     Settings(SettingsCmd),
@@ -62,10 +59,6 @@ enum LibraryCmd {
         kinds: Vec<String>,
         #[arg(long = "tag")]
         tags: Vec<String>,
-        #[arg(long)]
-        campaign: Option<String>,
-        #[arg(long)]
-        session: Option<String>,
         #[arg(long)]
         pinned: bool,
         #[arg(long, default_value = "newest")]
@@ -113,14 +106,6 @@ enum TagsCmd {
     Rename { id: i64, name: String },
     Merge { src: i64, dst: i64 },
     Delete { id: i64 },
-}
-
-#[derive(Subcommand)]
-enum CampaignsCmd {
-    List,
-    Create { name: String },
-    Sessions { campaign: Option<String> },
-    AddSession { campaign: String, name: String },
 }
 
 #[derive(Subcommand)]
@@ -194,14 +179,14 @@ async fn main() -> Result<()> {
             })?;
         }
         Cmd::Library(c) => match c {
-            LibraryCmd::Search { query, kinds, tags, campaign, session, pinned, sort, limit } => {
+            LibraryCmd::Search { query, kinds, tags, pinned, sort, limit } => {
                 let page = svc
                     .library_search(AssetQuery {
                         q: query,
                         kinds,
                         tags,
-                        campaign_id: campaign,
-                        session_id: session,
+                        campaign_id: None,
+                        session_id: None,
                         pinned_only: pinned,
                         sort: parse_sort(&sort)?,
                         limit: Some(limit),
@@ -294,31 +279,6 @@ async fn main() -> Result<()> {
             TagsCmd::Delete { id } => {
                 svc.tags_delete(id).await?;
                 print(j, &true, |_| println!("Deleted tag #{id}"))?;
-            }
-        },
-        Cmd::Campaigns(c) => match c {
-            CampaignsCmd::List => print(j, &svc.campaigns_list().await?, |cs| {
-                for c in cs {
-                    println!(
-                        "{}  {}  ({} sessions, {} assets)",
-                        c.id, c.name, c.session_count, c.asset_count
-                    );
-                }
-            })?,
-            CampaignsCmd::Create { name } => {
-                print(j, &svc.campaigns_create(name).await?, |c| println!("Created {}", c.id))?
-            }
-            CampaignsCmd::Sessions { campaign } => {
-                print(j, &svc.sessions_list(campaign).await?, |ss| {
-                    for s in ss {
-                        println!("{}  {}  ({} assets)", s.id, s.name, s.asset_count);
-                    }
-                })?
-            }
-            CampaignsCmd::AddSession { campaign, name } => {
-                print(j, &svc.sessions_create(campaign, name, String::new()).await?, |s| {
-                    println!("Created {}", s.id)
-                })?
             }
         },
         Cmd::Settings(c) => match c {

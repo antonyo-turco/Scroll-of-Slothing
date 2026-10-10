@@ -200,7 +200,7 @@
         <button class="btn" onclick={importLegacy}>Import from Orb of Many Functions…</button>
       </div>
       <p class="muted hint">
-        Pick the old <code>db/creatures.db</code>. Assets, tags, campaigns, sessions, settings and AoE presets are
+        Pick the old <code>db/creatures.db</code>. Assets, tags, settings and AoE presets are
         copied; the old files are only read. Running it again only adds what is missing.
       </p>
     </section>

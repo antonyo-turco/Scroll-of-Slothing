@@ -2,11 +2,10 @@
   // DM Music: library, live mixer, soundscapes, playlists, soundboards.
   // Spec: docs/features/music/*.md. Audio runs in <MusicEngine> (always mounted).
   import { onMount } from 'svelte';
-  import { api, onFileDrop } from '../../lib/api';
+  import { onFileDrop } from '../../lib/api';
   import { DMIX_EXTENSION, music } from '../../lib/music';
   import { musicUi, type MusicTab } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
-  import type { Campaign, Session } from '../../lib/types';
   import Library from './Library.svelte';
   import Mixer from './Mixer.svelte';
   import Playlists from './Playlists.svelte';
@@ -21,17 +20,6 @@
     ['soundboard', 'Soundboard'],
   ];
 
-  let campaigns = $state<Campaign[]>([]);
-  let sessions = $state<Session[]>([]);
-
-  async function loadCampaigns() {
-    try {
-      [campaigns, sessions] = await Promise.all([api.campaignsList(), api.sessionsList(null)]);
-    } catch (e) {
-      app.error('Could not load campaigns', e);
-    }
-  }
-
   async function importDmix(path: string) {
     try {
       const r = await music.mixImport(path, true);
@@ -44,7 +32,6 @@
   }
 
   onMount(() => {
-    void loadCampaigns();
     void musicUi.refresh();
     let off: (() => void) | undefined;
     void onFileDrop((paths) => {
@@ -52,14 +39,6 @@
       if (mixes.length) void importDmix(mixes[0]);
     }).then((f) => (off = f));
     return () => off?.();
-  });
-
-  let seen = app.dataVersion;
-  $effect(() => {
-    if (app.dataVersion !== seen) {
-      seen = app.dataVersion;
-      void loadCampaigns();
-    }
   });
 
   async function stopMusic() {
@@ -88,15 +67,15 @@
   {/if}
   <div class="body">
     {#if musicUi.tab === 'library'}
-      <Library {campaigns} {sessions} onCampaignsChanged={loadCampaigns} />
+      <Library />
     {:else if musicUi.tab === 'mixer'}
-      <Mixer {campaigns} onImport={importDmix} />
+      <Mixer onImport={importDmix} />
     {:else if musicUi.tab === 'soundscapes'}
-      <Soundscapes {campaigns} />
+      <Soundscapes />
     {:else if musicUi.tab === 'playlists'}
-      <Playlists {campaigns} />
+      <Playlists />
     {:else}
-      <Soundboard {campaigns} />
+      <Soundboard />
     {/if}
   </div>
 </div>

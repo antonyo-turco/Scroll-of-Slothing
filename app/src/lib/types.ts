@@ -119,8 +119,6 @@ export interface AssetQuery {
   q?: string | null;
   kinds?: string[];
   tags?: string[];
-  campaign_id?: string | null;
-  session_id?: string | null;
   pinned_only?: boolean;
   sort?: AssetSort;
   limit?: number | null;
@@ -162,23 +160,6 @@ export interface TagCount {
 export interface RenameOutcome {
   id: number;
   merged_into: number | null;
-}
-
-export interface Campaign {
-  id: string;
-  name: string;
-  created: string;
-  session_count: number;
-  asset_count: number;
-}
-
-export interface Session {
-  id: string;
-  campaign_id: string;
-  name: string;
-  notes: string;
-  created: string;
-  asset_count: number;
 }
 
 // ── tokens (crates/core/src/token.rs, crates/service/src/tokens.rs, token_sheet.rs) ──

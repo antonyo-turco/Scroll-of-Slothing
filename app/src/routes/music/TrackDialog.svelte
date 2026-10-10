@@ -4,20 +4,15 @@
   import { pickFile } from '../../lib/api';
   import { MEDIA_EXTENSIONS, formatDuration, music, type Track, type TrackInput, type TrackSource } from '../../lib/music';
   import { app } from '../../lib/state.svelte';
-  import type { Campaign, Session } from '../../lib/types';
 
   let {
     open = $bindable(false),
     track = null,
-    campaigns,
-    sessions,
     allTags,
     onSaved,
   }: {
     open: boolean;
     track: Track | null;
-    campaigns: Campaign[];
-    sessions: Session[];
     allTags: string[];
     onSaved: (t: Track) => void;
   } = $props();
@@ -29,8 +24,6 @@
   let notes = $state('');
   let loop = $state(true);
   let duration = $state<number | null>(null);
-  let campaignIds = $state<string[]>([]);
-  let sessionIds = $state<string[]>([]);
   let tags = $state<string[]>([]);
   let tagInput = $state('');
   let fetching = $state(false);
@@ -49,8 +42,6 @@
       notes = t?.notes ?? '';
       loop = t?.loop_by_default ?? true;
       duration = t?.duration ?? null;
-      campaignIds = t ? [...t.campaign_ids] : app.campaignId ? [app.campaignId] : campaigns.length === 1 ? [campaigns[0].id] : [];
-      sessionIds = t ? [...t.session_ids] : [];
       tags = t ? [...t.tags] : [];
       tagInput = '';
       error = '';
@@ -59,7 +50,6 @@
   });
 
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
-  const campaignName = (id: string) => campaigns.find((c) => c.id === id)?.name ?? '?';
 
   async function fetchMeta() {
     if (source !== 'youtube' || !url.trim()) return;
@@ -97,7 +87,6 @@
   async function save() {
     error = '';
     if (!title.trim()) return void (error = 'Title is required.');
-    if (!campaignIds.length) return void (error = 'Pick at least one campaign.');
     if (source === 'youtube' && !url.trim()) return void (error = 'Enter a YouTube URL.');
     if (source === 'upload' && !filePath && !track?.blob_hash) return void (error = 'Choose a file.');
     if (tagInput.trim()) addTag();
@@ -109,8 +98,6 @@
       notes,
       loop_by_default: loop,
       duration,
-      campaign_ids: campaignIds,
-      session_ids: sessionIds,
       tags,
     };
     saving = true;
@@ -150,26 +137,6 @@
       <span class="label">Title {#if duration}<span class="muted">· {formatDuration(duration)}</span>{/if}</span>
       <input class="input" bind:value={title} />
     </label>
-    <div class="field">
-      <span class="label">Campaigns</span>
-      <div class="chips">
-        {#each campaigns as c (c.id)}
-          <button type="button" class="chip" aria-pressed={campaignIds.includes(c.id)} onclick={() => (campaignIds = toggle(campaignIds, c.id))}>{c.name}</button>
-        {:else}
-          <span class="muted">Create a campaign first.</span>
-        {/each}
-      </div>
-    </div>
-    {#if sessions.length}
-      <div class="field">
-        <span class="label">Sessions</span>
-        <div class="chips">
-          {#each sessions as s (s.id)}
-            <button type="button" class="chip" aria-pressed={sessionIds.includes(s.id)} onclick={() => (sessionIds = toggle(sessionIds, s.id))}>{campaignName(s.campaign_id)} / {s.name}</button>
-          {/each}
-        </div>
-      </div>
-    {/if}
     <label class="check"><input type="checkbox" bind:checked={loop} /> Loop by default</label>
     <div class="field">
       <span class="label">Tags</span>

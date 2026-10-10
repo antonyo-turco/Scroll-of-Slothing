@@ -25,11 +25,6 @@
   const topTags = $derived(lib.allTags.filter((t) => t.count > 0).slice(0, 24));
 
   onMount(() => {
-    const preset = app.libraryPreset;
-    app.libraryPreset = null;
-    lib.campaignId = preset?.campaignId ?? app.campaignId;
-    lib.sessionId = preset?.sessionId ?? null;
-    if (preset?.sessionId) lib.campaignId = null;
     void lib.loadReference().then(() => lib.refresh());
     let unlisten: (() => void) | undefined;
     void onFileDrop((paths) => {
@@ -154,23 +149,6 @@
           <button aria-pressed={lib.kinds.includes(k)} onclick={() => lib.toggleKind(k)}>{KIND_LABELS[k]}</button>
         {/each}
       </div>
-      <select class="input" aria-label="Campaign filter" value={lib.campaignId ?? ''} onchange={(e) => lib.setCampaign(e.currentTarget.value || null)}>
-        <option value="">All campaigns</option>
-        {#each lib.campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-      </select>
-      <select
-        class="input"
-        aria-label="Session filter"
-        value={lib.sessionId ?? ''}
-        disabled={lib.campaignSessions.length === 0}
-        onchange={(e) => {
-          lib.sessionId = e.currentTarget.value || null;
-          void lib.refresh();
-        }}
-      >
-        <option value="">All sessions</option>
-        {#each lib.campaignSessions as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-      </select>
       <label class="toggle">
         <input type="checkbox" bind:checked={lib.pinnedOnly} onchange={() => lib.refresh()} /> ★ Pinned
       </label>
@@ -202,34 +180,6 @@
         <button class="btn" disabled={!bulkTag.trim()} onclick={() => act('Tagging failed', () => api.libraryBulkTag(ids(), bulkTag.trim())).then(() => (bulkTag = ''))}>Add tag</button>
         <button class="btn" onclick={() => act('Pin failed', () => api.libraryBulkPin(ids(), true))}>Pin</button>
         <button class="btn" onclick={() => act('Unpin failed', () => api.libraryBulkPin(ids(), false))}>Unpin</button>
-        <select
-          class="input"
-          aria-label="Add to session"
-          onchange={(e) => {
-            const v = e.currentTarget.value;
-            e.currentTarget.value = '';
-            if (v) void act('Linking failed', () => api.libraryBulkLinkSession(ids(), v), 'Added to session');
-          }}
-        >
-          <option value="">Add to session…</option>
-          {#each lib.campaigns as c (c.id)}
-            <optgroup label={c.name}>
-              {#each lib.sessions.filter((s) => s.campaign_id === c.id) as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-            </optgroup>
-          {/each}
-        </select>
-        <select
-          class="input"
-          aria-label="Add to campaign"
-          onchange={(e) => {
-            const v = e.currentTarget.value;
-            e.currentTarget.value = '';
-            if (v) void act('Linking failed', () => api.libraryBulkLinkCampaign(ids(), v), 'Added to campaign');
-          }}
-        >
-          <option value="">Add to campaign…</option>
-          {#each lib.campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-        </select>
         <button class="btn" onclick={bulkAddToSheet}>Add to sheets</button>
         <button class="btn" onclick={bulkExport}>Export…</button>
         {#if confirmBulkDelete}

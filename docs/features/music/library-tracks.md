@@ -1,5 +1,7 @@
 # Music: library and tracks
 
+> The sections below describe the Python app. In this app campaigns and sessions were removed at the user's request on 2026-10-11 (see `overview.md`, "Intentional changes"): no campaign/session columns, filters or pickers, and no campaign is required.
+
 ## Track
 | Field | Notes |
 |---|---|

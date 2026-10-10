@@ -5,17 +5,12 @@
   import { DMIX_EXTENSION, music, type Soundscape } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
-  import type { Campaign } from '../../lib/types';
-
-  let { campaigns }: { campaigns: Campaign[] } = $props();
-
   let list = $state<Soundscape[]>([]);
-  let campaignId = $state<string | null>(app.campaignId);
   let open = $state<Record<string, boolean>>({});
 
   async function load() {
     try {
-      list = await music.soundscapesList(campaignId);
+      list = await music.soundscapesList();
     } catch (e) {
       app.error('Could not load soundscapes', e);
     }
@@ -54,16 +49,10 @@
       app.error('Could not export', e);
     }
   }
-
-  const campaignName = (id: string | null) => campaigns.find((c) => c.id === id)?.name;
 </script>
 
 <div class="view">
   <div class="bar">
-    <select class="input filter" aria-label="Campaign filter" bind:value={campaignId} onchange={() => void load()}>
-      <option value={null}>All campaigns</option>
-      {#each campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-    </select>
     <button class="btn" onclick={() => void load()}>⟳ Refresh</button>
     <span class="muted small">Save a soundscape from the Mixer (💾 Save as New).</span>
   </div>
@@ -73,7 +62,7 @@
         <div class="head">
           <div class="name">
             <strong>{s.name}</strong>
-            <span class="muted small">{s.channels.length} channel(s){#if s.soundbites.length} · {s.soundbites.length} soundbite(s){/if}{#if campaignName(s.campaign_id)} · {campaignName(s.campaign_id)}{/if}</span>
+            <span class="muted small">{s.channels.length} channel(s){#if s.soundbites.length} · {s.soundbites.length} soundbite(s){/if}</span>
           </div>
           <button class="btn primary" onclick={() => loadInto(s)}>▶ Load</button>
           <button class="btn" aria-expanded={!!open[s.id]} onclick={() => (open[s.id] = !open[s.id])}>{open[s.id] ? '▲' : '▼'} Preview</button>
@@ -112,9 +101,6 @@
     display: flex;
     gap: var(--space-2);
     align-items: center;
-  }
-  .filter {
-    width: auto;
   }
   .small {
     font-size: 12px;

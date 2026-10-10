@@ -9,9 +9,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
 use sleuth_core::units::SizeLabel;
-use sleuth_store::{
-    Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, LinkTarget, NewAsset, Store,
-};
+use sleuth_store::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, NewAsset, Store};
 
 use crate::{Result, Service, ServiceError};
 
@@ -251,22 +249,6 @@ impl Service {
         .await
     }
 
-    pub async fn library_set_campaigns(&self, id: i64, campaign_ids: Vec<String>) -> Result<Asset> {
-        self.blocking(move |s| {
-            s.set_asset_campaigns(id, &campaign_ids)?;
-            Ok(s.get_asset(id)?)
-        })
-        .await
-    }
-
-    pub async fn library_set_sessions(&self, id: i64, session_ids: Vec<String>) -> Result<Asset> {
-        self.blocking(move |s| {
-            s.set_asset_sessions(id, &session_ids)?;
-            Ok(s.get_asset(id)?)
-        })
-        .await
-    }
-
     /// Deletes assets; returns how many existed.
     pub async fn library_delete(&self, ids: Vec<i64>) -> Result<usize> {
         self.blocking(move |s| Ok(s.delete_assets(&ids)?)).await
@@ -287,18 +269,6 @@ impl Service {
             Ok(())
         })
         .await
-    }
-
-    pub async fn library_bulk_link_session(&self, ids: Vec<i64>, session_id: String) -> Result<()> {
-        self.blocking(move |s| Ok(s.link_assets(&ids, LinkTarget::Session(&session_id))?)).await
-    }
-
-    pub async fn library_bulk_link_campaign(
-        &self,
-        ids: Vec<i64>,
-        campaign_id: String,
-    ) -> Result<()> {
-        self.blocking(move |s| Ok(s.link_assets(&ids, LinkTarget::Campaign(&campaign_id))?)).await
     }
 
     /// Replaces an asset's images (re-edit "update existing").

@@ -12,6 +12,8 @@ Server name: `sleuth`. There are two ways to run it:
 - Errors are tool errors with a readable message and a machine code (`not_found`, `invalid_input`, `cancelled`, `io`).
 
 ## Tool list
+Campaign and session tools were removed at the user's request on 2026-10-11.
+
 This list is kept in sync by the test `mcp_tools_documented`, which fails if a registered tool is missing here.
 
 | Tool | Phase | Purpose |
@@ -22,8 +24,6 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `library_get` | 1 | Asset metadata + thumbnail |
 | `library_update` | 1 | Name, aliases, size, pinned |
 | `library_set_tags` | 1 | Replace an asset's tags |
-| `library_set_campaigns` | 1 | Replace an asset's campaign links |
-| `library_set_sessions` | 1 | Replace an asset's session links |
 | `library_delete` | 1 | Delete assets |
 | `library_import` | 1 | Import image files as assets |
 | `library_export` | 1 | Write original/rendered/pdf to a path |
@@ -31,9 +31,6 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `tags_rename` | 1 | Rename (auto-merges) |
 | `tags_merge` | 1 | Merge src into dst |
 | `tags_delete` | 1 | Delete a tag |
-| `campaigns_list` / `campaigns_create` / `campaigns_rename` / `campaigns_delete` | 1 | Campaign CRUD |
-| `sessions_list` / `sessions_create` / `sessions_update` / `sessions_delete` | 1 | Session CRUD (`sessions_update` changes name and/or notes) |
-| `sessions_set_assets` | 1 | Replace a session's assets |
 | `jobs_status` / `jobs_cancel` | 1 | Background jobs |
 | `legacy_import` | 1 | Import from Orb of Many Functions (job; idempotent; source read-only) |
 | `token_borders_list` / `token_borders_add` | 2 | Border set |
@@ -57,7 +54,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_set_gap` / `aoe_sheet_layout` / `aoe_sheet_export_pdf` | 5 | Multi-template sheet (MaxRects packing, skipped items reported; export is a job) |
 | `aoe_export_template_pdf` / `aoe_export_png` | 5 | One template as a tiled true-scale PDF (job) or PNG |
 | `ui_navigate` / `ui_open_asset` | 6 | In-app server only |
-| `music_tracks_list` / `music_track_add` / `music_track_delete` | 7 | Music library: YouTube links and uploaded audio, tagged and linked to campaigns |
+| `music_tracks_list` / `music_track_add` / `music_track_delete` | 7 | Music library: YouTube links and uploaded audio, tagged |
 | `music_state` / `music_channel_add` / `music_channel_update` / `music_channel_remove` / `music_set_all_playing` / `music_stop_all` | 7 | Live mixer channels; `music_stop_all` is the global stop |
 | `music_soundbite_add` / `music_soundbite_remove` / `music_soundbite_play` / `music_set_duck` / `music_set_master` | 7 | Randomly timed soundbites, ducking and master volume |
 | `music_soundscapes_list` / `music_soundscape_save` / `music_play_soundscape` / `music_soundscape_delete` | 7 | Saved mixes |
@@ -73,5 +70,4 @@ Music plays in the desktop app. When the standalone `sleuth-mcp` server changes 
 - `sleuth://settings`
 
 ## Prompts
-- `prepare_session_handouts`: given a campaign/session, gather its assets and build the token and object sheets.
 - `tokens_from_folder`: import a folder of portraits as tokens with a chosen border and size, then build a sheet.

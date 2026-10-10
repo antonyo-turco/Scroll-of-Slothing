@@ -13,10 +13,8 @@ See the `assets` table in `../data-model.md`. Kinds: `token`, `cutout`, `map`.
 - **Filters:**
   - kind chips: All, Token, Cut-out, Map;
   - tag chips, where all selected tags must match (AND), with "clear";
-  - campaign: All or one campaign;
-  - session: All or one session in that campaign;
   - Pinned only.
-- **Views:** a "Pinned + This session" preset reproduces the old Tagged Assets tab. It shows two sections: Pinned (global), and assets in the selected session.
+- **Views:** the "★ Pinned" toggle replaces the old Tagged Assets tab (Pinned + This session); sessions were removed at the user's request on 2026-10-11.
 
 **Grid**
 - A virtualized card grid. Each card has:
@@ -38,8 +36,6 @@ Fields:
 - Name
 - Aliases (one per line)
 - Tags (chip input that creates tags as you type)
-- Campaign checkboxes
-- Session checkboxes, labelled "Campaign / Session"
 
 Buttons: "Open in …", Save, Cancel.
 
@@ -55,7 +51,6 @@ Toggled with a "Select" button, Ctrl/Shift-click, or Ctrl+A. The bulk bar offers
 - Delete (with confirmation)
 - Add tag
 - Pin, Unpin
-- Add to session, Add to campaign
 - Export to folder: writes `<name>_<kind>.png` for each asset
 - Add to sheet: tokens go to the Token Sheet and cut-outs to the Object Sheet. Maps are skipped and the number skipped is reported.
 
@@ -83,17 +78,16 @@ Assets imported from the old app have no params. They open with default framing,
 ## MCP
 | Tool | Purpose |
 |---|---|
-| `library_search` | `{q?, kinds?, tags?, campaign_id?, session_id?, pinned?, sort?, limit?, offset?}` returns a list of summaries |
+| `library_search` | `{q?, kinds?, tags?, pinned?, sort?, limit?, offset?}` returns a list of summaries |
 | `library_get` | `{id}` returns metadata plus a thumbnail image |
 | `library_update` | `{id, name?, aliases?, size?, pinned?}` |
 | `library_set_tags` | |
-| `library_set_campaigns` | |
-| `library_set_sessions` | |
 | `library_delete` | `{ids}` |
 | `library_import` | `{files:[{path, name?, kind, size?}]}` |
 | `library_export` | `{id, what: original\|rendered\|pdf, path}` |
 
 ## Intentional changes
+- Campaigns and sessions were removed at the user's request on 2026-10-11: no filters, inspector links or bulk links. Existing links stay in the database, unused.
 - The two Python tabs are merged into one view with filter presets.
 - Hover preview uses a derivative instead of decoding the full original.
 - Search uses FTS5 instead of `LIKE`.
@@ -102,13 +96,13 @@ Assets imported from the old app have no params. They open with default framing,
 ## Parity checklist (Python refs)
 - [x] Search across name, aliases and tags; the 6 sort modes (`creature_catalogue_panel.py`) (store tests, `library.test.ts`)
 - [x] Kind chips and AND tag chips
-- [x] Campaign/session filters, where campaign includes session-linked assets (`creature_db.list_assets_full`)
-- [x] Pin star; Pinned + session view (tagged mode), via the "★ Pinned" toggle plus the session filter
+- [x] ~~Campaign/session filters~~ (`creature_db.list_assets_full`): removed at the user's request on 2026-10-11
+- [x] Pin star; the "★ Pinned" toggle (the session half of the tagged view was removed at the user's request on 2026-10-11)
 - [x] Size select with immediate save (`update_creature_size`), on the card and in the inspector
-- [x] Edit dialog: name, aliases, tags, campaigns, sessions (inspector panel)
+- [x] Edit dialog: name, aliases, tags (inspector panel); campaigns and sessions removed at the user's request on 2026-10-11
 - [x] Open-in-editor: tokens open in the Token Cutter with their saved framing, cut-outs in the Object Cutter with their saved trace, and maps in the Map Paginator with their saved state (e2e `open in editor routes each kind…`, vitest `ui_navigate`)
 - [x] Export: original, rendered, clipboard, map PDF (`utils.copy_image_to_clipboard`)
-- [x] Bulk actions: delete, add tag, pin, unpin, add to session, add to campaign, export to folder
+- [x] Bulk actions: delete, add tag, pin, unpin, export to folder (add to session/campaign removed at the user's request on 2026-10-11)
 - [x] Bulk "add to sheet": tokens go to the token sheet and cut-outs to the object sheet; maps are skipped and counted (as in Python).
 - [x] Import dialog with kind and size per row (`ui/asset_import_dialog.py`), plus drop-to-import
 - [x] Re-edit routing by kind (`app.py:539-561`), with editor state restore (same tests)

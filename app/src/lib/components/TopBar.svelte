@@ -1,18 +1,9 @@
 <script lang="ts">
-  import { api } from '../api';
   import { findView } from '../nav';
   import { app } from '../state.svelte';
-  import type { Campaign } from '../types';
   import Icon from './Icon.svelte';
 
   const found = $derived(findView(app.route));
-  let campaigns = $state<Campaign[]>([]);
-
-  // Reload the campaign list whenever data changes (also on first render).
-  $effect(() => {
-    void app.dataVersion;
-    void api.campaignsList().then((c) => (campaigns = c)).catch(() => {});
-  });
 </script>
 
 <header class="topbar">
@@ -29,18 +20,6 @@
     </div>
   {/if}
   <div class="spacer"></div>
-  {#if campaigns.length}
-    <select
-      class="input campaign"
-      aria-label="Active campaign"
-      title="Active campaign: default filter for the Library"
-      value={app.campaignId ?? ''}
-      onchange={(e) => app.setCampaign(e.currentTarget.value || null)}
-    >
-      <option value="">No active campaign</option>
-      {#each campaigns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-    </select>
-  {/if}
   <button class="btn ghost palette" onclick={() => (app.paletteOpen = true)} title="Command palette (Ctrl+K)">
     <Icon name="search" size={16} />
     <span class="muted">Search actions…</span>
@@ -66,9 +45,6 @@
   }
   .spacer {
     flex: 1;
-  }
-  .campaign {
-    max-width: 220px;
   }
   .palette {
     border-color: var(--border);

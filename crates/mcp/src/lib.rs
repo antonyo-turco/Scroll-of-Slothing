@@ -27,8 +27,8 @@ use sleuth_service::{
 type ToolResult = Result<CallToolResult, ErrorData>;
 
 const INSTRUCTIONS: &str = "Kastanomata's Scroll of Sleuthing: a tabletop (D&D) prep toolkit. \
-Manage an asset library of tokens, cut-outs and maps (search, tag, organise into campaigns and \
-sessions, import/export images), print maps and AoE templates, and run live session music (mixer, soundscapes, playlists, soundboards). Use library_search to find asset ids, then act on them. \
+Manage an asset library of tokens, cut-outs and maps (search, tag, pin, \
+import/export images), print maps and AoE templates, and run live session music (mixer, soundscapes, playlists, soundboards). Use library_search to find asset ids, then act on them. \
 Long operations return a job_id: poll jobs_status. File paths are absolute paths on this machine.";
 
 fn ok<T: Serialize>(v: &T) -> ToolResult {
@@ -62,8 +62,6 @@ pub struct SearchParams {
     /// Tag names; assets must carry all of them.
     #[serde(default)]
     pub tags: Vec<String>,
-    pub campaign_id: Option<String>,
-    pub session_id: Option<String>,
     #[serde(default)]
     pub pinned_only: bool,
     /// newest (default) | oldest | name_asc | name_desc | kind | size
@@ -151,32 +149,6 @@ pub struct StrIdParams {
 pub struct RenameParams {
     pub id: String,
     pub name: String,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SessionsListParams {
-    pub campaign_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SessionCreateParams {
-    pub campaign_id: String,
-    pub name: String,
-    #[serde(default)]
-    pub notes: String,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SessionUpdateParams {
-    pub id: String,
-    pub name: Option<String>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SessionAssetsParams {
-    pub id: String,
-    pub asset_ids: Vec<i64>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -396,8 +368,8 @@ impl SleuthServer {
             q: p.q,
             kinds: p.kinds,
             tags: p.tags,
-            campaign_id: p.campaign_id,
-            session_id: p.session_id,
+            campaign_id: None,
+            session_id: None,
             pinned_only: p.pinned_only,
             sort,
             limit: Some(p.limit.unwrap_or(50).min(500)),
@@ -434,16 +406,6 @@ impl SleuthServer {
     #[tool(description = "Replace an asset's tags (tag names; created if missing).")]
     async fn library_set_tags(&self, Parameters(p): Parameters<SetListParams>) -> ToolResult {
         done(self.svc.library_set_tags(p.id, p.values).await)
-    }
-
-    #[tool(description = "Replace an asset's campaign links (campaign ids).")]
-    async fn library_set_campaigns(&self, Parameters(p): Parameters<SetListParams>) -> ToolResult {
-        done(self.svc.library_set_campaigns(p.id, p.values).await)
-    }
-
-    #[tool(description = "Replace an asset's session links (session ids).")]
-    async fn library_set_sessions(&self, Parameters(p): Parameters<SetListParams>) -> ToolResult {
-        done(self.svc.library_set_sessions(p.id, p.values).await)
     }
 
     #[tool(description = "Delete assets by id. Returns how many were deleted.")]
@@ -502,55 +464,6 @@ impl SleuthServer {
     #[tool(description = "Delete a tag (assets are kept).")]
     async fn tags_delete(&self, Parameters(p): Parameters<IdParams>) -> ToolResult {
         done(self.svc.tags_delete(p.id).await)
-    }
-
-    // ── campaigns & sessions ──
-    #[tool(description = "List campaigns with session and asset counts.")]
-    async fn campaigns_list(&self) -> ToolResult {
-        done(self.svc.campaigns_list().await)
-    }
-
-    #[tool(description = "Create a campaign.")]
-    async fn campaigns_create(&self, Parameters(p): Parameters<NameParams>) -> ToolResult {
-        done(self.svc.campaigns_create(p.name).await)
-    }
-
-    #[tool(description = "Rename a campaign.")]
-    async fn campaigns_rename(&self, Parameters(p): Parameters<RenameParams>) -> ToolResult {
-        done(self.svc.campaigns_rename(p.id, p.name).await)
-    }
-
-    #[tool(description = "Delete a campaign and its sessions. Assets are never deleted.")]
-    async fn campaigns_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
-        done(self.svc.campaigns_delete(p.id).await)
-    }
-
-    #[tool(description = "List sessions, optionally of one campaign.")]
-    async fn sessions_list(&self, Parameters(p): Parameters<SessionsListParams>) -> ToolResult {
-        done(self.svc.sessions_list(p.campaign_id).await)
-    }
-
-    #[tool(description = "Create a session in a campaign.")]
-    async fn sessions_create(&self, Parameters(p): Parameters<SessionCreateParams>) -> ToolResult {
-        done(self.svc.sessions_create(p.campaign_id, p.name, p.notes).await)
-    }
-
-    #[tool(description = "Rename a session and/or change its notes.")]
-    async fn sessions_update(&self, Parameters(p): Parameters<SessionUpdateParams>) -> ToolResult {
-        done(self.svc.sessions_update(p.id, p.name, p.notes).await)
-    }
-
-    #[tool(description = "Delete a session (assets are kept).")]
-    async fn sessions_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
-        done(self.svc.sessions_delete(p.id).await)
-    }
-
-    #[tool(description = "Replace the full set of assets in a session.")]
-    async fn sessions_set_assets(
-        &self,
-        Parameters(p): Parameters<SessionAssetsParams>,
-    ) -> ToolResult {
-        done(self.svc.sessions_set_assets(p.id, p.asset_ids).await)
     }
 
     // ── jobs ──
@@ -1177,7 +1090,7 @@ impl SleuthServer {
     // ── UI remote control (in-app server only) ──
 
     #[tool(
-        description = "Show a view in the desktop app. route: library, tokens.cutter, tokens.sheet, cutouts.cutter, cutouts.sheet, cards, maps.paginator, maps.aoe, campaigns, music, settings. Works only through the in-app MCP server."
+        description = "Show a view in the desktop app. route: library, tokens.cutter, tokens.sheet, cutouts.cutter, cutouts.sheet, cards, maps.paginator, maps.aoe, music, settings. Works only through the in-app MCP server."
     )]
     async fn ui_navigate(&self, Parameters(p): Parameters<RouteParams>) -> ToolResult {
         done(self.svc.ui_navigate(p.route).await)
@@ -1195,14 +1108,14 @@ impl SleuthServer {
     // state changes are stored and the running app applies them.
 
     #[tool(
-        description = "List music tracks. Optional query: {campaign_id, session_id, tags (all must match), text (title/notes)}."
+        description = "List music tracks. Optional query: {tags (all must match), text (title/notes)}."
     )]
     async fn music_tracks_list(&self, Parameters(p): Parameters<MusicQueryParams>) -> ToolResult {
         done(self.svc.music_tracks_list(p.query.unwrap_or_default()).await)
     }
 
     #[tool(
-        description = "Add a music track. input: {source youtube|upload, url (youtube), file_path (absolute, upload), title, notes, loop_by_default, campaign_ids (at least one), session_ids, tags}."
+        description = "Add a music track. input: {source youtube|upload, url (youtube), file_path (absolute, upload), title, notes, loop_by_default, tags}."
     )]
     async fn music_track_add(&self, Parameters(p): Parameters<MusicTrackParams>) -> ToolResult {
         done(self.svc.music_track_create(p.input).await)
@@ -1306,17 +1219,12 @@ impl SleuthServer {
         done(self.svc.music_set_master(p.volume).await)
     }
 
-    #[tool(description = "List saved soundscapes (mixes), optionally for one campaign.")]
-    async fn music_soundscapes_list(
-        &self,
-        Parameters(p): Parameters<MusicCampaignParams>,
-    ) -> ToolResult {
-        done(self.svc.music_soundscapes_list(p.campaign_id).await)
+    #[tool(description = "List saved soundscapes (mixes).")]
+    async fn music_soundscapes_list(&self) -> ToolResult {
+        done(self.svc.music_soundscapes_list().await)
     }
 
-    #[tool(
-        description = "Save the current live mix as a soundscape. input: {name, campaign_id, notes, tags}."
-    )]
+    #[tool(description = "Save the current live mix as a soundscape. input: {name, notes, tags}.")]
     async fn music_soundscape_save(
         &self,
         Parameters(p): Parameters<MusicSoundscapeParams>,
@@ -1336,16 +1244,13 @@ impl SleuthServer {
         done(self.svc.music_soundscape_delete(p.id).await)
     }
 
-    #[tool(description = "List playlists, optionally for one campaign.")]
-    async fn music_playlists_list(
-        &self,
-        Parameters(p): Parameters<MusicCampaignParams>,
-    ) -> ToolResult {
-        done(self.svc.music_playlists_list(p.campaign_id).await)
+    #[tool(description = "List playlists.")]
+    async fn music_playlists_list(&self) -> ToolResult {
+        done(self.svc.music_playlists_list().await)
     }
 
     #[tool(
-        description = "Create (no id) or replace (with id) a playlist. input: {id, name, campaign_id, track_ids (in order)}."
+        description = "Create (no id) or replace (with id) a playlist. input: {id, name, track_ids (in order)}."
     )]
     async fn music_playlist_save(
         &self,
@@ -1372,12 +1277,9 @@ impl SleuthServer {
         done(self.svc.music_playlist_control(p.action).await)
     }
 
-    #[tool(description = "List soundboards with their buttons, optionally for one campaign.")]
-    async fn music_soundboards_list(
-        &self,
-        Parameters(p): Parameters<MusicCampaignParams>,
-    ) -> ToolResult {
-        done(self.svc.music_soundboards_list(p.campaign_id).await)
+    #[tool(description = "List soundboards with their buttons.")]
+    async fn music_soundboards_list(&self) -> ToolResult {
+        done(self.svc.music_soundboards_list().await)
     }
 
     #[tool(
@@ -1819,7 +1721,7 @@ pub struct AoeExportParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MusicQueryParams {
-    /// {campaign_id, session_id, tags, text}
+    /// {tags, text}
     #[schemars(with = "Option<Value>")]
     pub query: Option<sleuth_service::MusicTrackQuery>,
 }
@@ -1864,11 +1766,6 @@ pub struct MusicDuckParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MusicVolumeParams {
     pub volume: i64,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct MusicCampaignParams {
-    pub campaign_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
