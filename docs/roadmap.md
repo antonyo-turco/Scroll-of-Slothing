@@ -30,8 +30,10 @@ In order. The parity sprint runs on `sprint/full-parity` and merges back into `d
    - AoE templates: labels and halo, presets, previews, exports.
    - Music: the alpha-test item (everything else is ticked; see `features/music/overview.md`).
    - Install the MSI once and double-click a `.dmix` file (the association only exists in the installed app).
-2. **Open music decision** (`features/music/known-issues.md`, 15): should the playlist channel appear in the mixer and be ducked? It currently behaves as in Python. (14 is decided: one-shots duck.)
-3. **Release.** Once every checklist is ticked, music included, propose a single descriptive `master` merge and wait for the user's approval.
+2. **Release.** Once every checklist is ticked, music included, propose a single descriptive `master` merge and wait for the user's approval.
+
+### Open questions (not blocking)
+- Music (`features/music/known-issues.md`, 15): should the playlist channel appear in the mixer and be ducked? It behaves as in Python until the user decides.
 
 ### Done in the 2026-10-10 session
 - **Music:** service tests for the mixer, soundbites, SFX queue, ducking, playlists, soundboards, `.dmix` files and legacy import (`crates/service/src/music_tests.rs`). They found and fixed an SFX-queue counter underflow on Stop All. There is also an e2e spec (`app/e2e/music.spec.ts`) and a parity checklist.
