@@ -81,3 +81,31 @@ test('orientation and the fewest-pages suggestion', async ({ page }) => {
   await expect.poll(pages).toBe(Math.min(portrait, landscape));
   await expect(orient.getByRole('button', { name: worse })).toHaveAttribute('aria-pressed', 'false');
 });
+
+test('touchpad gestures: pinch zooms gently, two-finger scroll pans, a wheel notch zooms', async ({ page }) => {
+  await openMap(page);
+  const stage = page.getByTestId('map-stage');
+  const zoom = async () => Number((await page.locator('.zoom').textContent())!.replace('%', ''));
+  const layer = () => stage.locator('.layer').evaluate((el) => (el as HTMLElement).style.transform);
+  const box = (await stage.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+  // a pinch arrives as Ctrl + small wheel deltas: ~5% per event, not 10% steps
+  const z0 = await zoom();
+  await page.keyboard.down('Control');
+  for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -5);
+  await page.keyboard.up('Control');
+  await expect.poll(zoom).toBeGreaterThan(z0);
+  const z1 = await zoom();
+  expect(z1).toBeLessThan(z0 * 1.3);
+
+  // two-finger scroll: pans, zoom unchanged
+  const before = await layer();
+  await page.mouse.wheel(30, 20);
+  await expect.poll(layer).not.toBe(before);
+  expect(await zoom()).toBe(z1);
+
+  // one mouse wheel notch (deltaY 100) zooms one step
+  await page.mouse.wheel(0, -100);
+  await expect.poll(zoom).toBeGreaterThan(z1);
+});

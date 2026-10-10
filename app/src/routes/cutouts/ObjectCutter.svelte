@@ -5,6 +5,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import { app } from '../../lib/state.svelte';
+  import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import { SIZE_LABELS, type CutoutParams, type LassoMode, type SourceImage } from '../../lib/types';
 
   const DRAFT_KEY = 'cutouts.cutter';
@@ -184,8 +185,24 @@
     if (d.params.points.length >= 3) d.closed = true;
   }
 
+  const pinch = new PinchTracker();
+  /** The first finger of a would-be pinch added a lasso point. */
+  let touchAdded = false;
+
   function onPointerDown(e: PointerEvent) {
     if (!d.source) return;
+    if (pinch.down(e)) {
+      // a second finger: this is a pinch, not a trace — undo the first touch
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      if (drawing) {
+        drawing = false;
+        d.params.points = [];
+      } else if (touchAdded) d.params.points = d.params.points.slice(0, -1);
+      touchAdded = false;
+      panning = null;
+      return;
+    }
+    touchAdded = false;
     if (e.button === 1 || (e.button === 0 && spaceDown)) {
       panning = { x: e.clientX, y: e.clientY };
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -200,10 +217,20 @@
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } else {
       d.params.points = [...d.params.points, p];
+      touchAdded = e.pointerType === 'touch';
     }
   }
 
   function onPointerMove(e: PointerEvent) {
+    const st = pinch.move(e);
+    if (st && stage) {
+      const r = stage.getBoundingClientRect();
+      tx += st.dx;
+      ty += st.dy;
+      zoomAt(st.factor, st.cx - r.left, st.cy - r.top);
+      return;
+    }
+    if (pinch.active) return;
     if (panning) {
       tx += e.clientX - panning.x;
       ty += e.clientY - panning.y;
@@ -218,7 +245,8 @@
     }
   }
 
-  function onPointerUp() {
+  function onPointerUp(e: PointerEvent) {
+    pinch.up(e);
     panning = null;
     if (drawing) {
       drawing = false;
@@ -244,7 +272,12 @@
       if (!d.source) return;
       e.preventDefault();
       const r = node.getBoundingClientRect();
-      zoomAt(e.deltaY < 0 ? 1.1 : 1 / 1.1, e.clientX - r.left, e.clientY - r.top);
+      const g = wheelIntent(e);
+      if (g.kind === 'zoom') zoomAt(g.factor, e.clientX - r.left, e.clientY - r.top);
+      else {
+        tx += g.dx;
+        ty += g.dy;
+      }
     };
     node.addEventListener('wheel', h, { passive: false });
     return { destroy: () => node.removeEventListener('wheel', h) };
@@ -388,7 +421,7 @@
       {:else}
         Drag around the object; release to close.
       {/if}
-      · wheel zooms, middle-drag or Space+drag pans
+      · pinch or wheel zooms · two-finger scroll, middle-drag or Space+drag pans
     </p>
   </section>
 

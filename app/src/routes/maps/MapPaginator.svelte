@@ -6,6 +6,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import { app } from '../../lib/state.svelte';
+  import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import type { FilterCatalog, MapDoc, MapLayout, Pt, SizingMode } from '../../lib/types';
   import FiltersPanel from './FiltersPanel.svelte';
   import {
@@ -65,6 +66,8 @@
   let page = $state(0);
   let drag = $state<Drag | null>(null);
   let shift = $state(false);
+  let spaceDown = $state(false);
+  const pinch = new PinchTracker();
 
   let saveOpen = $state(false);
   let saveName = $state('');
@@ -101,12 +104,18 @@
     const r = stage!.getBoundingClientRect();
     return [(e.clientX - r.left - tx) / z, (e.clientY - r.top - ty) / z];
   }
+  // Touchpad pinch / mouse wheel zoom at the cursor; two-finger scroll pans.
   function wheel(node: HTMLElement) {
     const h = (e: WheelEvent) => {
       if (!doc?.source) return;
       e.preventDefault();
       const r = node.getBoundingClientRect();
-      zoomAt(e.deltaY < 0 ? 1.1 : 1 / 1.1, e.clientX - r.left, e.clientY - r.top);
+      const g = wheelIntent(e);
+      if (g.kind === 'zoom') zoomAt(g.factor, e.clientX - r.left, e.clientY - r.top);
+      else {
+        tx += g.dx;
+        ty += g.dy;
+      }
     };
     node.addEventListener('wheel', h, { passive: false });
     return { destroy: () => node.removeEventListener('wheel', h) };
@@ -296,8 +305,10 @@
     shift = e.shiftKey;
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
+    // a second finger turns any drag into a pinch
+    if (pinch.down(e)) return void (drag = null);
     const p = toImage(e);
-    if (e.button === 1 || (e.button === 0 && tool === 'none')) {
+    if (e.button === 1 || spaceDown || (e.button === 0 && tool === 'none')) {
       drag = { kind: 'pan', x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, button: e.button };
       e.preventDefault();
       return;
@@ -323,7 +334,15 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (!drag || !doc) return;
+    const st = pinch.move(e);
+    if (st && stage) {
+      const r = stage.getBoundingClientRect();
+      tx += st.dx;
+      ty += st.dy;
+      zoomAt(st.factor, st.cx - r.left, st.cy - r.top);
+      return;
+    }
+    if (pinch.active || !drag || !doc) return;
     shift = e.shiftKey;
     const p = toImage(e);
     switch (drag.kind) {
@@ -371,6 +390,7 @@
   }
 
   function onPointerUp(e: PointerEvent) {
+    pinch.up(e);
     const d = drag;
     drag = null;
     if (!d || !doc) return;
@@ -409,6 +429,12 @@
 
   function onKey(e: KeyboardEvent) {
     if ((e.target as HTMLElement)?.matches?.('input, textarea, select, button')) return;
+    if (e.key === ' ') {
+      // Space + drag pans with any tool
+      spaceDown = e.type === 'keydown';
+      e.preventDefault();
+      return;
+    }
     if (e.type !== 'keydown') return;
     if (e.key === 'Escape') tool = 'none';
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
@@ -510,7 +536,7 @@
   const activeTool = $derived(TOOLS.find((t) => t.id === tool) ?? TOOLS[0]);
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onkeyup={onKey} onblur={() => (spaceDown = false)} />
 
 <div class="paginator">
   <section class="work">
@@ -554,7 +580,7 @@
       onpointerdown={onPointerDown}
       onpointermove={onPointerMove}
       onpointerup={onPointerUp}
-      onpointercancel={() => (drag = null)}
+      onpointercancel={(e) => (pinch.up(e), (drag = null))}
       data-testid="map-stage"
     >
       {#if doc?.source}
@@ -619,7 +645,7 @@
     <p class="hint muted">
       {#if !doc?.source}Load a map to start.
       {:else}
-        {W} × {H} px{doc.dpi_detected ? ` · ${Math.round(doc.detected_dpi)} dpi` : ''} · wheel zooms, middle-drag pans
+        {W} × {H} px{doc.dpi_detected ? ` · ${Math.round(doc.detected_dpi)} dpi` : ''} · pinch or wheel zooms · two-finger scroll, Space+drag or middle-drag pans
       {/if}
     </p>
   </section>

@@ -5,6 +5,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import { app } from '../../lib/state.svelte';
+  import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import { SIZE_LABELS, type Border, type SourceImage, type TokenParams } from '../../lib/types';
 
   const DRAFT_KEY = 'tokens.cutter';
@@ -157,29 +158,44 @@
 
   // ── pan & zoom on the preview ──
   let drag = $state<{ x: number; y: number } | null>(null);
+  const pinch = new PinchTracker();
+  const setZoom = (f: number) => (d.params.zoom = Math.max(0.1, Math.min(10, d.params.zoom * f)));
+  /** Moves the image by a screen delta (Python: pan -= delta / scale). */
+  function moveImage(sx: number, sy: number) {
+    if (!border || !stage) return;
+    const scale = Math.min(stage.clientWidth, stage.clientHeight) / Math.max(border.width, border.height);
+    d.params.pan = [d.params.pan[0] - sx / scale, d.params.pan[1] - sy / scale];
+  }
   function onPointerDown(e: PointerEvent) {
     if (!d.source) return;
-    drag = { x: e.clientX, y: e.clientY };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    if (pinch.down(e)) return void (drag = null);
+    drag = { x: e.clientX, y: e.clientY };
   }
   function onPointerMove(e: PointerEvent) {
-    if (!drag || !border || !stage) return;
-    const scale = Math.min(stage.clientWidth, stage.clientHeight) / Math.max(border.width, border.height);
-    const dx = (e.clientX - drag.x) / scale;
-    const dy = (e.clientY - drag.y) / scale;
+    const st = pinch.move(e);
+    if (st) {
+      setZoom(st.factor);
+      moveImage(st.dx, st.dy);
+      return;
+    }
+    if (pinch.active || !drag) return;
+    // Dragging moves the image with the pointer.
+    moveImage(e.clientX - drag.x, e.clientY - drag.y);
     drag = { x: e.clientX, y: e.clientY };
-    // Dragging moves the image with the pointer (Python: pan -= delta / scale).
-    d.params.pan = [d.params.pan[0] - dx, d.params.pan[1] - dy];
   }
-  function onPointerUp() {
+  function onPointerUp(e: PointerEvent) {
+    pinch.up(e);
     drag = null;
   }
+  // Touchpad pinch / mouse wheel zoom the framing; two-finger scroll moves it.
   function wheel(node: HTMLElement) {
     const h = (e: WheelEvent) => {
       if (!d.source) return;
       e.preventDefault();
-      const f = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-      d.params.zoom = Math.max(0.1, Math.min(10, d.params.zoom * f));
+      const g = wheelIntent(e);
+      if (g.kind === 'zoom') setZoom(g.factor);
+      else moveImage(g.dx, g.dy);
     };
     node.addEventListener('wheel', h, { passive: false });
     return { destroy: () => node.removeEventListener('wheel', h) };

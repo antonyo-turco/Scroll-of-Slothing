@@ -46,8 +46,18 @@ Sub-routes appear as segmented tabs in the top bar.
 | Enter | Close the polygon (object cutter) |
 | Space + drag | Pan any canvas |
 | Wheel | Zoom at the cursor |
+| Touchpad pinch (or Ctrl + wheel) | Zoom smoothly at the cursor |
+| Touchpad two-finger scroll | Pan (Shift: sideways) |
+| Touchscreen: two fingers | Pinch to zoom and pan together |
 | Shift (held) | Disable snapping (map region, reference box, page layout) |
 | 1–9, or a button's own hotkey | Soundboard buttons (on the Soundboard tab) |
+
+## Canvas gestures
+`app/src/lib/gestures.ts` is shared by the Map Paginator, the Token Cutter and the Object Cutter.
+- WebView2 sends a touchpad pinch as wheel events with `ctrlKey` and small deltas. These zoom by `exp(−deltaY/100)`, clamped per event, so the zoom follows the fingers.
+- A mouse wheel notch (`wheelDeltaY` a multiple of 120, or line-mode deltas) zooms one 10 % step.
+- Any other wheel input is a touchpad scroll and pans.
+- Touch pointers go through `PinchTracker`. A second finger cancels the drag or lasso point the first finger started, then pinches.
 
 ## Drag and drop
 Files can be dropped anywhere on the window:
