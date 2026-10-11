@@ -14,8 +14,12 @@
   let tagInput = $state('');
   let confirmDelete = $state(false);
 
-  $effect(() => {
-    // Reset the form whenever another asset is shown.
+  // Reset the form only when another asset is shown, not when this one is
+  // updated: a save's reply must not wipe a tag being typed meanwhile.
+  let shownId: number | null = null;
+  $effect.pre(() => {
+    if (asset.id === shownId) return;
+    shownId = asset.id;
     name = asset.name;
     aliases = asset.aliases;
     confirmDelete = false;
