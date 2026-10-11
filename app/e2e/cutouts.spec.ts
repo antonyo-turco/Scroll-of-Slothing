@@ -17,7 +17,6 @@ async function clickAt(page: Page, fx: number, fy: number) {
 
 test('polygon trace: add points, undo, close with Enter, result renders, save', async ({ page }) => {
   await openInCutter(page, 'Brazier');
-  await expect(page.getByLabel('Name')).toHaveValue('Brazier');
   await expect(page.getByRole('button', { name: 'Save to library…' })).toBeDisabled();
 
   await clickAt(page, 0.3, 0.3);
@@ -40,7 +39,12 @@ test('polygon trace: add points, undo, close with Enter, result renders, save', 
 
   // Opened from the library → update-or-new choice.
   await page.getByRole('button', { name: 'Save to library…' }).click();
-  await page.getByRole('dialog', { name: 'Save cut-out to library' }).getByRole('button', { name: 'Update existing' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Save cut-out to library' });
+  await expect(dialog.getByLabel('Name')).toHaveValue('Brazier');
+  await dialog.getByLabel('Name').fill('');
+  await expect(dialog.getByRole('button', { name: 'Update existing' })).toBeDisabled();
+  await dialog.getByLabel('Name').fill('Brazier');
+  await dialog.getByRole('button', { name: 'Update existing' }).click();
   await expect(page.getByText('“Brazier” updated in the library')).toBeVisible();
 
   // Re-opening restores the closed trace (Python lost it).

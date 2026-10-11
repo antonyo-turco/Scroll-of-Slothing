@@ -8,7 +8,7 @@
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
-  import { SIZE_LABELS, type Border, type SourceImage, type TokenParams } from '../../lib/types';
+  import { type Border, type SourceImage, type TokenParams, type SaveDetails } from '../../lib/types';
 
   const DRAFT_KEY = 'tokens.cutter';
 
@@ -231,12 +231,15 @@
   // ── actions ──
   const params = () => $state.snapshot(d.params) as TokenParams;
 
-  async function saveLibrary(update: boolean) {
+  /** Saves with the name, size and tags chosen in the save dialog. */
+  async function saveLibrary({ name, size, tags, update }: SaveDetails) {
     if (!d.source) return;
-    if (!d.name.trim()) return app.toast('error', 'Please enter a name first.');
+    d.name = name;
+    d.size = size;
     busy = true;
     try {
-      const a = await api.tokenSaveToLibrary(d.source.hash, params(), d.name, d.size, update ? d.asset_id : null);
+      let a = await api.tokenSaveToLibrary(d.source.hash, params(), name, size, update ? d.asset_id : null);
+      a = await api.librarySetTags(a.id, tags);
       d.asset_id = a.id;
       app.toast('success', update ? `“${a.name}” updated in the library` : `“${a.name}” saved to the library`);
     } catch (e) {
@@ -397,24 +400,11 @@
       </div>
     </section>
 
-    <section class="section">
-      <h3 class="section-title">Token</h3>
-      <div class="field">
-        <label for="token-name">Name</label>
-        <input id="token-name" class="input" bind:value={d.name} placeholder="e.g. Goblin Boss" />
-      </div>
-      <div class="field">
-        <label for="token-size">Size</label>
-        <select id="token-size" class="input" bind:value={d.size}>
-          {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
-        </select>
-      </div>
-    </section>
     {#if d.asset_id !== null}<p class="note asset">Editing library asset #{d.asset_id}</p>{/if}
   </aside>
 </div>
 
-<SaveAssetDialog bind:open={saveChoice} bind:name={d.name} kind="token" existing={d.asset_id} onsave={(u) => void saveLibrary(u)} />
+<SaveAssetDialog bind:open={saveChoice} name={d.name} kind="token" size={d.size} existing={d.asset_id} onsave={(s) => void saveLibrary(s)} />
 
 <style>
   .stage {

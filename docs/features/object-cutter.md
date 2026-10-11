@@ -28,11 +28,11 @@ Points are stored in **image coordinates**, not screen coordinates.
 |---|---|---|
 | Outline colour | white (255,255,255) | colour picker |
 | Outline thickness | 6 px | 0–40 |
-| Name / Size | "", Medium | |
+| Name / Size / Tags | asked in the Save to library dialog | |
 
 **Actions**
 - Export PNG…
-- Save to Library (the same dialog as the Token Cutter)
+- Save to Library (the same dialog as the Token Cutter: name, size, tags)
 - Add to Object Sheet
 
 ## Algorithms (core::cutout)

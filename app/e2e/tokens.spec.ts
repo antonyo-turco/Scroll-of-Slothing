@@ -12,8 +12,6 @@ async function openInCutter(page: Page, name: string) {
 
 test('library asset opens in the cutter, edits re-render, update-or-new choice', async ({ page }) => {
   await openInCutter(page, 'Owlbear');
-  await expect(page.getByLabel('Name')).toHaveValue('Owlbear');
-  await expect(page.getByLabel('Size')).toHaveValue('Large');
 
   const preview = page.getByTestId('token-preview');
   const before = await preview.getAttribute('src');
@@ -28,13 +26,29 @@ test('library asset opens in the cutter, edits re-render, update-or-new choice',
 
   // Opened from the library → saving asks update vs new.
   await page.getByRole('button', { name: 'Save to library…' }).click();
+  // The dialog asks for name, size and tags, prefilled from the asset.
   const choice = page.getByRole('dialog', { name: 'Save token to library' });
-  await expect(choice).toBeVisible();
+  await expect(choice.getByLabel('Name')).toHaveValue('Owlbear');
+  await expect(choice.getByLabel('Size')).toHaveValue('Large');
+  await expect(choice.getByRole('button', { name: 'Remove tag beast' })).toBeVisible();
+  await choice.getByLabel('Name').fill('Owlbear Matriarch');
+  await choice.getByLabel('Size').selectOption('Huge');
+  await choice.getByLabel('Add tag').fill('forest');
+  await choice.getByLabel('Add tag').press('Enter');
   await choice.getByRole('button', { name: 'Update existing' }).click();
-  await expect(page.getByText('“Owlbear” updated in the library')).toBeVisible();
+  await expect(page.getByText('“Owlbear Matriarch” updated in the library')).toBeVisible();
+
+  // The library shows the new name, size and tags.
+  await page.goto('/#/library');
+  await page.getByRole('button', { name: 'Owlbear Matriarch (Token)' }).click();
+  const inspector = page.getByRole('complementary', { name: 'Asset details' });
+  await expect(inspector.getByLabel('Print size')).toHaveValue('Huge');
+  await expect(inspector.getByRole('button', { name: 'Remove tag forest' })).toBeVisible();
+  await expect(inspector.getByRole('button', { name: 'Remove tag beast' })).toBeVisible();
 
   // Reopening restores the saved framing (ring 30%).
-  await openInCutter(page, 'Owlbear');
+  await inspector.getByRole('button', { name: 'Open in Token Cutter' }).click();
+  await expect(page.getByTestId('token-preview')).toBeVisible();
   await expect(page.getByLabel(/Ring thickness/)).toHaveValue('30');
 });
 

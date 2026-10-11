@@ -13,7 +13,7 @@
   import { api, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
-  import type { FilterCatalog, MapDoc, MapLayout, Pt, SizingMode } from '../../lib/types';
+  import type { FilterCatalog, MapDoc, MapLayout, Pt, SaveDetails, SizingMode } from '../../lib/types';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import FiltersPanel from './FiltersPanel.svelte';
@@ -96,6 +96,8 @@
   let saveOpen = $state(false);
   let saveName = $state('');
   let saveJob = $state<string | null>(null);
+  /** tags chosen in the save dialog, applied once the save job has the asset id */
+  let saveTags: string[] = [];
 
   // View transform: image px (ix, iy) → screen (tx + ix·z, ty + iy·z).
   let stage: HTMLDivElement | undefined = $state();
@@ -258,6 +260,7 @@
     if (j.state === 'done' && doc && a?.id != null) {
       doc.asset_id = a.id;
       doc.name = a.name ?? doc.name;
+      void api.librarySetTags(a.id, saveTags).catch((e) => app.error('Could not save the tags', e));
     }
   });
 
@@ -554,11 +557,12 @@
     saveName = doc?.name || 'Map';
     saveOpen = true;
   }
-  async function save(update: boolean) {
+  async function save({ name, tags, update }: SaveDetails) {
     if (!doc) return;
+    saveTags = tags;
     busy = true;
     try {
-      saveJob = await api.mapSaveAsset(snap(), saveName.trim() || 'Map', update ? doc.asset_id : null);
+      saveJob = await api.mapSaveAsset(snap(), name, update ? doc.asset_id : null);
     } catch (e) {
       busy = false;
       app.error('Save failed', e);
@@ -912,7 +916,7 @@
   </aside>
 </div>
 
-<SaveAssetDialog bind:open={saveOpen} bind:name={saveName} kind="map" existing={doc?.asset_id ?? null} onsave={save} />
+<SaveAssetDialog bind:open={saveOpen} name={saveName} kind="map" existing={doc?.asset_id ?? null} onsave={save} />
 
 <style>
   .tools {

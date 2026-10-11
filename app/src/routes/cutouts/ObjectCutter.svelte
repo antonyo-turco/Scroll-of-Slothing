@@ -8,7 +8,7 @@
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
-  import { SIZE_LABELS, type CutoutParams, type LassoMode, type SourceImage } from '../../lib/types';
+  import { type CutoutParams, type LassoMode, type SourceImage, type SaveDetails } from '../../lib/types';
 
   const DRAFT_KEY = 'cutouts.cutter';
 
@@ -309,12 +309,15 @@
   // ── actions ──
   const params = () => $state.snapshot(d.params) as CutoutParams;
 
-  async function saveLibrary(update: boolean) {
+  /** Saves with the name, size and tags chosen in the save dialog. */
+  async function saveLibrary({ name, size, tags, update }: SaveDetails) {
     if (!canCut || !d.source) return;
-    if (!d.name.trim()) return app.toast('error', 'Please enter a name first.');
+    d.name = name;
+    d.size = size;
     busy = true;
     try {
-      const a = await api.cutoutSaveToLibrary(d.source.hash, params(), d.name, d.size, update ? d.asset_id : null);
+      let a = await api.cutoutSaveToLibrary(d.source.hash, params(), name, size, update ? d.asset_id : null);
+      a = await api.librarySetTags(a.id, tags);
       d.asset_id = a.id;
       app.toast('success', update ? `“${a.name}” updated in the library` : `“${a.name}” saved to the library`);
     } catch (e) {
@@ -460,24 +463,11 @@
       </div>
     </section>
 
-    <section class="section">
-      <h3 class="section-title">Cut-out</h3>
-      <div class="field">
-        <label for="cut-name">Name</label>
-        <input id="cut-name" class="input" bind:value={d.name} placeholder="e.g. Brazier" />
-      </div>
-      <div class="field">
-        <label for="cut-size">Size <span class="muted">(longest side)</span></label>
-        <select id="cut-size" class="input" bind:value={d.size}>
-          {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
-        </select>
-      </div>
-    </section>
     {#if d.asset_id !== null}<p class="note asset">Editing library asset #{d.asset_id}</p>{/if}
   </aside>
 </div>
 
-<SaveAssetDialog bind:open={saveChoice} bind:name={d.name} kind="cut-out" existing={d.asset_id} onsave={(u) => void saveLibrary(u)} />
+<SaveAssetDialog bind:open={saveChoice} name={d.name} kind="cut-out" size={d.size} existing={d.asset_id} onsave={(s) => void saveLibrary(s)} />
 
 <style>
   .stage {

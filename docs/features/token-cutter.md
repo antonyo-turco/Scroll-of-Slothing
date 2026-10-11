@@ -16,12 +16,12 @@ Frames any image inside a circular token border and outputs a token image. The o
 | Border | thumbnail strip of the border set | first border | bundled `roll20.png` (442²), `roll20_greyscale.png` (256²), plus user-added borders |
 | Background | none (transparent) / colour picker / eyedropper | none | the eyedropper samples the source image |
 | Ring | ring thickness (content inset) | 0 % | 0–50 % of the radius |
-| Info | name, size | "", Medium | the size labels |
+| Info | name, size, tags: asked in the Save to library dialog | file stem (or the asset's), Medium (or the asset's), the asset's tags | the size labels |
 | Framing | pan (drag), zoom (wheel ×1.1 per notch), reset | centred, ×1 | zoom 0.1–10 |
 
 **Actions**
 - Save PNG…
-- Save to Library: a dialog with the name, and, if the token was opened from the Library, Update existing / Save as new / Cancel.
+- Save to Library: a dialog asks for the name, size and tags (prefilled from the file name or, for a library asset, from the asset), and, if the token was opened from the Library, offers Update existing / Save as new / Cancel. Save is disabled while the name is empty.
 - Add to Token Sheet
 
 ## Algorithm (core::token)
@@ -61,7 +61,7 @@ The transparency checkerboard for preview uses an 8 px square in colours (204,20
 - Edit params are stored, so re-editing is non-destructive.
 - Users can add their own border PNGs (they need transparency).
 - The cutter draft (source, framing, name, size) is autosaved and restored after a restart.
-- "Save to library" opens a dialog with the name; for an asset opened from the library it offers Update existing / Save as new / Cancel instead of Python's Yes/No/Cancel.
+- Name and size are not inspector fields: "Save to library" asks for name, size and tags in one dialog (user request, 2026-10-11). Python had name and size fields in the panel and no tags at save time. For an asset opened from the library it offers Update existing / Save as new / Cancel instead of Python's Yes/No/Cancel. Add to sheet uses the last name and size (the sheet can change both).
 
 ## Parity checklist (Python `ui/token_generator_panel.py`, `ui/token_compositing.py`)
 - [x] Border loading and selection (`_load_borders` :80)

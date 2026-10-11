@@ -191,6 +191,7 @@ Defaults come from Settings.
 | `map_save_asset` | `{name, asset_id?}` |
 
 ## Intentional changes
+- Save to library asks for the name and tags in one dialog; the tags are applied when the save job finishes.
 - UI consistency pass (2026-10-11, branch `ui/consistency`): the settings panel was too crowded (about 1,600 px of controls in one scroll). It is now three tabs that follow the workflow: **Scale** (Detect grid, sizing mode, grid position, "Align on the map…"), **Pages** (the fewest-pages suggestion, paper, print area with Fit to map / Whole map / Draw… / Move pages…, the page pager and preview, and a collapsed **Advanced** with margin, overlap, calibration, align-to-grid and the fit check) and **Look** (printed grid lines, embedded-grid removal, filters). Picking a canvas tool switches to the tab it edits, and the tab is remembered while the app runs. File actions moved to the top bar, zoom to a floating cluster on the canvas, and Save to library is a dialog. When cut lines are on with a margin under 0.2 in, the warning has a one-click "Set margin to 0.2 in".
 - Canvas tools are labelled by what they do: Pan, Print area (Python: region), Reference square, Align grid (Python: nudge) and Move pages. The active tool's instructions float over the top-left of the canvas.
 - While the Reference square tool is active, the grid overlay and the page tiles are hidden, and a previous square is hidden while a new one is drawn, so the block underneath stays visible (alpha-test feedback).

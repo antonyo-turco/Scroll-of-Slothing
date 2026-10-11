@@ -2,6 +2,7 @@
   // Right-hand inspector for one asset: metadata, tags, links, export, delete.
   import { api, blobUrl, isTauri, pickSavePath } from '../../lib/api';
   import Icon from '../../lib/components/Icon.svelte';
+  import TagInput from '../../lib/components/TagInput.svelte';
   import { EDITOR_ROUTE, type LibraryState } from '../../lib/library.svelte';
   import { findView } from '../../lib/nav';
   import { app } from '../../lib/state.svelte';
@@ -11,7 +12,6 @@
 
   let name = $state('');
   let aliases = $state('');
-  let tagInput = $state('');
   let confirmDelete = $state(false);
 
   // Reset the form only when another asset is shown, not when this one is
@@ -23,7 +23,6 @@
     name = asset.name;
     aliases = asset.aliases;
     confirmDelete = false;
-    tagInput = '';
   });
 
   const editorView = $derived(findView(EDITOR_ROUTE[asset.kind] ?? '')?.view);
@@ -48,12 +47,6 @@
       lib.patchItem(a);
       void lib.loadReference();
     }
-  }
-
-  function addTag() {
-    const t = tagInput.trim().replace(/,$/, '');
-    tagInput = '';
-    if (t && !asset.tags.some((x) => x.toLowerCase() === t.toLowerCase())) void setTags([...asset.tags, t]);
   }
 
   async function exportFile(what: ExportWhat) {
@@ -146,23 +139,7 @@
 
     <div class="field">
       <span class="label">Tags</span>
-      <div class="chips">
-        {#each asset.tags as t (t)}
-          <span class="chip">{t}<button aria-label="Remove tag {t}" onclick={() => setTags(asset.tags.filter((x) => x !== t))}>×</button></span>
-        {/each}
-        <input
-          class="chip-input"
-          placeholder="Add tag…"
-          aria-label="Add tag"
-          list="tag-suggestions"
-          bind:value={tagInput}
-          onkeydown={(e) => (e.key === 'Enter' || e.key === ',') && (e.preventDefault(), addTag())}
-          onblur={addTag}
-        />
-        <datalist id="tag-suggestions">
-          {#each lib.allTags as t (t.id)}<option value={t.name}></option>{/each}
-        </datalist>
-      </div>
+      <TagInput values={asset.tags} suggestions={lib.allTags.map((t) => t.name)} onchange={(v) => void setTags(v)} />
     </div>
   </section>
 
@@ -217,40 +194,6 @@
     min-height: 52px;
     padding: var(--space-2);
     resize: vertical;
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px 4px 2px 8px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    font-size: 12px;
-  }
-  .chip button {
-    border: 0;
-    background: none;
-    cursor: pointer;
-    padding: 0 4px;
-    color: var(--text-muted);
-  }
-  .chip-input {
-    flex: 1;
-    min-width: 80px;
-    border: 0;
-    background: transparent;
-    padding: 2px 4px;
-  }
-  .chip-input:focus {
-    outline: none;
   }
   .pair .btn {
     justify-content: center;

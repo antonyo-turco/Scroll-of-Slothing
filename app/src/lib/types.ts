@@ -536,3 +536,13 @@ export interface AoeSheetLayout {
   skipped: string[];
   summary: string;
 }
+
+/** What the save-to-library dialog returns (SaveAssetDialog.svelte). */
+export interface SaveDetails {
+  name: string;
+  /** print size label; ignored for maps */
+  size: string;
+  tags: string[];
+  /** overwrite the library asset the item was opened from */
+  update: boolean;
+}

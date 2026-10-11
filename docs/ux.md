@@ -50,7 +50,7 @@ Per view:
 - **Cards**: two equal panes (`.view.split`): the Markdown editor and the page previews, each with its toolbar band and status line. File actions are in the top bar.
 - **Music**: its five tabs are in the top bar. Each tab has a toolbar band, a scrolling body and a centred empty state. Stop Music stays at the right end of the top bar; the Mixer adds its `.dmix` actions before it.
 
-"Save to library" in the editors always opens the same dialog (`SaveAssetDialog.svelte`): the name, and for an item opened from the library, **Update existing** or **Save as new**.
+"Save to library" in the editors always opens the same dialog (`SaveAssetDialog.svelte`). It asks for the name, the print size (tokens and cut-outs) and the tags, prefilled from the file or the library asset. For an item opened from the library it offers **Update existing** or **Save as new**. The editors have no name or size fields of their own. Tags use the shared chip input (`TagInput.svelte`), also used by the Library inspector.
 
 ## Global elements
 - **Print tray**: a badge at the bottom of the rail showing how many items are on the token and object sheets. Clicking it opens that sheet.
