@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFiles, pickSavePath } from '../../lib/api';
   import { app } from '../../lib/state.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import { SIZE_LABELS, type PageFormat, type SheetLayout, type TokenSheet } from '../../lib/types';
 
   let sheet = $state<TokenSheet>({ items: [], format: 'Letter', cut_border: false });
@@ -85,84 +86,32 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="sheet">
-  <section class="items" aria-label="Sheet items">
-    <div class="bar">
-      <button class="btn" onclick={upload}>+ Add images…</button>
-      <span class="muted count">{sheet.items.length} item{sheet.items.length === 1 ? '' : 's'} · {total} token{total === 1 ? '' : 's'}</span>
-    </div>
-    {#if loaded && sheet.items.length === 0}
-      <div class="empty muted">
-        <p>No tokens yet.</p>
-        <p>Add images here, use “Add to token sheet” in the Token Cutter, or select tokens in the Library.</p>
-      </div>
-    {/if}
-    <ul>
-      {#each sheet.items as it (it.id)}
-        <li data-testid="sheet-item">
-          <img src={blobUrl(it.thumb)} alt="" />
-          <div class="meta">
-            <input
-              class="label-input"
-              aria-label="Label"
-              value={it.label}
-              onchange={(e) => apply(api.tokenSheetUpdate(it.id, { label: e.currentTarget.value }))}
-            />
-            <div class="row">
-              <select class="input" aria-label="Size of {it.label}" value={it.size} onchange={(e) => apply(api.tokenSheetUpdate(it.id, { size: e.currentTarget.value }))}>
-                {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
-              </select>
-              <label class="copies">
-                ×
-                <input
-                  class="input"
-                  type="number"
-                  min="1"
-                  max="99"
-                  aria-label="Copies of {it.label}"
-                  value={it.copies}
-                  onchange={(e) => setCopies(it.id, e.currentTarget.value)}
-                />
-              </label>
-            </div>
-          </div>
-          <button class="btn ghost icon" aria-label="Remove {it.label}" onclick={() => apply(api.tokenSheetRemove(it.id))}>×</button>
-        </li>
-      {/each}
-    </ul>
-    {#if sheet.items.length}
-      <div class="bar bottom">
-        {#if confirmClear}
-          <span>Remove all items?</span>
-          <button class="btn danger" onclick={() => apply(api.tokenSheetClear()).then(() => (confirmClear = false))}>Clear all</button>
-          <button class="btn" onclick={() => (confirmClear = false)}>Cancel</button>
-        {:else}
-          <button class="btn ghost danger" onclick={() => (confirmClear = true)}>Clear all…</button>
-        {/if}
-      </div>
-    {/if}
-  </section>
+<ViewActions>
+  <button class="btn" onclick={upload} title="Add image files as tokens">Add images…</button>
+  <button class="btn primary" disabled={!sheet.items.length || skippedLabels.length > 0} onclick={exportPdf} title="Ctrl+E">Export PDF</button>
+</ViewActions>
 
-  <section class="preview" aria-label="Page preview">
-    <div class="options">
+<div class="view">
+  <section class="work" aria-label="Page preview">
+    <div class="view-toolbar">
       <div class="segmented" role="group" aria-label="Page format">
         {#each ['Letter', 'A4'] as f (f)}
           <button aria-pressed={sheet.format === f} onclick={() => apply(api.tokenSheetSetOptions(f as PageFormat, null))}>{f}</button>
         {/each}
       </div>
-      <label class="toggle">
+      <label class="check">
         <input type="checkbox" checked={sheet.cut_border} onchange={(e) => apply(api.tokenSheetSetOptions(null, e.currentTarget.checked))} />
         Cut border
       </label>
       <div class="spacer"></div>
-      <button class="btn primary" disabled={!sheet.items.length || skippedLabels.length > 0} onclick={exportPdf} title="Ctrl+E">Export PDF</button>
+      <div class="pager">
+        <button class="btn icon" disabled={page <= 0} onclick={() => page--} aria-label="Previous page">‹</button>
+        <span>Page {pages ? page + 1 : 0} of {pages}</span>
+        <button class="btn icon" disabled={page >= pages - 1} onclick={() => page++} aria-label="Next page">›</button>
+      </div>
     </div>
 
-    {#if skippedLabels.length}
-      <p class="warn" role="alert">Too large for a page: {skippedLabels.join(', ')}</p>
-    {/if}
-
-    <div class="page-area">
+    <div class="stage-area page-area">
       {#if layout && pages > 0}
         <svg
           class="page"
@@ -191,53 +140,101 @@
           {/each}
         </svg>
       {:else}
-        <p class="muted">The page preview appears here.</p>
+        <div class="empty-state">
+          <strong>No tokens yet</strong>
+          <span>Add images, use “Add to sheet” in the Token Cutter, or select tokens in the Library.</span>
+        </div>
       {/if}
     </div>
 
-    <div class="pager">
-      <button class="btn" disabled={page <= 0} onclick={() => page--} aria-label="Previous page">◀</button>
-      <span>Page {pages ? page + 1 : 0} of {pages}</span>
-      <button class="btn" disabled={page >= pages - 1} onclick={() => page++} aria-label="Next page">▶</button>
+    <div class="statusbar">
+      <span>{sheet.items.length} item{sheet.items.length === 1 ? '' : 's'} · {total} token{total === 1 ? '' : 's'} · {pages} page{pages === 1 ? '' : 's'}</span>
+      {#if skippedLabels.length}
+        <span class="warn" role="alert">Too large for a page: {skippedLabels.join(', ')}</span>
+      {/if}
     </div>
   </section>
+
+  <aside class="inspector" aria-label="Sheet items">
+    <section class="section items">
+      <h3 class="section-title">Tokens on the sheet</h3>
+      {#if loaded && sheet.items.length === 0}
+        <p class="note">No tokens yet.</p>
+      {/if}
+      <ul>
+        {#each sheet.items as it (it.id)}
+          <li data-testid="sheet-item">
+            <img src={blobUrl(it.thumb)} alt="" />
+            <div class="meta">
+              <input
+                class="label-input"
+                aria-label="Label"
+                value={it.label}
+                onchange={(e) => apply(api.tokenSheetUpdate(it.id, { label: e.currentTarget.value }))}
+              />
+              <div class="row nowrap">
+                <select class="input" aria-label="Size of {it.label}" value={it.size} onchange={(e) => apply(api.tokenSheetUpdate(it.id, { size: e.currentTarget.value }))}>
+                  {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
+                </select>
+                <label class="copies" title="Copies">
+                  ×
+                  <input
+                    class="input"
+                    type="number"
+                    min="1"
+                    max="99"
+                    aria-label="Copies of {it.label}"
+                    value={it.copies}
+                    onchange={(e) => setCopies(it.id, e.currentTarget.value)}
+                  />
+                </label>
+              </div>
+            </div>
+            <button class="btn ghost icon" aria-label="Remove {it.label}" onclick={() => apply(api.tokenSheetRemove(it.id))}>×</button>
+          </li>
+        {/each}
+      </ul>
+    </section>
+    {#if sheet.items.length}
+      <div class="inspector-footer">
+        {#if confirmClear}
+          <span class="note">Remove all items?</span>
+          <div class="pair">
+            <button class="btn" onclick={() => (confirmClear = false)}>Cancel</button>
+            <button class="btn danger" onclick={() => apply(api.tokenSheetClear()).then(() => (confirmClear = false))}>Clear all</button>
+          </div>
+        {:else}
+          <button class="btn ghost danger" onclick={() => (confirmClear = true)}>Clear all…</button>
+        {/if}
+      </div>
+    {/if}
+  </aside>
 </div>
 
 <style>
-  .sheet {
+  .page-area {
     display: grid;
-    grid-template-columns: 340px 1fr;
+    place-items: center;
+    padding: var(--space-4);
+  }
+  .page {
+    max-width: 100%;
+    max-height: 100%;
     height: 100%;
-    min-height: 0;
+    box-shadow: var(--shadow);
+  }
+  .warn {
+    color: var(--warning);
   }
   .items {
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .bar {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    padding: var(--space-3) var(--space-4);
-  }
-  .bar.bottom {
-    border-top: 1px solid var(--border);
-    margin-top: auto;
-  }
-  .count {
-    font-size: 12px;
-  }
-  .empty {
-    padding: 0 var(--space-4);
-    font-size: 13px;
+    align-content: start;
   }
   ul {
     list-style: none;
-    margin: 0;
-    padding: 0 var(--space-2);
-    overflow-y: auto;
+    margin: 0 calc(-1 * var(--space-2));
+    padding: 0;
+    display: grid;
+    gap: 2px;
   }
   li {
     display: flex;
@@ -250,8 +247,8 @@
     background: var(--surface-2);
   }
   li img {
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
     object-fit: contain;
     flex: none;
   }
@@ -274,68 +271,21 @@
     border-color: var(--border);
     background: var(--surface);
   }
-  .row {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
+  .nowrap {
+    flex-wrap: nowrap;
+  }
+  .nowrap select {
+    flex: 1;
   }
   .copies {
     display: flex;
     align-items: center;
     gap: 4px;
+    flex: none;
+    font-size: 12px;
+    color: var(--text-muted);
   }
   .copies .input {
-    width: 60px;
-  }
-  .preview {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    padding: var(--space-3) var(--space-4);
-    gap: var(--space-2);
-  }
-  .options {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-  }
-  .toggle {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    cursor: pointer;
-  }
-  .toggle input {
-    accent-color: var(--accent);
-  }
-  .spacer {
-    flex: 1;
-  }
-  .warn {
-    margin: 0;
-    color: var(--warning);
-    font-size: 13px;
-  }
-  .page-area {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    place-items: center;
-    background: var(--surface-2);
-    border-radius: var(--radius);
-    padding: var(--space-3);
-  }
-  .page {
-    max-width: 100%;
-    max-height: 100%;
-    height: 100%;
-    box-shadow: var(--shadow);
-  }
-  .pager {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-    justify-content: center;
+    width: 56px;
   }
 </style>

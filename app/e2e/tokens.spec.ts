@@ -27,8 +27,8 @@ test('library asset opens in the cutter, edits re-render, update-or-new choice',
   await expect(page.getByRole('radio', { name: 'Roll20 grey' })).toHaveAttribute('aria-checked', 'true');
 
   // Opened from the library → saving asks update vs new.
-  await page.getByRole('button', { name: 'Save to library' }).click();
-  const choice = page.getByRole('group', { name: 'Save choice' });
+  await page.getByRole('button', { name: 'Save to library…' }).click();
+  const choice = page.getByRole('dialog', { name: 'Save token to library' });
   await expect(choice).toBeVisible();
   await choice.getByRole('button', { name: 'Update existing' }).click();
   await expect(page.getByText('“Owlbear” updated in the library')).toBeVisible();
@@ -59,7 +59,7 @@ test('drag pans and wheel zooms the preview', async ({ page }) => {
 
 test('cutter → sheet: copies, sizes, pages, cut border and clear', async ({ page }) => {
   await openInCutter(page, 'Goblin Boss');
-  await page.getByRole('button', { name: 'Add to token sheet' }).click();
+  await page.getByRole('button', { name: 'Add to sheet', exact: true }).click();
   await expect(page.getByText('added to the token sheet')).toBeVisible();
 
   await page.getByRole('tab', { name: 'Sheet' }).click();

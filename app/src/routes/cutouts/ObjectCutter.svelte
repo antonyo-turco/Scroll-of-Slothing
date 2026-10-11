@@ -6,6 +6,8 @@
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
+  import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import { SIZE_LABELS, type CutoutParams, type LassoMode, type SourceImage } from '../../lib/types';
 
   const DRAFT_KEY = 'cutouts.cutter';
@@ -308,7 +310,6 @@
   const params = () => $state.snapshot(d.params) as CutoutParams;
 
   async function saveLibrary(update: boolean) {
-    saveChoice = false;
     if (!canCut || !d.source) return;
     if (!d.name.trim()) return app.toast('error', 'Please enter a name first.');
     busy = true;
@@ -350,30 +351,32 @@
 
 <svelte:window onkeydown={onKey} onkeyup={onKey} />
 
-<div class="cutter">
-  <section class="work">
-    <div class="toolbar">
+<ViewActions>
+  <button class="btn" onclick={browse} title="Load an image from disk">Open image…</button>
+  <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
+  <button class="btn" disabled={!canCut} onclick={exportPng} title="Write the cut-out as a PNG file">Save PNG…</button>
+  <button class="btn" disabled={!canCut || busy} onclick={addToSheet} title="Put the cut-out on the object sheet">Add to sheet</button>
+  <button class="btn primary" disabled={!canCut || busy} onclick={() => (saveChoice = true)} title="Store the cut-out in the Library">Save to library…</button>
+</ViewActions>
+
+<div class="view">
+  <section class="work" aria-label="Cut-out">
+    <div class="view-toolbar">
       <div class="segmented" role="group" aria-label="Selection mode">
         <button aria-pressed={d.params.mode === 'polygon'} onclick={() => setMode('polygon')}>Polygon</button>
         <button aria-pressed={d.params.mode === 'freehand'} onclick={() => setMode('freehand')}>Freehand</button>
       </div>
+      <span class="toolbar-sep"></span>
       <button class="btn" disabled={!d.params.points.length} onclick={undoPoint} title="Ctrl+Z">Undo point</button>
       <button class="btn" disabled={!d.params.points.length} onclick={resetTrace} title="Esc">Reset</button>
       {#if d.params.mode === 'polygon' && !d.closed}
         <button class="btn" disabled={d.params.points.length < 3} onclick={closeShape} title="Enter, double-click or right-click">Close shape</button>
       {/if}
-      <div class="spacer"></div>
-      <button class="btn icon" aria-label="Zoom out" onclick={() => zoomCentre(1 / 1.25)}>−</button>
-      <span class="zoom muted">{Math.round(z * 100)}%</span>
-      <button class="btn icon" aria-label="Zoom in" onclick={() => zoomCentre(1.25)}>+</button>
-      <button class="btn" onclick={fit}>Fit</button>
-      <button class="btn" onclick={browse}>Choose file…</button>
-      <button class="btn" onclick={paste}>Paste</button>
     </div>
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="stage"
+      class="stage-area stage"
       class:pan={spaceDown || panning}
       class:closed={d.closed}
       bind:this={stage}
@@ -404,117 +407,81 @@
             {/if}
           </svg>
         </div>
+        <div class="canvas-controls" role="group" aria-label="Zoom" onpointerdown={(e) => e.stopPropagation()}>
+          <button class="btn icon" aria-label="Zoom out" onclick={() => zoomCentre(1 / 1.25)}>−</button>
+          <span class="zoom-readout">{Math.round(z * 100)}%</span>
+          <button class="btn icon" aria-label="Zoom in" onclick={() => zoomCentre(1.25)}>+</button>
+          <button class="btn" onclick={fit}>Fit</button>
+        </div>
       {:else}
-        <button class="drop" onclick={browse}>
+        <button class="drop-zone" onclick={browse}>
           <strong>Drop an image here</strong>
-          <span class="muted">or click to browse · Ctrl+V to paste</span>
+          <span class="muted">or click to browse · Ctrl+V to paste · or “Open in Object Cutter” from the Library</span>
         </button>
       {/if}
     </div>
-    <p class="hint muted">
-      {#if !d.source}
-        Load an image to start.
-      {:else if d.closed}
-        Shape closed: adjust the outline or save. Undo point re-opens it.
-      {:else if d.params.mode === 'polygon'}
-        Click to add points · double-click, right-click or Enter to close · {d.params.points.length} point{d.params.points.length === 1 ? '' : 's'}
-      {:else}
-        Drag around the object; release to close.
-      {/if}
-      · pinch or wheel zooms · two-finger scroll, middle-drag or Space+drag pans
-    </p>
+    <div class="statusbar">
+      <span>
+        {#if !d.source}
+          Load an image to start.
+        {:else if d.closed}
+          Shape closed: adjust the outline or save. Undo point re-opens it.
+        {:else if d.params.mode === 'polygon'}
+          Click to add points · double-click, right-click or Enter closes · {d.params.points.length} point{d.params.points.length === 1 ? '' : 's'}
+        {:else}
+          Drag around the object; release to close.
+        {/if}
+      </span>
+      <span class="spacer"></span>
+      {#if d.source}<span>Pinch or wheel zooms · two-finger scroll, middle-drag or Space+drag pans</span>{/if}
+    </div>
   </section>
 
   <aside class="inspector" aria-label="Cut-out settings">
-    <div class="result">
-      {#if resultUrl}
-        <img src={resultUrl} alt="Cut-out result" data-testid="cutout-result" />
-      {:else}
-        <p class="muted">{d.source ? 'Close the selection to see the cut-out.' : 'No image yet.'}</p>
-      {/if}
-      {#if rendering}<span class="badge muted">rendering…</span>{/if}
-    </div>
+    <section class="section">
+      <h3 class="section-title">Result</h3>
+      <div class="result">
+        {#if resultUrl}
+          <img src={resultUrl} alt="Cut-out result" data-testid="cutout-result" />
+        {:else}
+          <p class="note">{d.source ? 'Close the selection to see the cut-out.' : 'No image yet.'}</p>
+        {/if}
+        {#if rendering}<span class="badge">rendering…</span>{/if}
+      </div>
+    </section>
 
-    <div class="field">
-      <span class="label">Outline</span>
+    <section class="section">
+      <h3 class="section-title">Outline</h3>
       <div class="row">
         <input type="color" class="swatch" aria-label="Outline colour" value={outlineHex}
           oninput={(e) => (d.params.outline_rgb = [1, 3, 5].map((i) => parseInt(e.currentTarget.value.slice(i, i + 2), 16)) as [number, number, number])} />
-        <label class="grow">
-          <span class="visually-hidden">Outline thickness</span>
-          <input type="range" min="0" max="40" step="1" aria-label="Outline thickness" bind:value={d.params.outline_px} />
-        </label>
-        <span class="muted">{d.params.outline_px}px</span>
+        <input class="grow" type="range" min="0" max="40" step="1" aria-label="Outline thickness" bind:value={d.params.outline_px} />
+        <span class="note px">{d.params.outline_px}px</span>
       </div>
-    </div>
+    </section>
 
-    <div class="field">
-      <label for="cut-name">Name</label>
-      <input id="cut-name" class="input" bind:value={d.name} placeholder="e.g. Brazier" />
-    </div>
-    <div class="field">
-      <label for="cut-size">Size <span class="muted">(longest side)</span></label>
-      <select id="cut-size" class="input" bind:value={d.size}>
-        {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
-      </select>
-    </div>
-
-    <div class="actions">
-      {#if saveChoice}
-        <div class="choice card" role="group" aria-label="Save choice">
-          <p>This cut-out was opened from the library.</p>
-          <button class="btn primary" onclick={() => saveLibrary(true)}>Update existing</button>
-          <button class="btn" onclick={() => saveLibrary(false)}>Save as new</button>
-          <button class="btn ghost" onclick={() => (saveChoice = false)}>Cancel</button>
-        </div>
-      {:else}
-        <button class="btn primary" disabled={!canCut || busy} onclick={() => (d.asset_id !== null ? (saveChoice = true) : saveLibrary(false))}>
-          Save to library
-        </button>
-      {/if}
-      <button class="btn" disabled={!canCut || busy} onclick={addToSheet}>Add to object sheet</button>
-      <button class="btn" disabled={!canCut} onclick={exportPng}>Export PNG…</button>
-      {#if d.asset_id !== null}<p class="muted small">Editing library asset #{d.asset_id}</p>{/if}
-    </div>
+    <section class="section">
+      <h3 class="section-title">Cut-out</h3>
+      <div class="field">
+        <label for="cut-name">Name</label>
+        <input id="cut-name" class="input" bind:value={d.name} placeholder="e.g. Brazier" />
+      </div>
+      <div class="field">
+        <label for="cut-size">Size <span class="muted">(longest side)</span></label>
+        <select id="cut-size" class="input" bind:value={d.size}>
+          {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
+        </select>
+      </div>
+    </section>
+    {#if d.asset_id !== null}<p class="note asset">Editing library asset #{d.asset_id}</p>{/if}
   </aside>
 </div>
 
+<SaveAssetDialog bind:open={saveChoice} bind:name={d.name} kind="cut-out" existing={d.asset_id} onsave={(u) => void saveLibrary(u)} />
+
 <style>
-  .cutter {
-    display: grid;
-    grid-template-columns: 1fr var(--inspector-w);
-    height: 100%;
-    min-height: 0;
-  }
-  .work {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    padding: var(--space-3) var(--space-4);
-    gap: var(--space-2);
-  }
-  .toolbar,
-  .row {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .spacer {
-    flex: 1;
-  }
-  .zoom {
-    min-width: 44px;
-    text-align: center;
-    font-size: 12px;
-  }
   .stage {
-    position: relative;
-    flex: 1;
-    min-height: 0;
     overflow: hidden;
-    border-radius: var(--radius);
     background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 20px 20px;
     cursor: crosshair;
     touch-action: none;
@@ -554,36 +521,12 @@
   .vertex {
     fill: #ff3b3b;
   }
-  .drop {
-    position: absolute;
-    inset: var(--space-6);
-    display: grid;
-    place-content: center;
-    gap: 4px;
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    cursor: pointer;
-  }
-  .hint {
-    margin: 0;
-    font-size: 12px;
-  }
-  .inspector {
-    border-left: 1px solid var(--border);
-    background: var(--surface);
-    padding: var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    overflow-y: auto;
-  }
   .result {
     position: relative;
     aspect-ratio: 1;
     display: grid;
     place-items: center;
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
     text-align: center;
     padding: var(--space-2);
@@ -597,39 +540,15 @@
     bottom: 6px;
     right: 8px;
     font-size: 11px;
+    color: var(--text-muted);
   }
-  .swatch {
-    width: 40px;
-    height: 32px;
-    padding: 2px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
+  .px {
+    min-width: 36px;
+    text-align: right;
   }
-  .grow {
-    flex: 1;
-    display: flex;
-  }
-  .grow input {
-    width: 100%;
-    accent-color: var(--accent);
-  }
-  .actions {
-    display: grid;
-    gap: var(--space-2);
+  .asset {
     margin-top: auto;
-  }
-  .actions > .btn {
-    justify-content: center;
-  }
-  .choice {
-    padding: var(--space-3);
-    display: grid;
-    gap: var(--space-2);
-  }
-  .choice p,
-  .small {
-    margin: 0;
-    font-size: 13px;
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--border);
   }
 </style>

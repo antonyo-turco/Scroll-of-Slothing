@@ -18,7 +18,7 @@ async function clickAt(page: Page, fx: number, fy: number) {
 test('polygon trace: add points, undo, close with Enter, result renders, save', async ({ page }) => {
   await openInCutter(page, 'Brazier');
   await expect(page.getByLabel('Name')).toHaveValue('Brazier');
-  await expect(page.getByRole('button', { name: 'Save to library' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Save to library…' })).toBeDisabled();
 
   await clickAt(page, 0.3, 0.3);
   await clickAt(page, 0.7, 0.3);
@@ -39,8 +39,8 @@ test('polygon trace: add points, undo, close with Enter, result renders, save', 
   await expect(result).not.toHaveAttribute('src', before!);
 
   // Opened from the library → update-or-new choice.
-  await page.getByRole('button', { name: 'Save to library' }).click();
-  await page.getByRole('group', { name: 'Save choice' }).getByRole('button', { name: 'Update existing' }).click();
+  await page.getByRole('button', { name: 'Save to library…' }).click();
+  await page.getByRole('dialog', { name: 'Save cut-out to library' }).getByRole('button', { name: 'Update existing' }).click();
   await expect(page.getByText('“Brazier” updated in the library')).toBeVisible();
 
   // Re-opening restores the closed trace (Python lost it).
@@ -64,7 +64,7 @@ test('freehand drag closes on release; reset clears; zoom buttons', async ({ pag
   await page.getByRole('button', { name: 'Reset' }).click();
   await expect(page.getByTestId('cutout-result')).toHaveCount(0);
 
-  const zoom = page.locator('.zoom');
+  const zoom = page.locator('.zoom-readout');
   const z0 = Number((await zoom.textContent())!.replace('%', ''));
   await page.getByRole('button', { name: 'Zoom in' }).click();
   await expect
@@ -80,7 +80,7 @@ test('cutter → object sheet: scale, copies, standee mode, clear', async ({ pag
   await clickAt(page, 0.5, 0.7); // second click of a double-click is dropped on close
   await page.getByTestId('cutter-stage').dblclick({ position: { x: 5, y: 5 } }).catch(() => {});
   await page.keyboard.press('Enter');
-  await page.getByRole('button', { name: 'Add to object sheet' }).click();
+  await page.getByRole('button', { name: 'Add to sheet', exact: true }).click();
   await expect(page.getByText('added to the object sheet')).toBeVisible();
 
   await page.getByRole('tab', { name: 'Sheet' }).click();

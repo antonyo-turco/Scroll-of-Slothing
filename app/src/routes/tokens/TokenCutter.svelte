@@ -6,6 +6,8 @@
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
+  import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import { SIZE_LABELS, type Border, type SourceImage, type TokenParams } from '../../lib/types';
 
   const DRAFT_KEY = 'tokens.cutter';
@@ -230,7 +232,6 @@
   const params = () => $state.snapshot(d.params) as TokenParams;
 
   async function saveLibrary(update: boolean) {
-    saveChoice = false;
     if (!d.source) return;
     if (!d.name.trim()) return app.toast('error', 'Please enter a name first.');
     busy = true;
@@ -246,8 +247,7 @@
   }
 
   function onSaveClick() {
-    if (d.asset_id !== null) saveChoice = true;
-    else void saveLibrary(false);
+    if (d.source) saveChoice = true;
   }
 
   async function addToSheet() {
@@ -289,35 +289,18 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="cutter">
-  <section class="source" aria-label="Source image">
-    <h2>Source</h2>
-    {#if d.source}
-      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-      <img
-        bind:this={sourceImg}
-        class:pipette
-        src={blobUrl(d.source.hash)}
-        crossorigin="anonymous"
-        alt="Source"
-        onclick={pickColour}
-      />
-      <p class="muted small">{d.source.width} × {d.source.height}px{pipette ? ' · click to pick a colour' : ''}</p>
-    {:else}
-      <button class="drop" onclick={browse}>
-        <strong>Drop an image here</strong>
-        <span class="muted">or click to browse · Ctrl+V to paste</span>
-      </button>
-    {/if}
-    <div class="row">
-      <button class="btn" onclick={browse}>Choose file…</button>
-      <button class="btn" onclick={paste}>Paste</button>
-    </div>
-  </section>
+<ViewActions>
+  <button class="btn" onclick={browse} title="Load an image from disk">Open image…</button>
+  <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
+  <button class="btn" disabled={!d.source} onclick={savePng} title="Write the token as a PNG file">Save PNG…</button>
+  <button class="btn" disabled={!d.source || busy} onclick={addToSheet} title="Put the token on the token sheet">Add to sheet</button>
+  <button class="btn primary" disabled={!d.source || busy} onclick={onSaveClick} title="Store the token in the Library (Ctrl+S)">Save to library…</button>
+</ViewActions>
 
-  <section class="stage-wrap" aria-label="Token preview">
+<div class="view">
+  <section class="work" aria-label="Token preview">
     <div
-      class="stage"
+      class="stage-area stage"
       class:grabbing={drag !== null}
       bind:this={stage}
       use:wheel
@@ -330,19 +313,52 @@
     >
       {#if d.source && previewUrl}
         <img src={previewUrl} alt="Token preview" draggable="false" data-testid="token-preview" />
-      {:else}
-        <p class="muted">Load an image to start.</p>
+        <div class="canvas-controls" role="group" aria-label="Zoom" onpointerdown={(e) => e.stopPropagation()}>
+          <button class="btn icon" aria-label="Zoom out" onclick={() => setZoom(1 / 1.1)}>−</button>
+          <span class="zoom-readout">{Math.round(d.params.zoom * 100)}%</span>
+          <button class="btn icon" aria-label="Zoom in" onclick={() => setZoom(1.1)}>+</button>
+          <button class="btn" onclick={() => (d.params = { ...d.params, pan: [0, 0], zoom: 1 })}>Reset view</button>
+        </div>
+      {:else if !d.source}
+        <button class="drop-zone" onclick={browse} onpointerdown={(e) => e.stopPropagation()}>
+          <strong>Drop an image here</strong>
+          <span class="muted">or click to browse · Ctrl+V to paste · or “Open in Token Cutter” from the Library</span>
+        </button>
       {/if}
     </div>
-    <div class="stage-bar muted">
-      <span>Drag to pan · scroll to zoom · {Math.round(d.params.zoom * 100)}%{rendering ? ' · rendering…' : ''}</span>
-      <button class="btn ghost" disabled={!d.source} onclick={() => (d.params = { ...d.params, pan: [0, 0], zoom: 1 })}>Reset view</button>
+    <div class="statusbar">
+      {#if d.source}
+        <span>{d.source.width} × {d.source.height} px{rendering ? ' · rendering…' : ''}</span>
+        <span class="spacer"></span>
+        <span>Drag moves the image · pinch or wheel zooms</span>
+      {:else}
+        <span>Load an image to start.</span>
+      {/if}
     </div>
   </section>
 
   <aside class="inspector" aria-label="Token settings">
-    <div class="field">
-      <span class="label">Border</span>
+    <section class="section" aria-label="Source image">
+      <h3 class="section-title">Image</h3>
+      {#if d.source}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+        <img
+          bind:this={sourceImg}
+          class="source"
+          class:pipette
+          src={blobUrl(d.source.hash)}
+          crossorigin="anonymous"
+          alt="Source"
+          onclick={pickColour}
+        />
+        {#if pipette}<p class="note">Click the image to pick the background colour · Esc cancels.</p>{/if}
+      {:else}
+        <p class="note">No image yet. Drop one on the canvas, or use Open image… or Paste.</p>
+      {/if}
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">Border</h3>
       <div class="borders" role="radiogroup" aria-label="Border">
         {#each borders as b (b.id)}
           <button
@@ -358,10 +374,15 @@
         {/each}
         <button class="border add" title="Add border…" aria-label="Add border" onclick={addBorder}>+</button>
       </div>
-    </div>
+      <label class="range" for="ring">
+        <span>Ring thickness</span>
+        <input id="ring" type="range" min="0" max="50" step="1" bind:value={d.params.ring_inset_pct} />
+        <span>{Math.round(d.params.ring_inset_pct)}%</span>
+      </label>
+    </section>
 
-    <div class="field">
-      <span class="label">Background</span>
+    <section class="section">
+      <h3 class="section-title">Background</h3>
       <div class="row">
         <div class="segmented" role="group" aria-label="Background">
           <button aria-pressed={d.params.bg === null} onclick={() => (d.params.bg = null)}>None</button>
@@ -370,118 +391,41 @@
         {#if d.params.bg}
           <input type="color" class="swatch" aria-label="Background colour" value={bgHex} oninput={(e) => setBgHex(e.currentTarget.value)} />
         {/if}
-        <button class="btn" class:active={pipette} aria-pressed={pipette} disabled={!d.source} title="Pick a colour from the source image" onclick={() => (pipette = !pipette)}>
-          Pick
+        <button class="btn" aria-pressed={pipette} disabled={!d.source} title="Pick a colour from the source image" onclick={() => (pipette = !pipette)}>
+          Pick from image
         </button>
       </div>
-    </div>
+    </section>
 
-    <div class="field">
-      <label for="ring">Ring thickness <span class="muted">{Math.round(d.params.ring_inset_pct)}%</span></label>
-      <input id="ring" type="range" min="0" max="50" step="1" bind:value={d.params.ring_inset_pct} />
-    </div>
-
-    <div class="field">
-      <label for="token-name">Name</label>
-      <input id="token-name" class="input" bind:value={d.name} placeholder="e.g. Goblin Boss" />
-    </div>
-    <div class="field">
-      <label for="token-size">Size</label>
-      <select id="token-size" class="input" bind:value={d.size}>
-        {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
-      </select>
-    </div>
-
-    <div class="actions">
-      {#if saveChoice}
-        <div class="choice card" role="group" aria-label="Save choice">
-          <p>This token was opened from the library.</p>
-          <button class="btn primary" onclick={() => saveLibrary(true)}>Update existing</button>
-          <button class="btn" onclick={() => saveLibrary(false)}>Save as new</button>
-          <button class="btn ghost" onclick={() => (saveChoice = false)}>Cancel</button>
-        </div>
-      {:else}
-        <button class="btn primary" disabled={!d.source || busy} onclick={onSaveClick}>Save to library</button>
-      {/if}
-      <button class="btn" disabled={!d.source || busy} onclick={addToSheet}>Add to token sheet</button>
-      <button class="btn" disabled={!d.source} onclick={savePng}>Save PNG…</button>
-      {#if d.asset_id !== null}<p class="muted small">Editing library asset #{d.asset_id}</p>{/if}
-    </div>
+    <section class="section">
+      <h3 class="section-title">Token</h3>
+      <div class="field">
+        <label for="token-name">Name</label>
+        <input id="token-name" class="input" bind:value={d.name} placeholder="e.g. Goblin Boss" />
+      </div>
+      <div class="field">
+        <label for="token-size">Size</label>
+        <select id="token-size" class="input" bind:value={d.size}>
+          {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
+        </select>
+      </div>
+    </section>
+    {#if d.asset_id !== null}<p class="note asset">Editing library asset #{d.asset_id}</p>{/if}
   </aside>
 </div>
 
+<SaveAssetDialog bind:open={saveChoice} bind:name={d.name} kind="token" existing={d.asset_id} onsave={(u) => void saveLibrary(u)} />
+
 <style>
-  .cutter {
-    display: grid;
-    grid-template-columns: 260px 1fr var(--inspector-w);
-    height: 100%;
-    min-height: 0;
-  }
-  h2 {
-    font-size: 13px;
-    margin: 0;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .source {
-    padding: var(--space-4);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    overflow: auto;
-  }
-  .source img {
-    width: 100%;
-    border-radius: var(--radius-sm);
-    background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
-  }
-  .source img.pipette {
-    cursor: crosshair;
-    outline: 2px dashed var(--accent);
-  }
-  .drop {
-    display: grid;
-    gap: 4px;
-    place-items: center;
-    padding: var(--space-6) var(--space-3);
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    cursor: pointer;
-    text-align: center;
-  }
-  .drop:hover {
-    border-color: var(--accent);
-  }
-  .row {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .small {
-    font-size: 12px;
-    margin: 0;
-  }
-  .stage-wrap {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    padding: var(--space-4);
-    gap: var(--space-2);
-  }
   .stage {
-    flex: 1;
-    min-height: 0;
     display: grid;
     place-items: center;
-    border-radius: var(--radius);
+    padding: var(--space-4);
     background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 20px 20px;
     cursor: grab;
     touch-action: none;
     user-select: none;
+    container-type: size;
   }
   .stage.grabbing {
     cursor: grabbing;
@@ -493,23 +437,16 @@
     object-fit: contain;
     pointer-events: none;
   }
-  .stage {
-    container-type: size;
+  .source {
+    width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
   }
-  .stage-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
-  }
-  .inspector {
-    border-left: 1px solid var(--border);
-    background: var(--surface);
-    padding: var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    overflow-y: auto;
+  .source.pipette {
+    cursor: crosshair;
+    outline: 2px dashed var(--accent);
   }
   .borders {
     display: flex;
@@ -537,36 +474,9 @@
     font-size: 22px;
     color: var(--text-muted);
   }
-  .swatch {
-    width: 40px;
-    height: 32px;
-    padding: 2px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-  }
-  .btn.active {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-  }
-  input[type='range'] {
-    accent-color: var(--accent);
-  }
-  .actions {
-    display: grid;
-    gap: var(--space-2);
+  .asset {
     margin-top: auto;
-  }
-  .actions > .btn {
-    justify-content: center;
-  }
-  .choice {
-    padding: var(--space-3);
-    display: grid;
-    gap: var(--space-2);
-  }
-  .choice p {
-    margin: 0;
-    font-size: 13px;
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--border);
   }
 </style>
