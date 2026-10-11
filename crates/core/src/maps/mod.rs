@@ -2,6 +2,7 @@
 //! perspective de-warp, filters and true-scale page tiling.
 
 pub mod degrid;
+pub mod detect;
 pub mod filters;
 pub mod grid;
 pub mod homography;

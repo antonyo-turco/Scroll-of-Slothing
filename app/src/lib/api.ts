@@ -172,6 +172,10 @@ export const api = {
   mapUndoDewarp: (doc: MapDoc) => call<MapDoc>('map_undo_dewarp', { doc }),
   /** Orientation + page-grid shift with the fewest pages (clears exclusions). */
   mapFewestPages: (doc: MapDoc) => call<MapDoc>('map_fewest_pages', { doc }),
+  /** Detects the embedded grid and switches to cell-side sizing. */
+  mapDetectGrid: (doc: MapDoc) => call<MapDoc>('map_detect_grid', { doc }),
+  /** Print region = content inside uniform borders, snapped to grid lines. */
+  mapFitRegion: (doc: MapDoc) => call<MapDoc>('map_fit_region', { doc }),
   mapExportPdf: (doc: MapDoc, path: string) => call<string>('map_export_pdf', { doc, path }),
   mapSaveAsset: (doc: MapDoc, name: string, update?: number | null) =>
     call<string>('map_save_asset', { doc, name, update: update ?? null }),

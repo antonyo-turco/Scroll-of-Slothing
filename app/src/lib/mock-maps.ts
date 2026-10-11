@@ -377,6 +377,17 @@ export function createMapsMockHandlers(emit: Emit): Record<string, Handler> {
       doc = { ...m, pre_warp: m.source, source: { ...m.source!, hash: `mock-warp-${++seq}` }, side: Math.max(2, Math.round(cw)), ref_quad: null, region: null, excluded: [], page_offset: [0, 0] };
       return doc;
     },
+    // simplified: the mock maps carry a 70 px grid and a 5 % border
+    map_detect_grid: ({ doc: d }) =>
+      (doc = { ...(d as MapDoc), mode: 'cell_side', side: 70, offset_x: 0, offset_y: 0, excluded: [] }),
+    map_fit_region: ({ doc: d }) => {
+      const cur = d as MapDoc;
+      const [w, h] = cur.source ? [cur.source.width, cur.source.height] : [0, 0];
+      const c = cur.side || 70;
+      const x0 = Math.round((w * 0.05) / c) * c, y0 = Math.round((h * 0.05) / c) * c;
+      const x1 = Math.round((w * 0.95) / c) * c, y1 = Math.round((h * 0.95) / c) * c;
+      return (doc = { ...cur, region: [x0, y0, x1 - x0, y1 - y0], excluded: [] });
+    },
     map_fewest_pages: ({ doc: d }) => {
       const cur = d as MapDoc;
       const f = mockMapLayout(cur).fewest;

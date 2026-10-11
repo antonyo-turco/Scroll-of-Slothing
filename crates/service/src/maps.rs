@@ -12,11 +12,11 @@ use std::sync::{Arc, Mutex};
 use image::RgbImage;
 use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
-use sleuth_core::maps::degrid;
 use sleuth_core::maps::filters::{self, FilterStep};
 use sleuth_core::maps::grid::{self, DEFAULT_DPI, GridModel, GridStyle};
 use sleuth_core::maps::homography::{self, Pt};
 use sleuth_core::maps::tiling::{self, FewestPages, FitCheck, Tile, TileParams};
+use sleuth_core::maps::{degrid, detect};
 use sleuth_core::units::{PT_PER_INCH, PageFormat};
 use sleuth_pdf::{CutLine, PdfError};
 use sleuth_store::{AssetImages, AssetPatch, NewAsset, Store};
@@ -236,6 +236,9 @@ impl MapDoc {
         self.source.as_ref().ok_or_else(|| ServiceError::InvalidInput("load a map first".into()))
     }
 }
+
+/// Colour tolerance for "uniform" border lines (JPEG speckle, paper tone).
+const CONTENT_TOLERANCE: u8 = 24;
 
 fn finite(v: f64) -> f64 {
     if v.is_finite() { v } else { 0.0 }
@@ -636,6 +639,88 @@ impl Service {
         .await
     }
 
+    /// Detects the map's embedded grid (on the working proxy) and switches to
+    /// cell-side sizing with the detected square size and line offset, scaled
+    /// to full resolution. Squares are square, so the two axes are averaged.
+    /// Fails with a readable message when no regular grid stands out.
+    pub async fn map_detect_grid(&self, doc: MapDoc) -> Result<MapDoc> {
+        let svc = self.clone();
+        let doc = self
+            .blocking(move |s| {
+                let src = doc.require_source()?.clone();
+                let proxy = svc.proxy(s, &src)?;
+                let g = detect::detect_grid(&proxy).ok_or_else(|| {
+                    ServiceError::InvalidInput(
+                        "no regular grid found in this map — set the square size by hand (Reference square or Cell side)"
+                            .into(),
+                    )
+                })?;
+                let kx = f64::from(src.width) / f64::from(proxy.width().max(1));
+                let ky = f64::from(src.height) / f64::from(proxy.height().max(1));
+                let side = (g.cell_w * kx + g.cell_h * ky) / 2.0;
+                Ok(MapDoc {
+                    mode: SizingMode::CellSide,
+                    side: (side * 100.0).round() / 100.0,
+                    // cell-side sizing has no offset of its own
+                    offset_x: ((g.offset_x * kx).rem_euclid(side) * 10.0).round() / 10.0,
+                    offset_y: ((g.offset_y * ky).rem_euclid(side) * 10.0).round() / 10.0,
+                    excluded: Vec::new(),
+                    ..doc
+                })
+            })
+            .await?;
+        self.map_set(doc).await
+    }
+
+    /// Sets the print region to the map's content: uniform borders (scanner
+    /// bars, blank paper) are trimmed, then each edge snaps to the nearest grid
+    /// line, so the region holds whole squares (artwork overhanging a line by
+    /// under half a square is cut, as a hand-drawn region would). A region
+    /// covering the whole image becomes "whole map". Clears page selections.
+    pub async fn map_fit_region(&self, doc: MapDoc) -> Result<MapDoc> {
+        let svc = self.clone();
+        let doc = self
+            .blocking(move |s| {
+                let src = doc.require_source()?.clone();
+                let proxy = svc.proxy(s, &src)?;
+                let (w, h) = (f64::from(src.width), f64::from(src.height));
+                let kx = w / f64::from(proxy.width().max(1));
+                let ky = h / f64::from(proxy.height().max(1));
+                let (x0, y0, x1, y1) = match detect::content_bounds(&proxy, CONTENT_TOLERANCE) {
+                    Some((a, b, c, d)) => {
+                        (f64::from(a) * kx, f64::from(b) * ky, f64::from(c) * kx, f64::from(d) * ky)
+                    }
+                    None => (0.0, 0.0, w, h),
+                };
+                let g = doc.grid();
+                let snap = |v: f64, o: f64, c: f64, max: f64| {
+                    if c <= 0.0 {
+                        return v;
+                    }
+                    (o + ((v - o) / c).round_ties_even() * c).clamp(0.0, max)
+                };
+                let (mut sx0, mut sx1) =
+                    (snap(x0, g.offset_x, g.cell_w, w), snap(x1, g.offset_x, g.cell_w, w));
+                let (mut sy0, mut sy1) =
+                    (snap(y0, g.offset_y, g.cell_h, h), snap(y1, g.offset_y, g.cell_h, h));
+                // content narrower than a square: keep the raw bounds
+                if sx1 - sx0 < g.cell_w {
+                    (sx0, sx1) = (x0, x1);
+                }
+                if sy1 - sy0 < g.cell_h {
+                    (sy0, sy1) = (y0, y1);
+                }
+                let whole = sx0 <= 0.5 && sy0 <= 0.5 && sx1 >= w - 0.5 && sy1 >= h - 0.5;
+                Ok(MapDoc {
+                    region: (!whole).then_some((sx0, sy0, sx1 - sx0, sy1 - sy0)),
+                    excluded: Vec::new(),
+                    ..doc
+                })
+            })
+            .await?;
+        self.map_set(doc).await
+    }
+
     /// Switches to the orientation and page-grid shift that print the region
     /// on the fewest pages. Page selections refer to the old pages, so they
     /// are cleared. Unchanged when the layout is already the smallest.
@@ -896,6 +981,54 @@ mod tests {
         let page = svc.map_preview_page(doc.clone(), 1, 0.5).await.unwrap();
         assert!(imaging::dimensions(&page).is_some());
         assert!(svc.map_preview_page(doc, 5, 0.5).await.is_err());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn detect_grid_and_fit_region_to_the_content() {
+        let (d, svc) = temp_service();
+        // 40.31 px squares (lines from x = 5.94), grey bars 45 px wide each side
+        let (cell, ox, oy) = (40.31, 5.94, 0.95);
+        let img = RgbImage::from_fn(1058, 889, |x, y| {
+            if !(45..1013).contains(&x) {
+                return image::Rgb([128, 128, 128]);
+            }
+            let on = |v: f64, o: f64| (v - o).rem_euclid(cell) < 2.0;
+            if on(f64::from(x), ox) || on(f64::from(y), oy) {
+                image::Rgb([60, 60, 60])
+            } else {
+                let b = ((f64::from(x) / 37.0).sin() * (f64::from(y) / 53.0).cos() * 30.0) as i32;
+                image::Rgb([(200 + b) as u8, (190 + b) as u8, 150])
+            }
+        });
+        let p = d.path().join("Lab.png");
+        img.save(&p).unwrap();
+        let doc = svc.map_open_file(p).await.unwrap();
+
+        let g = svc.map_detect_grid(doc).await.unwrap();
+        assert_eq!(g.mode, SizingMode::CellSide);
+        assert!((g.side - cell).abs() < 0.1, "{}", g.side);
+        let grid = g.grid();
+        // the line centre is at the offset + 1 px (2 px thick lines)
+        let d_off = |a: f64, b: f64| ((a - b).rem_euclid(cell)).min((b - a).rem_euclid(cell));
+        assert!(d_off(grid.offset_x, ox + 1.0) < 1.0, "{}", grid.offset_x);
+        assert!(d_off(grid.offset_y, oy + 1.0) < 1.0, "{}", grid.offset_y);
+        assert_eq!(svc.map_get().await.unwrap().unwrap(), g, "autosaved");
+
+        let f = svc.map_fit_region(g).await.unwrap();
+        let (rx, ry, rw, rh) = f.region.expect("bars trimmed");
+        // the bars end at 45 / 1013 and snap to the nearest lines (~46.9 / ~1014.3)
+        assert!((rx - 46.9).abs() < 1.5 && (rx + rw - 1014.3).abs() < 1.5, "{rx} {rw}");
+        assert!(
+            (rw / f.grid().cell_w - 24.0).abs() < 0.05,
+            "whole squares: {}",
+            rw / f.grid().cell_w
+        );
+        assert!(ry <= 3.0 && (ry + rh) >= 880.0, "{ry} {rh}");
+        // a map with no grid says so
+        let plain = d.path().join("Plain.png");
+        RgbImage::from_pixel(300, 200, image::Rgb([90, 120, 60])).save(&plain).unwrap();
+        let doc = svc.map_open_file(plain).await.unwrap();
+        assert!(matches!(svc.map_detect_grid(doc).await, Err(ServiceError::InvalidInput(_))));
     }
 
     #[tokio::test(flavor = "multi_thread")]

@@ -68,6 +68,30 @@ See `map-filters.md`.
 
 **Export composite order**: remove grid (if chosen) → filters → grid overlay.
 
+## Automatic detection (new; `core::maps::detect`)
+Both run on the working proxy (≤ 2048 px, 30–300 ms) and are buttons, never automatic.
+
+**⌗ Detect grid** (Grid section, `map_detect_grid`) switches to Cell side with the detected square size and line offset.
+- Each axis becomes an edge profile: the summed brightness steps per column or row, high-passed so only sharp peaks remain.
+- That profile is probed at every candidate period with one Fourier term. A comb of lines scores high at its period P and its harmonics P/2, P/3, but near zero at 2P, so the largest period scoring within 80 % of the best is taken.
+- Each line is then located, and a straight-line fit gives a sub-pixel period and offset.
+- Rejected as not a grid:
+  - periods under 12 px or under 1/80 of the image (JPEG's 8 px blocks, fine texture);
+  - a best score under 4× the median;
+  - edge energy on the lines under 2.5× the energy between them;
+  - lines missing at more than 40 % of the predicted positions, or unevenly spaced.
+- Texture fixes:
+  - Strong texture can outscore a grid a few times its size, so the multiples 2P–4P compete on line contrast.
+  - When a reading implies more than 60 squares across, the stronger of k interleaved line sets is taken as the grid. This handles grid lines drawn on stone blocks a third of a square wide.
+  - When the two axes differ by 2× or 3× (running-bond floor tiles), the larger period is used for both.
+- Squares are square, so the axes are averaged.
+- Checked against the user's 20 library maps on 2026-10-11. The grid maps read 18.5–80 px, and the 150 px floor tiles of a gridless map were also picked up. "dwarven mine entrance 32x48" reads exactly 32 × 48 squares, and the hand-measured laboratory map (40.31 × 40.09) reads 40.2. Maps with no visible grid report "no grid".
+
+**Fit to map** (Pages section, `map_fit_region`) sets the print region to the content.
+- Each side is trimmed while its outermost line is one colour (≥ 98 % of pixels within 24 levels of the line's median): scanner bars, blank paper, an edge grid line.
+- Each edge then snaps to the **nearest** grid line, so the region holds whole squares. Artwork overhanging a line by less than half a square is cut, as a hand-drawn region would be. On the laboratory map this reproduces the user's own 24 × 22-square region.
+- A region covering the whole image becomes "whole map". Page exclusions are cleared.
+
 ## Print settings
 Defaults come from Settings.
 
@@ -176,6 +200,7 @@ Defaults come from Settings.
 - Export and Save as Asset are cancellable background jobs; PDF images are embedded from raw pixels (no temp files).
 - DPI detection reads PNG `pHYs`, JPEG JFIF and BMP headers directly.
 - A page must hold at least 1 px of the print region. Python counted pages that merely touched the region's edge, so a region of exactly 24 squares on 8-square pages, starting on a page boundary, could come out as 5 columns instead of 3 through float rounding. The PDF already skipped those blank pages, but the count, the numbering and the fewest-pages suggestion did not. The golden tiling fixture is unaffected.
+- Grid detection and fit-to-map are new (Python had neither).
 - Landscape pages and the fewest-pages suggestion are new (Python printed portrait only, from the region's corner).
 - Cut lines extend through the margin to the paper edge instead of only outlining the image (Python drew a rectangle), so the white margin of a printer without borderless printing can be trimmed with a ruler or trimmer. The page preview shows them, and a hint asks for a margin of at least 0.2 in.
 

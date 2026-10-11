@@ -878,6 +878,22 @@ impl SleuthServer {
     }
 
     #[tool(
+        description = "Detect the current map's embedded grid and set the square size (cell-side mode) and line offset from it. Errors when no regular grid stands out; then set the size with map_set_grid."
+    )]
+    async fn map_detect_grid(&self) -> ToolResult {
+        let r = async { self.svc.map_detect_grid(self.current_map().await?).await };
+        done(r.await)
+    }
+
+    #[tool(
+        description = "Set the print region to the map's content: trims uniform borders (scanner bars, blank paper) and snaps each edge to the nearest grid line. Run map_detect_grid first if the grid is not set. Clears page exclusions."
+    )]
+    async fn map_fit_region(&self) -> ToolResult {
+        let r = async { self.svc.map_fit_region(self.current_map().await?).await };
+        done(r.await)
+    }
+
+    #[tool(
         description = "Switch the current map to the orientation and page-grid shift that print it on the fewest pages (clears page exclusions). Returns the map; map_layout's `fewest` shows the saving first."
     )]
     async fn map_fewest_pages(&self) -> ToolResult {

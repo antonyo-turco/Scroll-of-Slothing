@@ -533,6 +533,16 @@ pub async fn map_dewarp(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
 }
 
 #[tauri::command]
+pub async fn map_detect_grid(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
+    svc.map_detect_grid(doc).await
+}
+
+#[tauri::command]
+pub async fn map_fit_region(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
+    svc.map_fit_region(doc).await
+}
+
+#[tauri::command]
 pub async fn map_fewest_pages(svc: Svc<'_>, doc: MapDoc) -> Res<MapDoc> {
     svc.map_fewest_pages(doc).await
 }

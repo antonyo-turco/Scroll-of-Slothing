@@ -109,3 +109,14 @@ test('touchpad gestures: pinch zooms gently, two-finger scroll pans, a wheel not
   await page.mouse.wheel(0, -100);
   await expect.poll(zoom).toBeGreaterThan(z1);
 });
+
+test('detect grid and fit the print area to the map', async ({ page }) => {
+  await openMap(page);
+  const inspector = page.getByRole('complementary', { name: 'Map settings' });
+  await inspector.getByRole('button', { name: '⌗ Detect grid' }).click();
+  await expect(page.getByText('Grid detected · 1 square = 70 px')).toBeVisible();
+  await expect(inspector.getByRole('group', { name: 'Sizing mode' }).getByRole('button', { name: 'Cell side' })).toHaveAttribute('aria-pressed', 'true');
+  await inspector.getByRole('button', { name: 'Fit to map' }).click();
+  await expect(page.getByText(/Print area fitted · \d+×\d+ squares/)).toBeVisible();
+  await expect(inspector.getByRole('button', { name: 'Whole map' })).toBeEnabled();
+});

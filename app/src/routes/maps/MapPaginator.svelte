@@ -444,6 +444,39 @@
   }
 
   // ── actions ──
+  /** Detects the embedded grid and adopts its square size and offset. */
+  async function detectGrid() {
+    if (!doc) return;
+    busy = true;
+    try {
+      const d = await api.mapDetectGrid(snap());
+      doc = d;
+      app.toast('success', `Grid detected · 1 square = ${d.side} px`);
+    } catch (e) {
+      app.error('Grid not detected', e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** Print region = content inside uniform borders, snapped to grid lines. */
+  async function fitRegion() {
+    if (!doc) return;
+    busy = true;
+    try {
+      const before = JSON.stringify(doc.region);
+      const d = await api.mapFitRegion(snap());
+      doc = d;
+      if (JSON.stringify(d.region) === before) app.toast('info', 'The print area already fits the map');
+      else if (!d.region) app.toast('success', 'The map fills the image · whole map');
+      else app.toast('success', `Print area fitted · ${Math.round(d.region[2] / (layout?.grid.cell_w || 1))}×${Math.round(d.region[3] / (layout?.grid.cell_h || 1))} squares`);
+    } catch (e) {
+      app.error('Could not fit the print area', e);
+    } finally {
+      busy = false;
+    }
+  }
+
   /** Applies the orientation and page shift with the fewest pages. */
   async function fewestPages() {
     if (!doc || !layout?.fewest) return;
@@ -668,6 +701,7 @@
 
       <details open>
         <summary>Grid</summary>
+        <button class="btn" disabled={busy} onclick={detectGrid} title="Find the grid drawn in the map and set the square size and line offset from it">⌗ Detect grid</button>
         <div class="segmented modes" role="group" aria-label="Sizing mode">
           {#each MODES as [m, label] (m)}
             <button aria-pressed={doc.mode === m} onclick={() => (doc!.mode = m)}>{label}</button>
@@ -763,6 +797,7 @@
       <details open>
         <summary>Pages</summary>
         <div class="row">
+          <button class="btn" disabled={busy} onclick={fitRegion} title="Trim blank or solid borders and snap the print area to whole squares">Fit to map</button>
           <button class="btn" onclick={() => doc && ((doc.region = null), (doc.excluded = []))} disabled={!doc.region}>Whole map</button>
           <button class="btn" onclick={() => doc && (doc.excluded = [])} disabled={!doc.excluded.length}>Include all</button>
           <button class="btn" onclick={() => doc && (doc.page_offset = [0, 0])} disabled={!doc.page_offset[0] && !doc.page_offset[1]}>Reset layout</button>
