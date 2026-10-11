@@ -61,6 +61,7 @@
   .palette {
     border-color: var(--border);
     flex: none;
+    order: 2;
   }
   kbd {
     margin-left: var(--space-2);

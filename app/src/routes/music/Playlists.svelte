@@ -95,7 +95,13 @@
   }
 </script>
 
-<div class="view">
+<div class="pane">
+  <div class="view-toolbar">
+    <span class="label">Tracks played one after another, on their own channel.</span>
+    <div class="spacer"></div>
+    <button class="btn primary" onclick={() => openEditor(null)}>+ New Playlist</button>
+  </div>
+  <div class="pane-body">
   {#if pb}
     <div class="now card" aria-label="Now playing">
       <PlayIndicator status={musicUi.statusFor('playlist', !pb.paused)} size={18} />
@@ -109,9 +115,6 @@
       <button class="btn" aria-label="Stop playlist" onclick={() => control('stop')}>⏹</button>
     </div>
   {/if}
-  <div class="bar">
-    <button class="btn primary" onclick={() => openEditor(null)}>+ New Playlist</button>
-  </div>
   {#each list as p (p.id)}
     <div class="card pl">
       <div class="head">
@@ -134,8 +137,12 @@
       {/if}
     </div>
   {:else}
-    <p class="muted">No playlists yet.</p>
+    <div class="empty-state">
+      <strong>No playlists yet</strong>
+      <span>Create one with + New Playlist and pick tracks from the library.</span>
+    </div>
   {/each}
+  </div>
 </div>
 
 <Modal title={edId ? 'Edit playlist' : 'New playlist'} bind:open={edOpen} width={700}>
@@ -169,7 +176,16 @@
 </Modal>
 
 <style>
-  .view {
+  .pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .pane-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
     padding: var(--space-3) var(--space-4);
     display: grid;
     gap: var(--space-2);
@@ -185,11 +201,6 @@
   .info {
     flex: 1;
     display: grid;
-  }
-  .bar {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
   }
   .pl {
     padding: var(--space-2) var(--space-3);

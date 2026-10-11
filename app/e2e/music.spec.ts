@@ -15,7 +15,7 @@ test('library filters by text and tag', async ({ page }) => {
   await page.getByLabel('Search tracks').fill('drum');
   await expect(page.getByRole('row')).toHaveCount(2);
   await page.getByLabel('Search tracks').fill('');
-  await page.getByRole('checkbox', { name: 'sfx' }).check();
+  await page.getByRole('group', { name: 'Tag filter' }).getByRole('button', { name: 'sfx' }).click();
   await expect(page.getByRole('row', { name: /Thunder Clap/ })).toBeVisible();
   await expect(page.getByRole('row')).toHaveCount(2);
 });

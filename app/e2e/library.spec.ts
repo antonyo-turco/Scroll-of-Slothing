@@ -30,11 +30,12 @@ test('inspector edits name and tags', async ({ page }) => {
   await inspector.getByLabel('Add tag').press('Enter');
   await expect(inspector.getByText('forest')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Owlbear Matriarch (Token)' })).toBeVisible();
-  // First Escape leaves the text field, second closes the inspector.
+  // First Escape leaves the text field, second deselects (the panel stays, empty).
   await page.keyboard.press('Escape');
   await expect(inspector).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(inspector).toBeHidden();
+  await expect(inspector.getByLabel('Name')).toBeHidden();
+  await expect(inspector).toContainText('No asset selected');
 });
 
 test('bulk select, pin and delete with confirmation', async ({ page }) => {

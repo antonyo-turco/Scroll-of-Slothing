@@ -4,7 +4,16 @@
   // Usage: <ViewActions>…buttons…</ViewActions> or <ViewActions slot="nav">.
   import type { Snippet } from 'svelte';
 
-  let { children, slot = 'actions' }: { children: Snippet; slot?: 'actions' | 'nav' } = $props();
+  let {
+    children,
+    slot = 'actions',
+    end = false,
+  }: {
+    children: Snippet;
+    slot?: 'actions' | 'nav';
+    /** keep after any other view's actions (e.g. Music's Stop button after a sub-view's) */
+    end?: boolean;
+  } = $props();
 
   function teleport(node: HTMLElement, id: string) {
     document.getElementById(id)?.appendChild(node);
@@ -12,7 +21,7 @@
   }
 </script>
 
-<div class="view-{slot}" use:teleport={`topbar-${slot}`}>{@render children()}</div>
+<div class="view-{slot}" class:end use:teleport={`topbar-${slot}`}>{@render children()}</div>
 
 <style>
   div {
@@ -20,5 +29,8 @@
     align-items: center;
     gap: var(--space-2);
     min-width: 0;
+  }
+  .end {
+    order: 1;
   }
 </style>

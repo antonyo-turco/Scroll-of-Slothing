@@ -95,116 +95,106 @@
 </script>
 
 <aside class="inspector" aria-label="Asset details">
-  <header>
-    <span class="muted kind">{KIND_LABELS[asset.kind as AssetKind] ?? asset.kind}</span>
-    <button class="btn ghost icon" aria-label="Close details" onclick={() => (lib.activeId = null)}><Icon name="x" /></button>
-  </header>
-
-  <div class="preview">
-    <img src={blobUrl(asset.preview_blob ?? asset.rendered_blob)} alt={asset.name} />
-  </div>
-
-  <div class="field">
-    <label for="asset-name">Name</label>
-    <input id="asset-name" class="input" bind:value={name} onblur={saveMeta} onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
-  </div>
-
-  {#if asset.kind !== 'map'}
-    <div class="field">
-      <label for="asset-size">Print size</label>
-      <select
-        id="asset-size"
-        class="input"
-        value={asset.size_label}
-        onchange={async (e) => {
-          const a = await run('Could not save', () => api.libraryUpdate(asset.id, { size_label: e.currentTarget.value }));
-          if (a) lib.patchItem(a);
-        }}
-      >
-        {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
-      </select>
+  <section class="section">
+    <header>
+      <h3 class="section-title">{KIND_LABELS[asset.kind as AssetKind] ?? asset.kind}</h3>
+      <button class="btn ghost icon" aria-label="Close details" onclick={() => (lib.activeId = null)}><Icon name="x" /></button>
+    </header>
+    <div class="preview">
+      <img src={blobUrl(asset.preview_blob ?? asset.rendered_blob)} alt={asset.name} />
     </div>
-  {/if}
-
-  <div class="field">
-    <label for="asset-aliases">Aliases <span class="muted">(one per line)</span></label>
-    <textarea id="asset-aliases" class="input area" rows="2" bind:value={aliases} onblur={saveMeta}></textarea>
-  </div>
-
-  <div class="field">
-    <span class="label">Tags</span>
-    <div class="chips">
-      {#each asset.tags as t (t)}
-        <span class="chip">{t}<button aria-label="Remove tag {t}" onclick={() => setTags(asset.tags.filter((x) => x !== t))}>×</button></span>
-      {/each}
-      <input
-        class="chip-input"
-        placeholder="Add tag…"
-        aria-label="Add tag"
-        list="tag-suggestions"
-        bind:value={tagInput}
-        onkeydown={(e) => (e.key === 'Enter' || e.key === ',') && (e.preventDefault(), addTag())}
-        onblur={addTag}
-      />
-      <datalist id="tag-suggestions">
-        {#each lib.allTags as t (t.id)}<option value={t.name}></option>{/each}
-      </datalist>
-    </div>
-  </div>
-
-  <div class="actions">
-    <button class="btn primary" onclick={openEditor} title={editorView ? `Available in phase ${editorView.phase}` : ''}>
+    <button class="btn primary block" onclick={openEditor} title={editorView ? `Available in phase ${editorView.phase}` : ''}>
       Open in {asset.kind === 'map' ? 'Map Paginator' : asset.kind === 'cutout' ? 'Object Cutter' : 'Token Cutter'}
     </button>
     {#if asset.kind === 'token' || asset.kind === 'cutout'}
-      <button class="btn" onclick={addToSheet}>Add to {asset.kind === 'token' ? 'token' : 'object'} sheet</button>
+      <button class="btn block" onclick={addToSheet}>Add to {asset.kind === 'token' ? 'token' : 'object'} sheet</button>
     {/if}
-    <div class="row">
+  </section>
+
+  <section class="section">
+    <h3 class="section-title">Details</h3>
+    <div class="field">
+      <label for="asset-name">Name</label>
+      <input id="asset-name" class="input" bind:value={name} onblur={saveMeta} onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
+    </div>
+
+    {#if asset.kind !== 'map'}
+      <div class="field">
+        <label for="asset-size">Print size</label>
+        <select
+          id="asset-size"
+          class="input"
+          value={asset.size_label}
+          onchange={async (e) => {
+            const a = await run('Could not save', () => api.libraryUpdate(asset.id, { size_label: e.currentTarget.value }));
+            if (a) lib.patchItem(a);
+          }}
+        >
+          {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
+        </select>
+      </div>
+    {/if}
+
+    <div class="field">
+      <label for="asset-aliases">Aliases <span class="muted">(one per line)</span></label>
+      <textarea id="asset-aliases" class="input area" rows="2" bind:value={aliases} onblur={saveMeta}></textarea>
+    </div>
+
+    <div class="field">
+      <span class="label">Tags</span>
+      <div class="chips">
+        {#each asset.tags as t (t)}
+          <span class="chip">{t}<button aria-label="Remove tag {t}" onclick={() => setTags(asset.tags.filter((x) => x !== t))}>×</button></span>
+        {/each}
+        <input
+          class="chip-input"
+          placeholder="Add tag…"
+          aria-label="Add tag"
+          list="tag-suggestions"
+          bind:value={tagInput}
+          onkeydown={(e) => (e.key === 'Enter' || e.key === ',') && (e.preventDefault(), addTag())}
+          onblur={addTag}
+        />
+        <datalist id="tag-suggestions">
+          {#each lib.allTags as t (t.id)}<option value={t.name}></option>{/each}
+        </datalist>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h3 class="section-title">Export</h3>
+    <div class="pair">
       <button class="btn" onclick={() => exportFile('rendered')}>Save image…</button>
       <button class="btn" onclick={() => exportFile('original')}>Save original…</button>
-    </div>
-    <div class="row">
       {#if asset.pdf_blob}<button class="btn" onclick={() => exportFile('pdf')}>Save PDF…</button>{/if}
       <button class="btn" onclick={copy}>Copy image</button>
     </div>
+  </section>
+
+  <div class="inspector-footer">
     {#if confirmDelete}
-      <div class="row confirm">
-        <span>Delete permanently?</span>
-        <button class="btn danger" onclick={remove}>Delete</button>
+      <span class="note">Delete permanently?</span>
+      <div class="pair">
         <button class="btn" onclick={() => (confirmDelete = false)}>Cancel</button>
+        <button class="btn danger" onclick={remove}>Delete</button>
       </div>
     {:else}
       <button class="btn ghost danger" onclick={() => (confirmDelete = true)}>Delete asset…</button>
     {/if}
+    <p class="note">Added {asset.created.slice(0, 10)}{asset.legacy_id ? ' · imported from Orb' : ''}</p>
   </div>
-  <p class="muted small">Added {asset.created.slice(0, 10)}{asset.legacy_id ? ' · imported from Orb' : ''}</p>
 </aside>
 
 <style>
-  .inspector {
-    width: var(--inspector-w);
-    flex: none;
-    height: 100%;
-    overflow-y: auto;
-    border-left: 1px solid var(--border);
-    background: var(--surface);
-    padding: var(--space-3) var(--space-4) var(--space-6);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
   header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-  }
-  .kind {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    margin: -4px 0;
   }
   .preview {
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
     display: grid;
     place-items: center;
@@ -215,6 +205,9 @@
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+  }
+  .field {
+    font-size: 12px;
   }
   .area {
     min-height: 52px;
@@ -255,28 +248,7 @@
   .chip-input:focus {
     outline: none;
   }
-  .actions {
-    display: grid;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
-  }
-  .row {
-    display: flex;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-  }
-  .row .btn {
-    flex: 1;
+  .pair .btn {
     justify-content: center;
-  }
-  .actions > .btn {
-    justify-content: center;
-  }
-  .confirm {
-    align-items: center;
-  }
-  .small {
-    font-size: 12px;
-    margin: 0;
   }
 </style>

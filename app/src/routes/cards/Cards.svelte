@@ -6,6 +6,7 @@
   import Modal from '../../lib/components/Modal.svelte';
   import { registerCardFonts } from '../../lib/fonts';
   import { app } from '../../lib/state.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import type { CardOptions, CardTemplates, DeckLayout, DeckSummary, Flip, PageFormat } from '../../lib/types';
   import CardPage from './CardPage.svelte';
 
@@ -177,27 +178,23 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="cards">
-  <section class="edit" aria-label="Deck editor">
-    <div class="bar">
-      <span class="muted small">Insert:</span>
+<ViewActions>
+  <button class="btn" onclick={loadFile} title="Load a deck from a Markdown file">Open .md…</button>
+  <button class="btn" onclick={saveFile} title="Write the deck to a Markdown file">Save as .md…</button>
+  <button class="btn" onclick={() => (saveOpen = true)} title="Store the deck in the app (Ctrl+S)">Save deck…</button>
+  <button class="btn primary" disabled={!layout?.cards} onclick={exportPdf} title="Ctrl+E">Export PDF</button>
+</ViewActions>
+
+<div class="view split">
+  <section class="work edit" aria-label="Deck editor">
+    <div class="view-toolbar">
+      <span class="label">Insert</span>
       {#each TEMPLATE_ORDER.filter((t) => templates?.templates[t]) as t (t)}
         <button class="btn" onclick={() => insertTemplate(t)}>{t}</button>
       {/each}
       <div class="spacer"></div>
-      <button class="btn icon" aria-label="Format reference" title="Format reference" onclick={() => (refOpen = true)}>?</button>
-    </div>
-    <textarea
-      bind:this={editor}
-      bind:value={s.markdown}
-      class="md"
-      spellcheck="false"
-      aria-label="Deck markdown"
-      placeholder={'# Fireball\n**Type:** Spell\n**Level:** 3rd-level\n\nA bright streak flashes…\n\n---\n\n# Next card…'}
-    ></textarea>
-    <div class="bar">
       <select
-        class="input"
+        class="input decks"
         aria-label="Saved decks"
         value=""
         onchange={(e) => {
@@ -209,21 +206,29 @@
         <option value="">Saved decks…</option>
         {#each decks as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
       </select>
-      <button class="btn" onclick={() => (saveOpen = true)} title="Ctrl+S">Save deck…</button>
-      <div class="spacer"></div>
-      <button class="btn ghost" onclick={loadFile}>Open .md…</button>
-      <button class="btn ghost" onclick={saveFile}>Save as .md…</button>
+      <button class="btn icon" aria-label="Format reference" title="Format reference" onclick={() => (refOpen = true)}>?</button>
+    </div>
+    <textarea
+      bind:this={editor}
+      bind:value={s.markdown}
+      class="md"
+      spellcheck="false"
+      aria-label="Deck markdown"
+      placeholder={'# Fireball\n**Type:** Spell\n**Level:** 3rd-level\n\nA bright streak flashes…\n\n---\n\n# Next card…'}
+    ></textarea>
+    <div class="statusbar">
+      <span>{s.deck_id !== null ? `Deck “${s.deck_name}”` : 'Unsaved deck'} · cards are separated by a line with ---</span>
     </div>
   </section>
 
-  <section class="preview" aria-label="Card preview">
-    <div class="bar">
+  <section class="work preview" aria-label="Card preview">
+    <div class="view-toolbar">
       <div class="segmented" role="group" aria-label="Page format">
         {#each ['A4', 'Letter'] as f (f)}
           <button aria-pressed={s.opts.format === f} onclick={() => (s.opts.format = f as PageFormat)}>{f}</button>
         {/each}
       </div>
-      <label class="toggle"><input type="checkbox" bind:checked={s.opts.double_sided} /> Double-sided</label>
+      <label class="check"><input type="checkbox" bind:checked={s.opts.double_sided} /> Double-sided</label>
       {#if s.opts.double_sided}
         <div class="segmented" role="group" aria-label="Flip edge">
           {#each [['long', 'Long edge'], ['short', 'Short edge']] as [f, label] (f)}
@@ -231,18 +236,8 @@
           {/each}
         </div>
       {/if}
-      <div class="spacer"></div>
-      <button class="btn primary" disabled={!layout?.cards} onclick={exportPdf} title="Ctrl+E">Export PDF</button>
     </div>
-    <p class="status" aria-live="polite">
-      <span class="muted">{layout?.cards ?? 0} card{layout?.cards === 1 ? '' : 's'} · {frontCount} page{frontCount === 1 ? '' : 's'}{layout?.backs ? ' + backs' : ''}</span>
-      {#if layout?.overflow.length}
-        <span class="warn" data-testid="overflow">
-          {s.opts.double_sided ? '↪ continues on back: ' : '⚠ text overflow: '}{[...new Set(layout.overflow)].join(', ')}
-        </span>
-      {/if}
-    </p>
-    <div class="pages">
+    <div class="stage-area pages">
       {#if layout && layout.pages.length}
         {#each layout.pages as p, i (i)}
           <figure>
@@ -253,7 +248,18 @@
           </figure>
         {/each}
       {:else}
-        <p class="muted empty">Write a card or insert a template; the preview updates as you type.</p>
+        <div class="empty-state wide">
+          <strong>No cards yet</strong>
+          <span>Write a card or insert a template; the preview updates as you type.</span>
+        </div>
+      {/if}
+    </div>
+    <div class="statusbar" aria-live="polite">
+      <span>{layout?.cards ?? 0} card{layout?.cards === 1 ? '' : 's'} · {frontCount} page{frontCount === 1 ? '' : 's'}{layout?.backs ? ' + backs' : ''}</span>
+      {#if layout?.overflow.length}
+        <span class="warn" data-testid="overflow">
+          {s.opts.double_sided ? '↪ continues on back: ' : '⚠ text overflow: '}{[...new Set(layout.overflow)].join(', ')}
+        </span>
       {/if}
     </div>
   </section>
@@ -290,35 +296,12 @@
 {/if}
 
 <style>
-  .cards {
-    display: grid;
-    grid-template-columns: minmax(340px, 1fr) minmax(380px, 1.2fr);
-    height: 100%;
-    min-height: 0;
-  }
-  .edit,
-  .preview {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    padding: var(--space-3) var(--space-4);
-    gap: var(--space-2);
-  }
   .edit {
     border-right: 1px solid var(--border);
   }
-  .bar {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .spacer {
-    flex: 1;
-  }
-  .small {
-    font-size: 12px;
+  .decks {
+    width: auto;
+    max-width: 180px;
   }
   .md {
     flex: 1;
@@ -327,42 +310,24 @@
     font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.5;
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    padding: var(--space-3) var(--space-4);
+    border: 0;
     background: var(--surface);
     tab-size: 2;
   }
-  .toggle {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    cursor: pointer;
-  }
-  .toggle input {
-    accent-color: var(--accent);
-  }
-  .status {
-    margin: 0;
-    font-size: 13px;
-    display: flex;
-    gap: var(--space-3);
-    flex-wrap: wrap;
+  .md:focus-visible {
+    outline-offset: -2px;
   }
   .warn {
     color: var(--warning);
   }
   .pages {
-    flex: 1;
-    min-height: 0;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: var(--space-4);
     align-content: start;
-    padding: var(--space-2);
-    background: var(--surface-2);
-    border-radius: var(--radius);
+    padding: var(--space-4);
   }
   figure {
     margin: 0;
@@ -379,10 +344,8 @@
     background: none;
     cursor: zoom-in;
   }
-  .empty {
+  .empty-state.wide {
     grid-column: 1 / -1;
-    text-align: center;
-    padding: var(--space-6);
   }
   .ref {
     white-space: pre-wrap;

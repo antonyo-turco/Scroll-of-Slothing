@@ -6,6 +6,7 @@
   import { DMIX_EXTENSION, music } from '../../lib/music';
   import { musicUi, type MusicTab } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import Library from './Library.svelte';
   import Mixer from './Mixer.svelte';
   import Playlists from './Playlists.svelte';
@@ -46,19 +47,21 @@
   }
 </script>
 
+<ViewActions slot="nav">
+  <div class="segmented" role="tablist" aria-label="Music views">
+    {#each TABS as [id, label] (id)}
+      <button role="tab" aria-selected={musicUi.tab === id} onclick={() => (musicUi.tab = id)}>{label}</button>
+    {/each}
+  </div>
+</ViewActions>
+<ViewActions end>
+  {#if musicUi.state?.playlist}
+    <span class="muted now">♪ {musicUi.state.playlist.title}</span>
+  {/if}
+  <button class="btn danger" onclick={stopMusic} title="Stop everything and clear the live mix">⏹ Stop Music</button>
+</ViewActions>
+
 <div class="music">
-  <header class="tabs">
-    <div class="segmented" role="tablist" aria-label="Music views">
-      {#each TABS as [id, label] (id)}
-        <button role="tab" aria-selected={musicUi.tab === id} onclick={() => (musicUi.tab = id)}>{label}</button>
-      {/each}
-    </div>
-    <div class="spacer"></div>
-    {#if musicUi.state?.playlist}
-      <span class="muted now">♪ {musicUi.state.playlist.title}</span>
-    {/if}
-    <button class="btn danger" onclick={stopMusic} title="Stop everything and clear the live mix">⏹ Stop Music</button>
-  </header>
   {#if musicUi.banner}
     <div class="banner" role="alert">
       {musicUi.banner}
@@ -87,20 +90,12 @@
     flex-direction: column;
     min-height: 0;
   }
-  .tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    align-items: center;
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--border);
-  }
-  .spacer {
-    flex: 1;
+  .segmented {
+    flex: none;
   }
   .now {
     font-size: 13px;
-    max-width: 30ch;
+    max-width: 22ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

@@ -7,6 +7,7 @@
   import VirtualGrid from '../../lib/components/VirtualGrid.svelte';
   import { LibraryState, SORTS } from '../../lib/library.svelte';
   import { app } from '../../lib/state.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import { ASSET_KINDS, KIND_LABELS, type Asset } from '../../lib/types';
   import AssetCard from './AssetCard.svelte';
   import AssetInspector from './AssetInspector.svelte';
@@ -130,9 +131,15 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="library">
-  <div class="main">
-    <div class="toolbar">
+<ViewActions>
+  <button class="btn" onclick={() => (tagsOpen = true)}>Manage tags…</button>
+  <button class="btn primary" onclick={chooseFiles}>+ Import</button>
+</ViewActions>
+
+<div class="view">
+  <div class="work">
+    <div class="filters">
+    <div class="view-toolbar toolbar">
       <div class="search">
         <Icon name="search" size={16} />
         <input
@@ -155,9 +162,6 @@
       <select class="input" aria-label="Sort" bind:value={lib.sort} onchange={() => lib.refresh()}>
         {#each SORTS as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
       </select>
-      <div class="spacer"></div>
-      <button class="btn" onclick={() => (tagsOpen = true)}>Tags…</button>
-      <button class="btn primary" onclick={chooseFiles}>+ Import</button>
     </div>
 
     {#if topTags.length}
@@ -172,6 +176,7 @@
         {#if lib.filtersActive}<button class="btn ghost clear" onclick={() => lib.clearFilters()}>Clear filters</button>{/if}
       </div>
     {/if}
+    </div>
 
     {#if selecting}
       <div class="bulk" role="toolbar" aria-label="Bulk actions">
@@ -224,13 +229,21 @@
         </VirtualGrid>
       {/if}
     </div>
-    <div class="status muted" aria-live="polite">
+    <div class="statusbar" aria-live="polite">
       {lib.total} asset{lib.total === 1 ? '' : 's'}{lib.loading ? ' · loading…' : ''} · Ctrl+click to select several
     </div>
   </div>
 
   {#if lib.active}
     <AssetInspector {lib} asset={lib.active} />
+  {:else}
+    <aside class="inspector" aria-label="Asset details">
+      <div class="empty-state">
+        <strong>No asset selected</strong>
+        <span>Click an asset to edit its name, tags and size, open it in its editor, or export it.</span>
+        <span>Ctrl+click or Shift+click selects several for bulk actions.</span>
+      </div>
+    </aside>
   {/if}
 </div>
 
@@ -238,18 +251,13 @@
 <TagManager bind:open={tagsOpen} onchange={() => act('Refresh failed', async () => {})} />
 
 <style>
-  .library {
-    display: flex;
-    height: 100%;
-    min-height: 0;
+  .filters {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
   }
-  .main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
+  .filters .toolbar {
+    border-bottom: 0;
   }
-  .toolbar,
   .tagbar,
   .bulk {
     display: flex;
@@ -257,9 +265,6 @@
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
     flex-wrap: wrap;
-  }
-  .toolbar {
-    padding-top: var(--space-3);
   }
   .search {
     display: flex;
@@ -298,9 +303,6 @@
   .toggle input {
     accent-color: var(--accent);
   }
-  .spacer {
-    flex: 1;
-  }
   .tagbar {
     padding-top: 0;
   }
@@ -322,7 +324,7 @@
     min-height: 26px;
   }
   .bulk {
-    margin: 0 var(--space-4) var(--space-2);
+    margin: var(--space-2) var(--space-4) 0;
     border: 1px solid var(--focus);
     border-radius: var(--radius);
     background: var(--surface);
@@ -342,10 +344,5 @@
   }
   .empty p {
     margin: 0;
-  }
-  .status {
-    font-size: 12px;
-    padding: var(--space-1) var(--space-4) var(--space-2);
-    border-top: 1px solid var(--border);
   }
 </style>

@@ -9,7 +9,6 @@
 
   let tracks = $state<Track[]>([]);
   let allTracks = $state<Track[]>([]);
-  let tagFilter = $state('');
   let selectedTags = $state<string[]>([]);
   let text = $state('');
   let selected = $state<string | null>(null);
@@ -90,39 +89,36 @@
 </script>
 
 <div class="lib">
-  <aside class="side">
-    <h3>Tags</h3>
-    <div class="tagfilter">
-      <input class="input" bind:value={tagFilter} placeholder="filter" aria-label="Filter tags" />
-      {#if tagFilter}<button class="btn ghost" aria-label="Clear filter" onclick={() => (tagFilter = '')}>✕</button>{/if}
-    </div>
-    {#each allTags.filter((t) => t.toLowerCase().includes(tagFilter.toLowerCase())) as t (t)}
-      <label class="tag">
-        <input
-          type="checkbox"
-          checked={selectedTags.includes(t)}
-          onchange={() => ((selectedTags = selectedTags.includes(t) ? selectedTags.filter((x) => x !== t) : [...selectedTags, t]), void load())}
-        />
-        {t}
-      </label>
-    {/each}
-    {#if selectedTags.length}
-      <button class="btn ghost" onclick={() => ((selectedTags = []), void load())}>Clear</button>
-    {/if}
-  </aside>
-
-  <section class="main">
-    <div class="bar">
+  <div class="filters">
+    <div class="view-toolbar">
       <input class="input search" type="search" placeholder="Search titles…" bind:value={text} oninput={() => void load()} aria-label="Search tracks" />
-      <button class="btn primary" onclick={() => openDialog(null)}>+ Add Track</button>
       <button class="btn" disabled={!sel} onclick={() => sel && addToMix(sel)}>{sel && flash === sel.id ? 'Added!' : 'Add to Mix'}</button>
       <button class="btn" disabled={!sel} onclick={() => sel && preview(sel)}>▶ Preview</button>
       {#if musicUi.state?.previewing}<button class="btn" onclick={() => void music.stopPreview()}>Stop preview</button>{/if}
+      <div class="spacer"></div>
+      <button class="btn primary" onclick={() => openDialog(null)}>+ Add Track</button>
     </div>
-    <div class="table-wrap">
+    {#if allTags.length}
+      <div class="tagbar" role="group" aria-label="Tag filter">
+        {#each allTags as t (t)}
+          <button
+            class="tag"
+            aria-pressed={selectedTags.includes(t)}
+            onclick={() => ((selectedTags = selectedTags.includes(t) ? selectedTags.filter((x) => x !== t) : [...selectedTags, t]), void load())}
+          >{t}</button>
+        {/each}
+        {#if selectedTags.length}
+          <button class="btn ghost clear" onclick={() => ((selectedTags = []), void load())}>Clear filters</button>
+        {/if}
+      </div>
+    {/if}
+  </div>
+
+  <div class="table-wrap">
+    {#if tracks.length}
       <table>
         <thead>
-          <tr><th>Title</th><th>Tags</th><th>Length</th><th>Loop</th><th class="actions"></th></tr>
+          <tr><th>Title</th><th>Tags</th><th>Length</th><th>Loop</th><th class="actions"><span class="visually-hidden">Actions</span></th></tr>
         </thead>
         <tbody>
           {#each tracks as t (t.id)}
@@ -147,76 +143,77 @@
                 <button class="btn ghost" title="Delete" aria-label="Delete {t.title}" onclick={(e) => (e.stopPropagation(), void remove(t))}>✕</button>
               </td>
             </tr>
-          {:else}
-            <tr><td colspan="5" class="muted empty">No tracks. Add a YouTube link or upload an audio file.</td></tr>
           {/each}
         </tbody>
       </table>
-    </div>
-    <div class="status muted">
-      {#if musicUi.state?.previewing}
-        <PlayIndicator status={musicUi.previewStatus ?? 'loading'} />
-        {musicUi.previewStatus === 'playing' ? 'Previewing…' : 'Loading preview…'}
-      {:else}{tracks.length} track(s){/if}
-    </div>
-  </section>
+    {:else}
+      <div class="empty-state">
+        {#if text || selectedTags.length}
+          <strong>No tracks match</strong>
+          <span>Try another search, or clear the tag filters.</span>
+        {:else}
+          <strong>No tracks yet</strong>
+          <span>Add a YouTube link or upload an audio file.</span>
+          <button class="btn primary" onclick={() => openDialog(null)}>+ Add Track</button>
+        {/if}
+      </div>
+    {/if}
+  </div>
+  <div class="statusbar">
+    {#if musicUi.state?.previewing}
+      <PlayIndicator status={musicUi.previewStatus ?? 'loading'} />
+      {musicUi.previewStatus === 'playing' ? 'Previewing…' : 'Loading preview…'}
+    {:else}{tracks.length} track{tracks.length === 1 ? '' : 's'} · double-click a row to preview{/if}
+  </div>
 </div>
 
 <TrackDialog bind:open={dialogOpen} track={editing} {allTags} onSaved={() => void load()} />
 
 <style>
   .lib {
-    display: grid;
-    grid-template-columns: 200px 1fr;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
   }
-  .side {
-    border-right: 1px solid var(--border);
-    padding: var(--space-3);
-    overflow-y: auto;
+  .filters {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .filters .view-toolbar {
+    border-bottom: 0;
+  }
+  .tagbar {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  h3 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin: var(--space-3) 0 4px;
-  }
-  h3:first-child {
-    margin-top: 0;
-  }
-  .tagfilter {
-    display: flex;
-    gap: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-4) var(--space-2);
   }
   .tag {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    font-size: 13px;
-    padding: 2px 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    cursor: pointer;
   }
-  .main {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+  .tag[aria-pressed='true'] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    font-weight: 600;
   }
-  .bar {
-    display: flex;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    align-items: center;
+  .clear {
+    font-size: 12px;
+    min-height: 26px;
   }
   .search {
-    flex: 1;
+    flex: 1 1 200px;
     max-width: 320px;
   }
   .table-wrap {
     flex: 1;
+    min-height: 0;
     overflow: auto;
     padding: 0 var(--space-4);
   }
@@ -254,13 +251,5 @@
   }
   .actions .btn {
     padding: 2px 6px;
-  }
-  .empty {
-    padding: var(--space-4);
-  }
-  .status {
-    padding: var(--space-2) var(--space-4);
-    font-size: 12px;
-    border-top: 1px solid var(--border);
   }
 </style>

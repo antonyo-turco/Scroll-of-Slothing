@@ -117,11 +117,13 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="view">
-  <div class="bar">
-    <select class="input sel" aria-label="Board" bind:value={boardId} disabled={editing}>
-      {#each boards as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-    </select>
+<div class="pane">
+  <div class="view-toolbar">
+    {#if boards.length}
+      <select class="input sel" aria-label="Board" bind:value={boardId} disabled={editing}>
+        {#each boards as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+      </select>
+    {/if}
     {#if editing}
       <button class="btn" onclick={addButton}>+ Add Button</button>
       <div class="spacer"></div>
@@ -133,9 +135,14 @@
       <button class="btn ghost" disabled={!board} onclick={deleteBoard}>Delete Board</button>
     {/if}
   </div>
+  <div class="pane-body">
 
   {#if !board}
-    <p class="muted">No soundboards yet. Create one with New Board.</p>
+    <div class="empty-state">
+      <strong>No soundboards yet</strong>
+      <span>A board is a grid of buttons that play sounds, with hotkeys 1–9.</span>
+      <button class="btn primary" onclick={() => ((newName = ''), (newOpen = true))}>New Board</button>
+    </div>
   {:else if editing}
     <table>
       <thead><tr><th>Pos</th><th>Icon</th><th>Label</th><th>Track</th><th>Mode</th><th>Colour</th><th>Vol</th><th>Loop</th><th>Key</th><th></th></tr></thead>
@@ -186,6 +193,7 @@
       {/each}
     </div>
   {/if}
+  </div>
 </div>
 
 <Modal title="New soundboard" bind:open={newOpen} width={400}>
@@ -199,16 +207,20 @@
 </Modal>
 
 <style>
-  .view {
+  .pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .pane-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
     padding: var(--space-3) var(--space-4);
     display: grid;
-    gap: var(--space-3);
-    align-content: start;
-  }
-  .bar {
-    display: flex;
     gap: var(--space-2);
-    align-items: center;
+    align-content: start;
   }
   .sel {
     width: auto;

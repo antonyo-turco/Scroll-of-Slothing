@@ -5,6 +5,7 @@
   import { api, isTauri, pickSavePath } from '../../lib/api';
   import Modal from '../../lib/components/Modal.svelte';
   import { app } from '../../lib/state.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import type { AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout, PageFormat } from '../../lib/types';
 
   const EDITOR_KEY = 'aoe.editor';
@@ -295,20 +296,22 @@
   const isUserPreset = $derived(presetSel.startsWith('★ '));
 </script>
 
-<div class="aoe">
-  <section class="canvas" aria-label="AoE preview">
-    <div class="topbar">
+<ViewActions>
+  <button class="btn" onclick={savePng} title="Write the current template as a PNG image">Save PNG…</button>
+  <button class="btn" onclick={exportSheet} disabled={!sheet.items.length} title="Every template on the sheet, packed onto pages">Export sheet PDF</button>
+  <button class="btn primary" onclick={exportTemplate} title="The current template at true scale">Export template PDF</button>
+</ViewActions>
+
+<div class="view">
+  <section class="work" aria-label="AoE preview">
+    <div class="view-toolbar">
       <div class="segmented" role="group" aria-label="Preview">
         <button aria-pressed={mode === 'current'} onclick={() => setMode('current')}>Current template</button>
-        <button aria-pressed={mode === 'sheet'} onclick={() => setMode('sheet')}>Full sheet</button>
+        <button aria-pressed={mode === 'sheet'} onclick={() => setMode('sheet')}>Full sheet ({sheet.items.length})</button>
       </div>
-      <div class="spacer"></div>
-      <button class="btn" onclick={savePng}>Save PNG…</button>
-      <button class="btn" onclick={exportSheet} disabled={!sheet.items.length}>Export sheet PDF</button>
-      <button class="btn primary" onclick={exportTemplate}>Export template PDF</button>
     </div>
 
-    <div class="stage">
+    <div class="stage-area stage">
       {#if mode === 'current'}
         {#if previewUrl && info && cfg.a_ft > 0}
           <svg class="tpl" viewBox="0 0 {info.image_w} {info.image_h}" role="img" aria-label="Template preview" data-testid="aoe-preview">
@@ -322,12 +325,15 @@
             {/each}
           </svg>
         {:else}
-          <p class="muted">Set a size greater than 0.</p>
+          <div class="empty-state"><span>Set a size greater than 0.</span></div>
         {/if}
       {:else if sheet.items.length === 0}
-        <p class="muted center">No templates on the sheet yet.<br />Add one from the controls.</p>
+        <div class="empty-state">
+          <strong>No templates on the sheet yet</strong>
+          <span>Set up a template, then “Add to sheet” in the Sheet section.</span>
+        </div>
       {:else if sheetUrls.length === 0}
-        <p class="muted">None of these templates fit on a single sheet.</p>
+        <div class="empty-state"><span>None of these templates fit on a single sheet.</span></div>
       {:else}
         <div class="strip" data-testid="aoe-sheet">
           {#each sheetUrls as u, i (u)}
@@ -339,24 +345,22 @@
         </div>
       {/if}
     </div>
-    <p class="info muted" data-testid="aoe-info">
-      {#if mode === 'sheet'}{sheetLayout?.summary ?? ''}{:else}{info?.summary ?? ''}{/if}
-      {#if rendering}<span aria-live="polite"> · rendering…</span>{/if}
-    </p>
+    <div class="statusbar" data-testid="aoe-info">
+      <span>{#if mode === 'sheet'}{sheetLayout?.summary ?? ''}{:else}{info?.summary ?? ''}{/if}</span>
+      {#if rendering}<span aria-live="polite">rendering…</span>{/if}
+    </div>
   </section>
 
   <aside class="inspector" aria-label="Template settings">
-    <section>
-      <h3>Preset</h3>
-      <div class="row">
-        <select class="input grow" aria-label="Preset" value={presetSel} onchange={(e) => applyPreset(e.currentTarget.value)}>
-          <option value="">— choose —</option>
-          {#each presets as p (p.builtin + p.name)}
-            {@const key = p.builtin ? p.name : '★ ' + p.name}
-            <option value={key}>{key}</option>
-          {/each}
-        </select>
-      </div>
+    <section class="section">
+      <h3 class="section-title">Preset</h3>
+      <select class="input" aria-label="Preset" value={presetSel} onchange={(e) => applyPreset(e.currentTarget.value)}>
+        <option value="">— choose —</option>
+        {#each presets as p (p.builtin + p.name)}
+          {@const key = p.builtin ? p.name : '★ ' + p.name}
+          <option value={key}>{key}</option>
+        {/each}
+      </select>
       <div class="row">
         <button class="btn" onclick={openSave}>Save preset…</button>
         {#if confirmDelete}
@@ -368,84 +372,101 @@
       </div>
     </section>
 
-    <section>
-      <h3>Shape &amp; size</h3>
-      <label class="field">Shape
+    <section class="section">
+      <h3 class="section-title">Shape &amp; size</h3>
+      <label class="prop"><span>Shape</span>
         <select class="input" bind:value={cfg.shape}>
           {#each SHAPES as [k, l] (k)}<option value={k}>{l}</option>{/each}
         </select>
       </label>
-      <label class="field">{PRIMARY[cfg.shape]}
+      <label class="prop"><span>{PRIMARY[cfg.shape]}</span>
         <input class="input" type="number" min="1" max="2000" step="5" bind:value={cfg.a_ft} />
       </label>
       {#if cfg.shape === 'line'}
-        <label class="field">Width (ft)
+        <label class="prop"><span>Width (ft)</span>
           <input class="input" type="number" min="1" max="200" step="5" bind:value={cfg.b_ft} />
         </label>
       {/if}
-      <label class="field">Feet per square
-        <input class="input" type="number" min="1" max="100" bind:value={cfg.feet_per_square} />
-      </label>
-      <label class="field">Inches per square
-        <input class="input" type="number" min="0.05" step="0.05" bind:value={cfg.inch} />
-      </label>
-      <div class="segmented" role="group" aria-label="Page format">
-        {#each ['A4', 'Letter'] as f (f)}
-          <button aria-pressed={cfg.page_format === f} onclick={() => (cfg.page_format = f as PageFormat)}>{f}</button>
-        {/each}
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">Scale &amp; paper</h3>
+      <div class="pair">
+        <label class="field">Feet per square <input class="input" type="number" min="1" max="100" bind:value={cfg.feet_per_square} /></label>
+        <label class="field">Inches per square <input class="input" type="number" min="0.05" step="0.05" bind:value={cfg.inch} /></label>
+      </div>
+      <div class="prop">
+        <span>Paper</span>
+        <div class="segmented" role="group" aria-label="Page format">
+          {#each ['A4', 'Letter'] as f (f)}
+            <button aria-pressed={cfg.page_format === f} onclick={() => (cfg.page_format = f as PageFormat)}>{f}</button>
+          {/each}
+        </div>
       </div>
     </section>
 
-    <section>
-      <h3>Style</h3>
-      <div class="row">
-        <label class="color">Fill <input type="color" value={hex(cfg.fill_rgb)} oninput={(e) => (cfg.fill_rgb = rgb(e.currentTarget.value))} /></label>
-        <label class="grow">Opacity <input type="range" min="0" max="255" bind:value={cfg.fill_alpha} /></label>
+    <section class="section">
+      <h3 class="section-title">Style</h3>
+      <div class="prop">
+        <span>Fill</span>
+        <div class="row nowrap">
+          <input type="color" class="swatch" aria-label="Fill colour" value={hex(cfg.fill_rgb)} oninput={(e) => (cfg.fill_rgb = rgb(e.currentTarget.value))} />
+          <input class="grow" type="range" min="0" max="255" aria-label="Fill opacity" bind:value={cfg.fill_alpha} />
+        </div>
       </div>
-      <div class="row">
-        <label class="color">Outline <input type="color" value={hex(cfg.line_rgb)} oninput={(e) => (cfg.line_rgb = rgb(e.currentTarget.value))} /></label>
-        <label class="grow">Width <input class="input" type="number" min="1" max="12" bind:value={cfg.line_width} /></label>
+      <div class="prop">
+        <span>Outline</span>
+        <div class="row nowrap">
+          <input type="color" class="swatch" aria-label="Outline colour" value={hex(cfg.line_rgb)} oninput={(e) => (cfg.line_rgb = rgb(e.currentTarget.value))} />
+          <input class="input" type="number" min="1" max="12" aria-label="Outline width" bind:value={cfg.line_width} />
+        </div>
       </div>
-      <div class="row">
-        <label><input type="checkbox" bind:checked={cfg.grid_on} /> Grid</label>
-        <label class="color"><input type="color" aria-label="Grid colour" value={hex(cfg.grid_rgb)} oninput={(e) => (cfg.grid_rgb = rgb(e.currentTarget.value))} /></label>
-        <label class="grow">Opacity <input type="range" min="0" max="255" bind:value={cfg.grid_alpha} /></label>
+      <div class="prop">
+        <label class="check"><input type="checkbox" bind:checked={cfg.grid_on} /> Grid</label>
+        <div class="row nowrap">
+          <input type="color" class="swatch" aria-label="Grid colour" value={hex(cfg.grid_rgb)} oninput={(e) => (cfg.grid_rgb = rgb(e.currentTarget.value))} />
+          <input class="grow" type="range" min="0" max="255" aria-label="Grid opacity" bind:value={cfg.grid_alpha} />
+        </div>
       </div>
-      <div class="row">
-        <label><input type="checkbox" bind:checked={cfg.label_on} /> Label</label>
-        <input class="input grow" aria-label="Label text" value={cfg.label}
+      <div class="prop">
+        <label class="check"><input type="checkbox" bind:checked={cfg.label_on} /> Label</label>
+        <input class="input" aria-label="Label text" value={cfg.label}
           oninput={(e) => { labelEdited = true; cfg.label = e.currentTarget.value; }} />
       </div>
       {#if labelEdited}
-        <button class="btn ghost small" onclick={() => (labelEdited = false)}>Reset label</button>
+        <button class="btn ghost" onclick={() => (labelEdited = false)}>Reset label</button>
       {/if}
     </section>
 
-    <section>
-      <h3>Sheet</h3>
-      <div class="row">
-        <button class="btn" onclick={addToSheet}>+ Add current to sheet</button>
-        <label class="gap">Gap (in)
-          <input class="input" type="number" min="0" step="0.05" value={sheet.gap_in}
-            onchange={(e) => sheetOp(api.aoeSheetSetGap(Math.max(0, Number(e.currentTarget.value) || 0)))} />
+    <section class="section">
+      <h3 class="section-title">Sheet</h3>
+      <div class="row nowrap">
+        <button class="btn grow" onclick={addToSheet}>+ Add to sheet</button>
+        <label class="with-unit gap" title="Gap between templates on the sheet">Gap
+          <input class="input" type="number" min="0" step="0.05" aria-label="Gap (in)" value={sheet.gap_in}
+            onchange={(e) => sheetOp(api.aoeSheetSetGap(Math.max(0, Number(e.currentTarget.value) || 0)))} /><span>in</span>
         </label>
       </div>
-      <select class="input list" multiple aria-label="Sheet templates" bind:value={selected} size={Math.min(8, Math.max(3, sheet.items.length))}>
-        {#each sheet.items as it (it.id)}<option value={it.id}>{it.config.name || 'template'}</option>{/each}
-      </select>
-      <div class="row">
-        <button class="btn" disabled={!selected.length} onclick={() => sheetOp(api.aoeSheetRemove(selected))}>Remove selected</button>
-        {#if confirmClear}
-          <button class="btn danger" onclick={() => sheetOp(api.aoeSheetClear()).then(() => (confirmClear = false))}>Clear all</button>
-          <button class="btn" onclick={() => (confirmClear = false)}>Cancel</button>
-        {:else}
-          <button class="btn ghost danger" disabled={!sheet.items.length} onclick={() => (confirmClear = true)}>Clear sheet…</button>
-        {/if}
-      </div>
-      {#if sheetLayout?.skipped.length}
-        <p class="warn" role="alert">Too big for one sheet (export individually): {sheetLayout.skipped.join(', ')}</p>
+      {#if sheet.items.length}
+        <select class="input list" multiple aria-label="Sheet templates" bind:value={selected} size={Math.min(8, Math.max(3, sheet.items.length))}>
+          {#each sheet.items as it (it.id)}<option value={it.id}>{it.config.name || 'template'}</option>{/each}
+        </select>
+        <div class="row">
+          <button class="btn" disabled={!selected.length} onclick={() => sheetOp(api.aoeSheetRemove(selected))}>Remove selected</button>
+          {#if confirmClear}
+            <button class="btn danger" onclick={() => sheetOp(api.aoeSheetClear()).then(() => (confirmClear = false))}>Clear all</button>
+            <button class="btn" onclick={() => (confirmClear = false)}>Cancel</button>
+          {:else}
+            <button class="btn ghost danger" onclick={() => (confirmClear = true)}>Clear sheet…</button>
+          {/if}
+        </div>
+        {#if selected.length === 1}<p class="note">{nameOf(selected[0])}</p>{/if}
+      {:else}
+        <p class="note">The sheet packs several templates onto pages to print together.</p>
       {/if}
-      {#if selected.length === 1}<p class="muted small">{nameOf(selected[0])}</p>{/if}
+      {#if sheetLayout?.skipped.length}
+        <p class="note warn" role="alert">Too big for one sheet (export individually): {sheetLayout.skipped.join(', ')}</p>
+      {/if}
     </section>
   </aside>
 </div>
@@ -456,7 +477,7 @@
     <input id="aoe-preset-name" class="input" bind:value={saveName} oninput={() => (confirmOverwrite = false)}
       onkeydown={(e) => e.key === 'Enter' && savePreset(false)} />
   </div>
-  {#if confirmOverwrite}<p class="warn">A preset named “{saveName.trim()}” exists. Overwrite it?</p>{/if}
+  {#if confirmOverwrite}<p class="note warn overwrite">A preset named “{saveName.trim()}” exists. Overwrite it?</p>{/if}
   {#snippet footer()}
     {#if confirmOverwrite}
       <button class="btn danger" onclick={() => savePreset(true)}>Overwrite</button>
@@ -467,37 +488,12 @@
 </Modal>
 
 <style>
-  .aoe {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    height: 100%;
-    min-height: 0;
-  }
-  .canvas {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-  }
-  .topbar {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--border);
-  }
-  .spacer {
-    flex: 1;
-  }
   .stage {
-    flex: 1;
-    min-height: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: var(--space-4);
     overflow: auto;
-    background: var(--surface-2);
   }
   .tpl {
     max-width: 100%;
@@ -527,74 +523,27 @@
     max-height: 70vh;
     max-width: 100%;
     background: #fff;
-    border: 1px solid #666;
-  }
-  .info {
-    padding: var(--space-2) var(--space-4);
-    font-size: 12px;
-    margin: 0;
-    border-top: 1px solid var(--border);
-  }
-  .center {
-    text-align: center;
-  }
-  .inspector {
-    border-left: 1px solid var(--border);
-    overflow-y: auto;
-    padding: var(--space-3);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  h3 {
-    margin: 0 0 var(--space-2);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+    box-shadow: var(--shadow);
   }
   .field {
-    display: grid;
-    gap: 2px;
     font-size: 12px;
   }
-  .row {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
+  .nowrap {
+    flex-wrap: nowrap;
+  }
+  .gap {
+    flex: none;
     font-size: 12px;
+    color: var(--text-muted);
   }
-  .grow {
-    flex: 1;
-    min-width: 0;
-  }
-  .grow input[type='range'] {
-    width: 100%;
-  }
-  .color input {
-    width: 32px;
-    height: 24px;
-    padding: 0;
-    border: none;
-    background: none;
-  }
-  .gap input {
+  .gap .input {
     width: 64px;
   }
   .list {
-    width: 100%;
     height: auto;
+    padding: 4px;
   }
-  .warn {
-    color: var(--danger, #c62828);
-    font-size: 12px;
-    margin: 0;
-  }
-  .small {
-    font-size: 12px;
+  .overwrite {
+    margin-top: var(--space-3);
   }
 </style>

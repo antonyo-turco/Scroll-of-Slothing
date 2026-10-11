@@ -51,12 +51,13 @@
   }
 </script>
 
-<div class="view">
-  <div class="bar">
+<div class="pane">
+  <div class="view-toolbar">
+    <span class="label">Saved mixes. Load one into the Mixer, or build a mix there and 💾 Save as New.</span>
+    <div class="spacer"></div>
     <button class="btn" onclick={() => void load()}>⟳ Refresh</button>
-    <span class="muted small">Save a soundscape from the Mixer (💾 Save as New).</span>
   </div>
-  <div class="cards">
+  <div class="pane-body">
     {#each list as s (s.id)}
       <div class="card sc" class:active={musicUi.state?.soundscape_id === s.id}>
         <div class="head">
@@ -85,29 +86,32 @@
         {/if}
       </div>
     {:else}
-      <p class="muted">No soundscapes yet.</p>
+      <div class="empty-state">
+        <strong>No soundscapes yet</strong>
+        <span>Build a mix in the Mixer, then 💾 Save as New to keep it here.</span>
+      </div>
     {/each}
   </div>
 </div>
 
 <style>
-  .view {
+  .pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .pane-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
     padding: var(--space-3) var(--space-4);
     display: grid;
-    gap: var(--space-3);
-    align-content: start;
-  }
-  .bar {
-    display: flex;
     gap: var(--space-2);
-    align-items: center;
+    align-content: start;
   }
   .small {
     font-size: 12px;
-  }
-  .cards {
-    display: grid;
-    gap: var(--space-2);
   }
   .sc {
     padding: var(--space-2) var(--space-3);

@@ -2,6 +2,7 @@
   // Live mixer (Python ui/dm_music_mixer_panel.py): channels, master volume,
   // ducking, soundbites, soundscape save/update and .dmix files.
   import Modal from '../../lib/components/Modal.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { pickFile, pickSavePath } from '../../lib/api';
   import { DMIX_EXTENSION, music, type Channel, type ChannelRole, type DuckMode, type Soundbite, type Track } from '../../lib/music';
@@ -138,21 +139,13 @@
   }
 </script>
 
-<div class="mixer">
-  <div class="toolbar">
-    <h2>
-      Active Mix{#if st?.soundscape_name} — {st.soundscape_name}{/if}
-      <span class="muted">({st?.channels.length ?? 0} channels)</span>
-    </h2>
-    <div class="spacer"></div>
-    <div class="segmented" role="group" aria-label="Duck under SFX" title="Duck the music while a soundbite plays">
-      <span class="seg-label">🔉 Duck</span>
-      {#each DUCKS as [mode, label] (mode)}
-        <button aria-pressed={st?.duck === mode} onclick={() => musicUi.act('Could not set ducking', () => music.setDuck(mode))}>{label}</button>
-      {/each}
-    </div>
-  </div>
-  <div class="toolbar">
+<ViewActions>
+  <button class="btn" onclick={openDmix} title="Load a mix file (.dmix)">Open .dmix…</button>
+  <button class="btn" onclick={saveDmix} disabled={!st?.channels.length && !st?.soundbites.length} title="Write the live mix to a .dmix file">Save .dmix…</button>
+</ViewActions>
+
+<div class="pane">
+  <div class="view-toolbar">
     <button class="btn" onclick={() => musicUi.act('Could not play', () => music.setAllPlaying(true))}>▶ All</button>
     <button class="btn" onclick={() => musicUi.act('Could not pause', () => music.setAllPlaying(false))}>⏸ All</button>
     <button class="btn danger" onclick={() => musicUi.act('Could not stop', () => music.stopAll())}>⏹ Stop All</button>
@@ -162,9 +155,18 @@
     <button class="btn" onclick={openSave} disabled={!st?.channels.length && !st?.soundbites.length}>💾 Save as New</button>
     <button class="btn" onclick={() => void music.toggleVideo()}>📹 Toggle Video</button>
     <div class="spacer"></div>
-    <button class="btn" onclick={openDmix}>Open .dmix…</button>
-    <button class="btn" onclick={saveDmix} disabled={!st?.channels.length && !st?.soundbites.length}>Save mix as .dmix…</button>
+    <div class="segmented" role="group" aria-label="Duck under SFX" title="Duck the music while a soundbite plays">
+      <span class="seg-label">🔉 Duck</span>
+      {#each DUCKS as [mode, label] (mode)}
+        <button aria-pressed={st?.duck === mode} onclick={() => musicUi.act('Could not set ducking', () => music.setDuck(mode))}>{label}</button>
+      {/each}
+    </div>
   </div>
+  <div class="mixer">
+    <h2>
+      Active Mix{#if st?.soundscape_name} — {st.soundscape_name}{/if}
+      <span class="muted">({st?.channels.length ?? 0} channels)</span>
+    </h2>
 
   <div class="master card">
     <label for="master">Master</label>
@@ -249,6 +251,7 @@
       <p class="muted empty">No soundbites. They play at random intervals and can duck the music.</p>
     {/each}
   </div>
+  </div>
 </div>
 
 <Modal title="Add soundbite" bind:open={sbOpen} width={420}>
@@ -283,7 +286,16 @@
 </Modal>
 
 <style>
+  .pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
   .mixer {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
     padding: var(--space-3) var(--space-4);
     display: grid;
     /* one column that may shrink below its content's min width: long track
@@ -291,12 +303,6 @@
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
     align-content: start;
-  }
-  .toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    align-items: center;
   }
   h2 {
     font-size: 15px;
