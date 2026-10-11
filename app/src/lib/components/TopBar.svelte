@@ -19,11 +19,14 @@
       {/each}
     </div>
   {/if}
+  <!-- filled by the current view through <ViewActions> -->
+  <div id="topbar-nav" class="slot"></div>
   <div class="spacer"></div>
-  <button class="btn ghost palette" onclick={() => (app.paletteOpen = true)} title="Command palette (Ctrl+K)">
+  <div id="topbar-actions" class="slot"></div>
+  <button class="btn ghost palette" onclick={() => (app.paletteOpen = true)} title="Command palette (Ctrl+K)" aria-label="Search actions (Ctrl+K)">
     <Icon name="search" size={16} />
-    <span class="muted">Search actions…</span>
-    <kbd>Ctrl K</kbd>
+    <span class="muted wide">Search…</span>
+    <kbd class="wide">Ctrl K</kbd>
   </button>
 </header>
 
@@ -33,30 +36,50 @@
     flex: none;
     display: flex;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-3);
     padding: 0 var(--space-4);
     border-bottom: 1px solid var(--border);
     background: var(--surface);
+    container-type: inline-size;
   }
   h1 {
     font-size: 15px;
     margin: 0;
     font-weight: 650;
+    white-space: nowrap;
   }
   .spacer {
     flex: 1;
   }
+  h1,
+  .segmented {
+    flex: none;
+  }
+  .slot {
+    display: contents;
+  }
   .palette {
     border-color: var(--border);
-    min-width: 220px;
+    flex: none;
   }
   kbd {
-    margin-left: auto;
+    margin-left: var(--space-2);
     font-family: var(--font-mono);
     font-size: 11px;
     padding: 1px 6px;
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--text-muted);
+  }
+  /* narrow windows: the palette shrinks to its icon to leave room for actions */
+  @container (max-width: 980px) {
+    .wide {
+      display: none;
+    }
+    .palette {
+      width: 32px;
+      padding: 0;
+      justify-content: center;
+    }
   }
 </style>

@@ -62,6 +62,7 @@ test('orientation and the fewest-pages suggestion', async ({ page }) => {
   const summary = page.getByTestId('tiling-summary');
   const pages = async () => Number((await summary.textContent())!.match(/(\d+) page/)![1]);
   const orient = inspector.getByRole('group', { name: 'Page orientation' });
+  await inspector.getByRole('tab', { name: 'Pages' }).click();
 
   await orient.getByRole('button', { name: 'Portrait' }).click();
   await expect(summary).toContainText('page');
@@ -85,7 +86,7 @@ test('orientation and the fewest-pages suggestion', async ({ page }) => {
 test('touchpad gestures: pinch zooms gently, two-finger scroll pans, a wheel notch zooms', async ({ page }) => {
   await openMap(page);
   const stage = page.getByTestId('map-stage');
-  const zoom = async () => Number((await page.locator('.zoom').textContent())!.replace('%', ''));
+  const zoom = async () => Number((await page.locator('.zoom-readout').textContent())!.replace('%', ''));
   const layer = () => stage.locator('.layer').evaluate((el) => (el as HTMLElement).style.transform);
   const box = (await stage.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -116,7 +117,27 @@ test('detect grid and fit the print area to the map', async ({ page }) => {
   await inspector.getByRole('button', { name: '⌗ Detect grid' }).click();
   await expect(page.getByText('Grid detected · 1 square = 70 px')).toBeVisible();
   await expect(inspector.getByRole('group', { name: 'Sizing mode' }).getByRole('button', { name: 'Cell side' })).toHaveAttribute('aria-pressed', 'true');
+  await inspector.getByRole('tab', { name: 'Pages' }).click();
   await inspector.getByRole('button', { name: 'Fit to map' }).click();
   await expect(page.getByText(/Print area fitted · \d+×\d+ squares/)).toBeVisible();
   await expect(inspector.getByRole('button', { name: 'Whole map' })).toBeEnabled();
+});
+
+test('inspector tabs follow the canvas tool, and the margin hint fixes the margin', async ({ page }) => {
+  await openMap(page);
+  const inspector = page.getByRole('complementary', { name: 'Map settings' });
+  const tools = page.getByRole('group', { name: 'Canvas tool' });
+  await tools.getByRole('button', { name: 'Print area' }).click();
+  await expect(inspector.getByRole('tab', { name: 'Pages' })).toHaveAttribute('aria-selected', 'true');
+  await tools.getByRole('button', { name: 'Align grid' }).click();
+  await expect(inspector.getByRole('tab', { name: 'Scale' })).toHaveAttribute('aria-selected', 'true');
+
+  await inspector.getByRole('tab', { name: 'Pages' }).click();
+  await inspector.getByRole('checkbox', { name: /Cut lines/ }).check();
+  const hint = page.getByTestId('margin-hint');
+  await expect(hint).toBeVisible();
+  await hint.getByRole('button', { name: 'Set margin to 0.2 in' }).click();
+  await expect(hint).toBeHidden();
+  await inspector.getByText('Advanced').click();
+  await expect(inspector.getByRole('spinbutton', { name: 'Margin (in)' })).toHaveValue('0.2');
 });

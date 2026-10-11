@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  type Tab = 'scale' | 'pages' | 'look';
+  // the inspector tab survives leaving and re-entering the view
+  let lastTab: Tab = 'scale';
+</script>
+
 <script lang="ts">
   // Map Paginator: grid sizing, grid removal, filters, de-warp and true-scale
   // page tiling. Spec: docs/features/map-paginator.md.
@@ -8,6 +14,8 @@
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import type { FilterCatalog, MapDoc, MapLayout, Pt, SizingMode } from '../../lib/types';
+  import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import FiltersPanel from './FiltersPanel.svelte';
   import {
     HANDLES,
@@ -52,6 +60,14 @@
     ['cell_side', 'Cell side'],
   ];
 
+  const TABS: [Tab, string][] = [
+    ['scale', 'Scale'],
+    ['pages', 'Pages'],
+    ['look', 'Look'],
+  ];
+  // Tools that edit something in a tab bring that tab up.
+  const TOOL_TAB: Partial<Record<Tool, Tab>> = { region: 'pages', layout: 'pages', reference: 'scale', nudge: 'scale' };
+
   let doc = $state<MapDoc | null>(null);
   let layout = $state<MapLayout | null>(null);
   let catalog = $state<FilterCatalog | null>(null);
@@ -62,6 +78,14 @@
   let loaded = false;
 
   let tool = $state<Tool>('none');
+  let tab = $state<Tab>(lastTab);
+  $effect(() => {
+    lastTab = tab;
+  });
+  function setTool(t: Tool) {
+    tool = t;
+    tab = TOOL_TAB[t] ?? tab;
+  }
   let showTiles = $state(true);
   let page = $state(0);
   let drag = $state<Drag | null>(null);
@@ -532,7 +556,6 @@
   }
   async function save(update: boolean) {
     if (!doc) return;
-    saveOpen = false;
     busy = true;
     try {
       saveJob = await api.mapSaveAsset(snap(), saveName.trim() || 'Map', update ? doc.asset_id : null);
@@ -569,44 +592,33 @@
   const activeTool = $derived(TOOLS.find((t) => t.id === tool) ?? TOOLS[0]);
 </script>
 
+
 <svelte:window onkeydown={onKey} onkeyup={onKey} onblur={() => (spaceDown = false)} />
 
-<div class="paginator">
-  <section class="work">
-    <div class="toolbar">
-      <button class="btn" onclick={browse} title="Load a map image from disk">Open map…</button>
-      <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
-      <div class="spacer"></div>
-      <button class="btn" disabled={!doc?.source || busy} onclick={openSave} title="Store the map and these settings in the Library">Save to library…</button>
-      <button class="btn primary" disabled={!doc?.source || !layout?.selected} onclick={exportPdf} title="Write the selected pages as a true-scale PDF">Export PDF</button>
-    </div>
-    <div class="toolbar">
+<ViewActions>
+  <button class="btn" onclick={browse} title="Load a map image from disk">Open map…</button>
+  <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
+  <button class="btn" disabled={!doc?.source || busy} onclick={openSave} title="Store the map and these settings in the Library">Save to library…</button>
+  <button class="btn primary" disabled={!doc?.source || !layout?.selected} onclick={exportPdf} title="Write the selected pages as a true-scale PDF">Export PDF</button>
+</ViewActions>
+
+<div class="view">
+  <section class="work" aria-label="Map">
+    <div class="view-toolbar">
       <div class="segmented tools" role="group" aria-label="Canvas tool">
         {#each TOOLS as t (t.id)}
-          <button aria-pressed={tool === t.id} onclick={() => (tool = t.id)} title={t.help}>
-            <span class="glyph" aria-hidden="true">{t.glyph}</span>{t.label}
+          <button aria-pressed={tool === t.id} aria-label={t.label} onclick={() => setTool(t.id)} title="{t.label}: {t.help}">
+            <span class="glyph" aria-hidden="true">{t.glyph}</span><span class="tool-label" aria-hidden="true">{t.label}</span>
           </button>
         {/each}
       </div>
       <div class="spacer"></div>
-      <div class="viewctl" role="group" aria-label="View">
-        <label class="check" title="Show the printed pages over the map"><input type="checkbox" bind:checked={showTiles} /> Pages</label>
-        <button class="btn icon" aria-label="Zoom out" onclick={() => zoomCentre(1 / 1.25)}>−</button>
-        <span class="zoom muted">{Math.round(z * 100)}%</span>
-        <button class="btn icon" aria-label="Zoom in" onclick={() => zoomCentre(1.25)}>+</button>
-        <button class="btn" onclick={fit} title="Fit the whole map in view">Fit</button>
-      </div>
+      <label class="check" title="Show the printed pages over the map"><input type="checkbox" bind:checked={showTiles} /> Show pages</label>
     </div>
-    {#if doc?.source}
-      <p class="toolhint" data-testid="tool-hint">
-        <strong>{activeTool.label}:</strong>
-        {activeTool.help}{refFocus ? ' Grid and pages are hidden while this tool is active.' : ''}
-      </p>
-    {/if}
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="stage tool-{tool}"
+      class="stage-area stage tool-{tool}"
       class:panning={drag?.kind === 'pan'}
       bind:this={stage}
       use:wheel
@@ -667,229 +679,261 @@
             {/if}
           </svg>
         </div>
-        {#if rendering}<span class="badge muted">processing…</span>{/if}
+        <p class="toolhint" data-testid="tool-hint">
+          <strong>{activeTool.label}:</strong>
+          {activeTool.help}{refFocus ? ' Grid and pages are hidden while this tool is active.' : ''}
+        </p>
+        {#if rendering}<span class="badge">processing…</span>{/if}
+        <div class="canvas-controls" role="group" aria-label="Zoom" onpointerdown={(e) => e.stopPropagation()}>
+          <button class="btn icon" aria-label="Zoom out" onclick={() => zoomCentre(1 / 1.25)}>−</button>
+          <span class="zoom-readout">{Math.round(z * 100)}%</span>
+          <button class="btn icon" aria-label="Zoom in" onclick={() => zoomCentre(1.25)}>+</button>
+          <button class="btn" onclick={fit} title="Fit the whole map in view">Fit</button>
+        </div>
       {:else}
-        <button class="drop" onclick={browse}>
+        <button class="drop-zone" onclick={browse}>
           <strong>Drop a battle map here</strong>
-          <span class="muted">or click to browse · Ctrl+V to paste · or “Open in editor” from the Library</span>
+          <span class="muted">or click to browse · Ctrl+V to paste · or “Open in Map Paginator” from the Library</span>
         </button>
       {/if}
     </div>
-    <p class="hint muted">
-      {#if !doc?.source}Load a map to start.
+    <div class="statusbar">
+      {#if !doc?.source}
+        <span>Load a map to start.</span>
       {:else}
-        {W} × {H} px{doc.dpi_detected ? ` · ${Math.round(doc.detected_dpi)} dpi` : ''} · pinch or wheel zooms · two-finger scroll, Space+drag or middle-drag pans
+        <span>{W} × {H} px{doc.dpi_detected ? ` · ${Math.round(doc.detected_dpi)} dpi` : ''}</span>
+        {#if layout?.summary}<span>{layout.summary}</span>{/if}
+        <span class="spacer"></span>
+        <span>Pinch or wheel zooms · two-finger scroll, Space+drag or middle-drag pans</span>
       {/if}
-    </p>
+    </div>
   </section>
 
   <aside class="inspector" aria-label="Map settings">
     {#if doc}
-      {#if saveOpen}
-        <div class="card choice" role="group" aria-label="Save map as asset">
-          <label class="field">Asset name <input class="input" bind:value={saveName} /></label>
-          {#if doc.asset_id !== null}
-            <p class="small">This map was opened from the library.</p>
-            <button class="btn primary" onclick={() => save(true)}>Update existing</button>
-            <button class="btn" onclick={() => save(false)}>Save as new</button>
-          {:else}
-            <button class="btn primary" onclick={() => save(false)}>Save</button>
-          {/if}
-          <button class="btn ghost" onclick={() => (saveOpen = false)}>Cancel</button>
-        </div>
-      {/if}
-
-      <details open>
-        <summary>Grid</summary>
-        <button class="btn" disabled={busy} onclick={detectGrid} title="Find the grid drawn in the map and set the square size and line offset from it">⌗ Detect grid</button>
-        <div class="segmented modes" role="group" aria-label="Sizing mode">
-          {#each MODES as [m, label] (m)}
-            <button aria-pressed={doc.mode === m} onclick={() => (doc!.mode = m)}>{label}</button>
+      <div class="inspector-tabs">
+        <div class="segmented" role="tablist" aria-label="Settings">
+          {#each TABS as [id, label] (id)}
+            <button role="tab" id="map-tab-{id}" aria-selected={tab === id} aria-controls="map-panel" onclick={() => (tab = id)}>{label}</button>
           {/each}
         </div>
-        {#if doc.mode === 'rows_cols'}
-          <div class="pair">
-            <label class="field">Rows <input class="input" type="number" min="1" max="999" bind:value={doc.rows} /></label>
-            <label class="field">Cols <input class="input" type="number" min="1" max="999" bind:value={doc.cols} /></label>
-          </div>
-          <label class="check"><input type="checkbox" bind:checked={doc.square_cells} /> Square cells</label>
-        {:else if doc.mode === 'reference'}
-          {#if doc.pre_warp}
-            <p class="small ok">✓ Map de-warped to a flat, even grid.</p>
-            <label class="field">Square size (px) <input class="input" type="number" min="2" max="2000" step="0.1" bind:value={doc.side} /></label>
-            <button class="btn" disabled={busy} onclick={undoDewarp}>↺ Undo de-warp</button>
-          {:else}
-            <label class="field">Block is N×N squares <input class="input" type="number" min="1" max="99" bind:value={doc.ref_n} /></label>
-            <p class="small muted">Use the Reference tool to box a known block, then drag its corners onto the block's real corners to de-warp the whole map.</p>
-            <button class="btn" disabled={!doc.ref_quad || busy} onclick={() => (tool = 'reference')}>Edit block</button>
-            <button class="btn primary" disabled={!doc.ref_quad || busy} onclick={dewarp}>▦ De-warp map from this square</button>
+      </div>
+
+      <div id="map-panel" role="tabpanel" aria-labelledby="map-tab-{tab}">
+        {#if tab === 'scale'}
+          <section class="section">
+            <h3 class="section-title">Square size</h3>
+            <button class="btn block" disabled={busy} onclick={detectGrid} title="Find the grid drawn in the map and set the square size and line offset from it">⌗ Detect grid</button>
+            <p class="note">Reads the grid drawn on the map. Or set it by hand:</p>
+            <div class="segmented modes" role="group" aria-label="Sizing mode">
+              {#each MODES as [m, label] (m)}
+                <button aria-pressed={doc.mode === m} onclick={() => (doc!.mode = m)}>{label}</button>
+              {/each}
+            </div>
+            {#if doc.mode === 'rows_cols'}
+              <div class="pair">
+                <label class="field">Rows <input class="input" type="number" min="1" max="999" bind:value={doc.rows} /></label>
+                <label class="field">Cols <input class="input" type="number" min="1" max="999" bind:value={doc.cols} /></label>
+              </div>
+              <label class="check"><input type="checkbox" bind:checked={doc.square_cells} /> Square cells</label>
+            {:else if doc.mode === 'reference'}
+              {#if doc.pre_warp}
+                <p class="note ok">✓ Map de-warped to a flat, even grid.</p>
+                <label class="field">Square size (px) <input class="input" type="number" min="2" max="2000" step="0.1" bind:value={doc.side} /></label>
+                <button class="btn" disabled={busy} onclick={undoDewarp}>↺ Undo de-warp</button>
+              {:else}
+                <label class="field">Block is N×N squares <input class="input" type="number" min="1" max="99" bind:value={doc.ref_n} /></label>
+                <p class="note">Box a block of known size with the Reference square tool, then drag its corners onto the block's real corners to de-warp the whole map.</p>
+                <div class="pair">
+                  <button class="btn" disabled={busy} onclick={() => setTool('reference')}>{doc.ref_quad ? 'Edit block' : 'Draw block'}</button>
+                  <button class="btn primary" disabled={!doc.ref_quad || busy} onclick={dewarp}>▦ De-warp</button>
+                </div>
+              {/if}
+            {:else if doc.mode === 'ppi'}
+              <label class="field">Pixels per inch <input class="input" type="number" min="10" max="1200" step="0.1" bind:value={doc.ppi} /></label>
+            {:else}
+              <label class="field">Cell side (px) <input class="input" type="number" min="2" max="2000" step="0.1" bind:value={doc.side} /></label>
+            {/if}
+            {#if grid}<p class="note">1 square = {grid.cell_w.toFixed(2)} × {grid.cell_h.toFixed(2)} px</p>{/if}
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Grid position</h3>
+            <div class="pair">
+              <label class="field">Offset X <input class="input" type="number" step="0.5" bind:value={doc.offset_x} /></label>
+              <label class="field">Offset Y <input class="input" type="number" step="0.5" bind:value={doc.offset_y} /></label>
+            </div>
+            <button class="btn" aria-pressed={tool === 'nudge'} onclick={() => setTool(tool === 'nudge' ? 'none' : 'nudge')}>⌖ Align on the map…</button>
+          </section>
+        {:else if tab === 'pages'}
+          {#if layout?.fewest}
+            <section class="section">
+              <div class="callout" data-testid="fewest-pages">
+                <p>
+                  {layout.fewest.landscape !== doc.landscape ? (layout.fewest.landscape ? 'Landscape' : 'Portrait') : 'A shifted layout'}
+                  prints this on <strong>{layout.fewest.pages}</strong> page{layout.fewest.pages === 1 ? '' : 's'} instead of {layout.tiles.length}.
+                </p>
+                <button class="btn primary" onclick={fewestPages} title="Switch orientation and shift the pages; page selections are cleared">Use fewest pages</button>
+              </div>
+            </section>
           {/if}
-        {:else if doc.mode === 'ppi'}
-          <label class="field">Pixels per inch <input class="input" type="number" min="10" max="1200" step="0.1" bind:value={doc.ppi} /></label>
-        {:else}
-          <label class="field">Cell side (px) <input class="input" type="number" min="2" max="2000" step="0.1" bind:value={doc.side} /></label>
-        {/if}
-        <div class="pair">
-          <label class="field">Offset X <input class="input" type="number" step="0.5" bind:value={doc.offset_x} /></label>
-          <label class="field">Offset Y <input class="input" type="number" step="0.5" bind:value={doc.offset_y} /></label>
-        </div>
-        {#if grid}<p class="small muted">Cell {grid.cell_w.toFixed(2)} × {grid.cell_h.toFixed(2)} px</p>{/if}
-        <div class="row">
-          <input type="color" class="swatch" aria-label="Grid colour" value={hex(doc.color)} oninput={(e) => (doc!.color = fromHex(e.currentTarget.value))} />
-          <select class="input grow" aria-label="Line style" bind:value={doc.style}>
-            <option value="solid">Solid</option><option value="dashed">Dashed</option>
-            <option value="dotted">Dotted</option><option value="broken">Broken</option>
-          </select>
-        </div>
-        <label class="slider">Thickness <input type="range" min="1" max="10" bind:value={doc.thickness} /><span>{doc.thickness}</span></label>
-        <label class="slider">Opacity <input type="range" min="0" max="255" bind:value={doc.opacity} /><span>{doc.opacity}</span></label>
-        <label class="check"><input type="checkbox" bind:checked={doc.visible} /> Show grid</label>
-      </details>
 
-      <details open>
-        <summary>Embedded grid</summary>
-        <div class="segmented" role="group" aria-label="Embedded grid">
-          <button aria-pressed={!doc.remove_grid} onclick={() => (doc!.remove_grid = false)}>Keep</button>
-          <button aria-pressed={doc.remove_grid} onclick={() => (doc!.remove_grid = true)}>Remove embedded grid</button>
-        </div>
-      </details>
-
-      <details>
-        <summary>Filters</summary>
-        <FiltersPanel bind:pipeline={doc.filters} {catalog} />
-      </details>
-
-      <details open>
-        <summary>Print</summary>
-        <div class="segmented" role="group" aria-label="Page format">
-          <button aria-pressed={doc.format === 'A4'} onclick={() => (doc!.format = 'A4')}>A4</button>
-          <button aria-pressed={doc.format === 'Letter'} onclick={() => (doc!.format = 'Letter')}>Letter</button>
-        </div>
-        <div class="segmented" role="group" aria-label="Page orientation">
-          <button aria-pressed={!doc.landscape} onclick={() => (doc!.landscape = false)}>Portrait</button>
-          <button aria-pressed={doc.landscape} onclick={() => (doc!.landscape = true)}>Landscape</button>
-        </div>
-        <div class="pair">
-          <label class="field">1 square = (in) <input class="input" type="number" min="0.05" step="0.05" bind:value={doc.square_in} /></label>
-          <label class="field">1 in prints as (mm) <input class="input" type="number" min="1" step="0.1" bind:value={doc.calibration_mm} /></label>
-          <label class="field">Margin (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.margin_in} /></label>
-          <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
-        </div>
-        <label class="check"><input type="checkbox" bind:checked={doc.align_to_grid} /> Align pages to grid</label>
-        <label class="check" title="Lines along every edge of each page's map, out to the paper edge, to trim the white margin">
-          <input type="checkbox" bind:checked={doc.cut_border} /> Cut lines (trim the white margin)
-        </label>
-        {#if doc.cut_border && (doc.margin_in ?? 0) < 0.2}
-          <p class="small warn" data-testid="margin-hint">
-            Most printers can't print within about 0.2 in (5 mm) of the paper edge. Raise the margin to at least that, or the map's edges and the cut lines are clipped.
-          </p>
-        {/if}
-        <div class="row fitrow">
-          <span class="small">Fit area</span>
-          <input class="input tiny" type="number" min="0" step="0.5" aria-label="Fit width (ft)" bind:value={doc.fit_w_ft} />
-          <span class="small">×</span>
-          <input class="input tiny" type="number" min="0" step="0.5" aria-label="Fit height (ft)" bind:value={doc.fit_h_ft} />
-          <span class="small">ft</span>
-        </div>
-        {#if fitLine}<p class="small" class:ok={fitLine.ok} class:bad={!fitLine.ok} data-testid="fit-check">{fitLine.text}</p>{/if}
-      </details>
-
-      <details open>
-        <summary>Pages</summary>
-        <div class="row">
-          <button class="btn" disabled={busy} onclick={fitRegion} title="Trim blank or solid borders and snap the print area to whole squares">Fit to map</button>
-          <button class="btn" onclick={() => doc && ((doc.region = null), (doc.excluded = []))} disabled={!doc.region}>Whole map</button>
-          <button class="btn" onclick={() => doc && (doc.excluded = [])} disabled={!doc.excluded.length}>Include all</button>
-          <button class="btn" onclick={() => doc && (doc.page_offset = [0, 0])} disabled={!doc.page_offset[0] && !doc.page_offset[1]}>Reset layout</button>
-        </div>
-        <p class="small" data-testid="tiling-summary">{layout?.summary || 'No pages.'}</p>
-        {#if layout?.fewest}
-          <div class="fewest" data-testid="fewest-pages">
-            <p class="small">
-              {layout.fewest.landscape !== doc.landscape ? (layout.fewest.landscape ? 'Landscape' : 'Portrait') : 'A shifted layout'}
-              prints this on <strong>{layout.fewest.pages}</strong> page{layout.fewest.pages === 1 ? '' : 's'} instead of {layout.tiles.length}.
-            </p>
-            <button class="btn primary" onclick={fewestPages} title="Switch orientation and shift the pages; page selections are cleared">Use fewest pages</button>
-          </div>
-        {/if}
-        {#if tiles.length}
-          <div class="row">
-            <button class="btn icon" aria-label="Previous page" disabled={page <= 0} onclick={() => page--}>‹</button>
-            <span class="small grow center">Page {Math.min(page, tiles.length - 1) + 1} of {tiles.length}</span>
-            <button class="btn icon" aria-label="Next page" disabled={page >= tiles.length - 1} onclick={() => page++}>›</button>
-          </div>
-          {#if curTile}
-            <label class="check">
-              <input type="checkbox" checked={!isExcluded(curTile.col, curTile.row)} onchange={() => toggleTile(curTile.col, curTile.row)} /> Include this page
+          <section class="section">
+            <h3 class="section-title">Paper</h3>
+            <div class="prop">
+              <span>Format</span>
+              <div class="segmented" role="group" aria-label="Page format">
+                <button aria-pressed={doc.format === 'A4'} onclick={() => (doc!.format = 'A4')}>A4</button>
+                <button aria-pressed={doc.format === 'Letter'} onclick={() => (doc!.format = 'Letter')}>Letter</button>
+              </div>
+            </div>
+            <div class="prop">
+              <span>Orientation</span>
+              <div class="segmented" role="group" aria-label="Page orientation">
+                <button aria-pressed={!doc.landscape} onclick={() => (doc!.landscape = false)}>Portrait</button>
+                <button aria-pressed={doc.landscape} onclick={() => (doc!.landscape = true)}>Landscape</button>
+              </div>
+            </div>
+            <label class="prop">
+              <span>1 square =</span>
+              <span class="with-unit"><input class="input" type="number" min="0.05" step="0.05" aria-label="1 square = (in)" bind:value={doc.square_in} /><span>in</span></span>
             </label>
-          {/if}
-          <div class="page">
-            {#if pageUrl}<img src={pageUrl} alt="Page preview" data-testid="page-preview" />{/if}
-            {#if curTile && isExcluded(curTile.col, curTile.row)}<span class="excluded">EXCLUDED</span>{/if}
-          </div>
+            <label class="check" title="Lines along every edge of each page's map, out to the paper edge, to trim the white margin">
+              <input type="checkbox" bind:checked={doc.cut_border} /> Cut lines (trim the white margin)
+            </label>
+            {#if doc.cut_border && (doc.margin_in ?? 0) < 0.2}
+              <div class="note warn" data-testid="margin-hint">
+                Most printers can't print within about 0.2 in (5 mm) of the paper edge, so the map's edges and the cut lines get clipped.
+                <button class="btn ghost linkish" onclick={() => (doc!.margin_in = 0.2)}>Set margin to 0.2 in</button>
+              </div>
+            {/if}
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Print area</h3>
+            <div class="pair">
+              <button class="btn" disabled={busy} onclick={fitRegion} title="Trim blank or solid borders and snap the print area to whole squares">Fit to map</button>
+              <button class="btn" onclick={() => doc && ((doc.region = null), (doc.excluded = []))} disabled={!doc.region}>Whole map</button>
+            </div>
+            <div class="pair">
+              <button class="btn" aria-pressed={tool === 'region'} onclick={() => setTool(tool === 'region' ? 'none' : 'region')}>▭ Draw…</button>
+              <button class="btn" aria-pressed={tool === 'layout'} onclick={() => setTool(tool === 'layout' ? 'none' : 'layout')}>⇲ Move pages…</button>
+            </div>
+            {#if doc.page_offset[0] || doc.page_offset[1]}
+              <button class="btn ghost" onclick={() => doc && (doc.page_offset = [0, 0])}>Reset page position</button>
+            {/if}
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Pages</h3>
+            <p class="note" data-testid="tiling-summary">{layout?.summary || 'No pages.'}</p>
+            {#if tiles.length}
+              <div class="pager">
+                <button class="btn icon" aria-label="Previous page" disabled={page <= 0} onclick={() => page--}>‹</button>
+                <span>Page {Math.min(page, tiles.length - 1) + 1} of {tiles.length}</span>
+                <button class="btn icon" aria-label="Next page" disabled={page >= tiles.length - 1} onclick={() => page++}>›</button>
+              </div>
+              <div class="page">
+                {#if pageUrl}<img src={pageUrl} alt="Page preview" data-testid="page-preview" />{/if}
+                {#if curTile && isExcluded(curTile.col, curTile.row)}<span class="excluded">EXCLUDED</span>{/if}
+              </div>
+              <div class="row">
+                {#if curTile}
+                  <label class="check grow">
+                    <input type="checkbox" checked={!isExcluded(curTile.col, curTile.row)} onchange={() => toggleTile(curTile.col, curTile.row)} /> Print this page
+                  </label>
+                {/if}
+                <button class="btn ghost" onclick={() => doc && (doc.excluded = [])} disabled={!doc.excluded.length}>Include all</button>
+              </div>
+              <p class="note">Click a page on the map to leave it out.</p>
+            {/if}
+          </section>
+
+          <details class="section">
+            <summary>Advanced</summary>
+            <div class="pair">
+              <label class="field">Margin (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.margin_in} /></label>
+              <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
+            </div>
+            <label class="field">1 in prints as (mm) <input class="input" type="number" min="1" step="0.1" bind:value={doc.calibration_mm} /></label>
+            <p class="note">Printer calibration: measure a printed inch and enter it here.</p>
+            <label class="check"><input type="checkbox" bind:checked={doc.align_to_grid} /> Align pages to grid</label>
+            <div class="field">
+              <span class="label">Check it fits a table of</span>
+              <div class="with-unit">
+                <input class="input" type="number" min="0" step="0.5" aria-label="Fit width (ft)" bind:value={doc.fit_w_ft} />
+                <span>×</span>
+                <input class="input" type="number" min="0" step="0.5" aria-label="Fit height (ft)" bind:value={doc.fit_h_ft} />
+                <span>ft</span>
+              </div>
+            </div>
+            {#if fitLine}<p class="note" class:ok={fitLine.ok} class:bad={!fitLine.ok} data-testid="fit-check">{fitLine.text}</p>{/if}
+          </details>
+        {:else}
+          <section class="section">
+            <h3 class="section-title">Grid lines</h3>
+            <label class="check"><input type="checkbox" bind:checked={doc.visible} /> Draw the grid</label>
+            <div class="prop">
+              <span>Line</span>
+              <div class="row">
+                <input type="color" class="swatch" aria-label="Grid colour" value={hex(doc.color)} oninput={(e) => (doc!.color = fromHex(e.currentTarget.value))} />
+                <select class="input grow" aria-label="Line style" bind:value={doc.style}>
+                  <option value="solid">Solid</option><option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option><option value="broken">Broken</option>
+                </select>
+              </div>
+            </div>
+            <label class="range"><span>Thickness</span><input type="range" min="1" max="10" bind:value={doc.thickness} /><span>{doc.thickness}</span></label>
+            <label class="range"><span>Opacity</span><input type="range" min="0" max="255" bind:value={doc.opacity} /><span>{doc.opacity}</span></label>
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Grid printed in the map</h3>
+            <div class="segmented stretch" role="group" aria-label="Embedded grid">
+              <button aria-pressed={!doc.remove_grid} onclick={() => (doc!.remove_grid = false)}>Keep</button>
+              <button aria-pressed={doc.remove_grid} onclick={() => (doc!.remove_grid = true)}>Remove</button>
+            </div>
+            <p class="note">Removing it paints over the map's own lines, using the square size.</p>
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Filters</h3>
+            <FiltersPanel bind:pipeline={doc.filters} {catalog} />
+          </section>
         {/if}
-      </details>
-      {#if doc.asset_id !== null}<p class="small muted">Editing library asset #{doc.asset_id}</p>{/if}
+      </div>
     {:else}
-      <p class="muted">No map loaded.</p>
+      <div class="empty-state">
+        <strong>No map loaded</strong>
+        <span>Open a map, paste one, or drop it on the canvas.</span>
+      </div>
     {/if}
+    {#if doc?.asset_id != null}<p class="note asset">Editing library asset #{doc.asset_id}</p>{/if}
   </aside>
 </div>
 
+<SaveAssetDialog bind:open={saveOpen} bind:name={saveName} kind="map" existing={doc?.asset_id ?? null} onsave={save} />
+
 <style>
-  .paginator {
-    display: grid;
-    /* Wider than other views: the paginator has the most settings. */
-    grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 440px);
-    height: 100%;
-    min-height: 0;
-  }
-  .work {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    padding: var(--space-3) var(--space-4);
-    gap: var(--space-2);
-  }
-  .toolbar,
-  .row {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
+  .tools {
     flex-wrap: wrap;
   }
-  .viewctl {
-    display: flex;
-    flex: none;
-    gap: var(--space-2);
-    align-items: center;
-  }
-  .spacer,
-  .grow {
-    flex: 1;
-  }
-  .center {
+  .glyph {
+    display: inline-block;
+    min-width: 1em;
     text-align: center;
   }
-  .zoom {
-    min-width: 44px;
-    text-align: center;
-    font-size: 12px;
+  .tool-label {
+    margin-left: 6px;
   }
-  .check {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    font-size: 13px;
+  /* narrow canvas: tools show their glyph only (the name stays in the tooltip) */
+  @container (max-width: 680px) {
+    .tool-label {
+      display: none;
+    }
   }
   .stage {
-    position: relative;
-    flex: 1;
-    min-height: 0;
     overflow: hidden;
-    border-radius: var(--radius);
-    background: var(--surface-2);
     cursor: grab;
     touch-action: none;
     user-select: none;
@@ -969,59 +1013,31 @@
     stroke-dasharray: 6 4;
     vector-effect: non-scaling-stroke;
   }
-  .drop {
+  /* the active tool's help floats over the top of the canvas */
+  .toolhint {
     position: absolute;
-    inset: var(--space-6);
-    display: grid;
-    place-content: center;
-    gap: 4px;
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    cursor: pointer;
+    top: var(--space-2);
+    left: var(--space-2);
+    right: var(--space-2);
+    max-width: max-content;
+    margin: 0;
+    padding: 6px var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    box-shadow: var(--shadow);
+    font-size: 12px;
+    pointer-events: none;
   }
   .badge {
     position: absolute;
-    bottom: 6px;
-    right: 8px;
-    font-size: 11px;
-  }
-  .hint {
-    margin: 0;
-    font-size: 12px;
-  }
-  .inspector {
-    border-left: 1px solid var(--border);
+    bottom: var(--space-2);
+    left: var(--space-2);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
     background: var(--surface);
-    padding: var(--space-3) var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    overflow-x: hidden;
-    overflow-y: auto;
-    min-width: 0;
-  }
-  .inspector :global(.input) {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-  .inspector .tiny {
-    width: 64px;
-    flex: none;
-  }
-  details {
-    display: grid;
-    gap: var(--space-2);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: var(--space-2);
-  }
-  details > :global(*:not(summary)) {
-    margin-top: var(--space-2);
-  }
-  summary {
-    font-weight: 600;
-    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 11px;
   }
   .segmented.modes {
     display: grid;
@@ -1033,78 +1049,27 @@
   .segmented.modes button:nth-child(n + 3) {
     border-top: 1px solid var(--border);
   }
-  .segmented.tools {
-    flex-wrap: wrap;
+  .segmented.stretch {
+    display: flex;
   }
-  .glyph {
-    margin-right: 6px;
-  }
-  .toolhint {
-    margin: 0;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-sm);
-    background: var(--accent-soft);
-    font-size: 13px;
+  .segmented.stretch button {
+    flex: 1;
   }
   .field {
-    display: grid;
-    gap: 2px;
     font-size: 12px;
-  }
-  .pair {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--space-2);
-  }
-  .slider {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) 32px;
-    gap: 6px;
-    align-items: center;
-    font-size: 12px;
-  }
-  .slider input {
-    accent-color: var(--accent);
-    width: 100%;
-    min-width: 0;
-  }
-  .swatch {
-    width: 40px;
-    height: 32px;
-    padding: 2px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-  }
-  .tiny {
-    width: 64px;
-  }
-  .small {
-    margin: 0;
-    font-size: 12px;
-  }
-  .ok {
-    color: #2e7d32;
-  }
-  .bad {
-    color: #c62828;
-  }
-  .choice {
-    padding: var(--space-3);
-    display: grid;
-    gap: var(--space-2);
   }
   .page {
     position: relative;
     display: grid;
     place-items: center;
-    background: var(--surface-2);
-    border-radius: var(--radius-sm);
     padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
     min-height: 120px;
   }
   .page img {
     max-width: 100%;
+    max-height: 260px;
     box-shadow: var(--shadow);
     background: #fff;
   }
@@ -1113,20 +1078,18 @@
     color: #d32f2f;
     font-weight: 700;
   }
-  .fewest {
-    display: grid;
-    gap: 6px;
-    padding: 8px;
-    border-radius: var(--radius-sm);
-    background: var(--accent-soft);
+  .linkish {
+    display: block;
+    min-height: 0;
+    margin-top: 4px;
+    padding: 0;
+    color: var(--text);
+    text-decoration: underline;
+    font-size: 12px;
   }
-  .fewest p {
-    margin: 0;
-  }
-  /* the warning colour marks it; the text stays at full contrast */
-  .warn {
-    margin: 0;
-    padding-left: 8px;
-    border-left: 3px solid var(--warning);
+  .asset {
+    margin-top: auto;
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--border);
   }
 </style>
