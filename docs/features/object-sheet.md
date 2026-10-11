@@ -40,6 +40,7 @@ The sheet is autosaved in `workspaces` under the key `object_sheet`.
 - `object_sheet_export_pdf {path, format?, mode?}`
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of cut-outs on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.
 - The page format default now comes from a setting. Python hard-coded Letter.
 - Items that are too large are reported instead of silently dropped.
 - Clear all now asks for confirmation.

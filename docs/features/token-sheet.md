@@ -93,6 +93,7 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 - [x] Add from Cutter and Library, single and batch (`app.py:518-534`)
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of tokens on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.
 - Half-inch packing grid: Tiny and Small print at their true size (see "Size change from Python" above).
 - An item that can never fit is reported once and creates no pages (Python opened an empty page per copy).
 - Images are embedded as PNG with transparency (Python wrote a temporary JPEG per token, flattened on white).

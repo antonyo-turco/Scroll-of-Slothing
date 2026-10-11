@@ -116,6 +116,7 @@ Units: `px_per_ft = px_per_square / feet_per_square`. Coordinates start at the t
 | `aoe_export_png` | |
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): exports in the top bar; the inspector uses the shared sections (Preset, Shape & size, Scale & paper, Style, Sheet).
 - Labels use the bundled Liberation Sans (metric-compatible with Arial) instead of the system Arial/DejaVu fallback.
 - Built-in presets cannot be deleted; saving over an existing user preset needs explicit `overwrite` (the UI asks, as Python did).
 - The sheet is autosaved in the `aoe.sheet` workspace instead of living only in memory.

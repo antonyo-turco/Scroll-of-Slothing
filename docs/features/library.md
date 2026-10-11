@@ -87,6 +87,7 @@ Assets imported from the old app have no params. They open with default framing,
 | `library_export` | `{id, what: original\|rendered\|pdf, path}` |
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): the details inspector is always shown (empty when nothing is selected) and grouped into Open/Add, Details, Export and a footer with Delete. Import and Manage tags moved to the top bar.
 - Campaigns and sessions were removed at the user's request on 2026-10-11: no filters, inspector links or bulk links. Existing links stay in the database, unused.
 - The two Python tabs are merged into one view with filter presets.
 - Hover preview uses a derivative instead of decoding the full original.
@@ -110,4 +111,4 @@ Assets imported from the old app have no params. They open with default framing,
 ### Phase 1 implementation notes
 - The import dialog lists file names without thumbnails. The webview cannot read arbitrary local paths, and thumbnails appear in the grid as soon as the import finishes.
 - Selection: Ctrl+click toggles, Shift+click selects a range, Ctrl+A selects all, Esc clears. While a selection exists, a plain click toggles.
-- Esc in a text field leaves the field (committing the edit). The next Esc closes the inspector.
+- Esc in a text field leaves the field (committing the edit). The next Esc deselects the asset; the inspector stays and shows how to select.

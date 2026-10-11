@@ -158,6 +158,7 @@ Description text here.
 | `decks_delete` | | deletes a deck |
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): Open .md, Save as .md, Save deck and Export PDF are in the top bar; the template buttons and the saved-deck picker share the editor's toolbar band; card and page counts and overflow warnings are in the preview's status line.
 - The preview is exact and live, with all pages and backs. Python only showed an approximate first page, with the first 120 characters of each body.
 - The page format default comes from a setting.
 - Text is measured and drawn with Liberation Sans, whose glyph advances rounded to 1/1000 em are identical to Helvetica's AFM metrics (checked for all printable ASCII in all four styles), so line breaks match ReportLab exactly. Glyphs are placed without kerning, like ReportLab.

@@ -64,6 +64,7 @@ YouTube also needs a real page origin to embed videos. The Tauri app origin prov
 The legacy importer writes every `music_*` row from the old database to `legacy/music.json`. "Import legacy music" (`music_import_legacy`) imports it from there; it is idempotent.
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): the five Music tabs sit in the top bar next to the title. Each tab has a toolbar band, a scrolling body and a centred empty state. The Library's tag sidebar became a row of tag chips under the search (as in the asset Library); several tags still combine with AND. The Mixer's .dmix actions are in the top bar.
 - Campaigns and sessions were removed at the user's request on 2026-10-11: tracks no longer need a campaign, and the library, playlists, soundscapes and soundboards have no campaign filter or field. Links already stored are kept (editing a track or replacing a playlist or board preserves them) and the legacy import still copies them.
 - No subprocess, IPC or loopback HTTP server: the engine runs in the main webview (see `player-engine.md`).
 - Volume changes apply while dragging and from the keyboard, and ramp over 150 ms.

@@ -32,7 +32,7 @@ Points are stored in **image coordinates**, not screen coordinates.
 
 **Actions**
 - Export PNG…
-- Save to Library (Update / New / Cancel, as in the Token Cutter)
+- Save to Library (the same dialog as the Token Cutter)
 - Add to Object Sheet
 
 ## Algorithms (core::cutout)
@@ -63,6 +63,7 @@ Python reference: `ui/cutout_compositing.py`.
 `cutout_create {source: path|asset_id, points:[[x,y],...], outline_px?, outline_rgb?, name?, size?, save_to_library?, add_to_sheet?, out_png?}`
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): Open image, Paste, Save PNG, Add to sheet and Save to library are in the top bar; the zoom cluster floats on the canvas; the toolbar band keeps only the selection tools.
 - The lasso edge is anti-aliased; PIL's polygon fill is hard. Pixel coverage follows PIL's convention (a pixel is the point at its integer coordinate), so the crop box is identical and interior pixels are untouched. Only edge pixels differ: 0.007 % (rectangle), 0.35 % (triangle) and 0.49 % (star) of the crop in the golden cases.
 - The outline dilation is a separable O(n) square dilation instead of `thickness` passes of a 3×3 max filter. It is mathematically identical: a property test checks it against the naive version, and the golden outputs match Python **exactly**.
 - The trace (mode, points) and outline settings are saved with the asset, so re-editing restores them. Python reloaded only the image.

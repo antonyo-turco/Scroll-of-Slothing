@@ -21,7 +21,7 @@ Frames any image inside a circular token border and outputs a token image. The o
 
 **Actions**
 - Save PNG…
-- Save to Library: if the token was opened from the Library, asks Update existing / Save as new / Cancel.
+- Save to Library: a dialog with the name, and, if the token was opened from the Library, Update existing / Save as new / Cancel.
 - Add to Token Sheet
 
 ## Algorithm (core::token)
@@ -55,12 +55,13 @@ The transparency checkerboard for preview uses an 8 px square in colours (204,20
 - `token_borders_add {path}`
 
 ## Intentional changes
+- UI consistency pass (2026-10-11, branch `ui/consistency`): the source image (with the colour picker) is the inspector's first section instead of a separate left column; Open image, Paste, Save PNG, Add to sheet and Save to library are in the top bar; zoom has −/+ buttons next to Reset view.
 - Live preview: the compose runs in Rust off the UI thread, resampling only the visible window of the source (Python resized the whole image on every motion event). At most one render is in flight; the latest drag or zoom state wins, so the UI never queues up or freezes.
 - Circle edges (content mask and outer clip) are anti-aliased. PIL drew hard edges. The golden test allows for this: mean error ≤ 3/255, alpha mismatch ≤ 1 % of pixels. Measured: 0.12–0.77 and ≤ 0.31 %.
 - Edit params are stored, so re-editing is non-destructive.
 - Users can add their own border PNGs (they need transparency).
 - The cutter draft (source, framing, name, size) is autosaved and restored after a restart.
-- "Save to library" on an asset opened from the library offers Update existing / Save as new / Cancel inline instead of a Yes/No/Cancel dialog.
+- "Save to library" opens a dialog with the name; for an asset opened from the library it offers Update existing / Save as new / Cancel instead of Python's Yes/No/Cancel.
 
 ## Parity checklist (Python `ui/token_generator_panel.py`, `ui/token_compositing.py`)
 - [x] Border loading and selection (`_load_borders` :80)
