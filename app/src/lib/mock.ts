@@ -254,6 +254,8 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
   const borders: Border[] = [
     { id: 'builtin:roll20', name: 'Roll20 gold', builtin: true, blob: 'mock-border-gold', width: 442, height: 442 },
     { id: 'builtin:roll20_greyscale', name: 'Roll20 grey', builtin: true, blob: 'mock-border-grey', width: 256, height: 256 },
+    { id: 'builtin:roll20_thin', name: 'Roll20 gold, thin', builtin: true, blob: 'mock-border-gold-thin', width: 442, height: 442 },
+    { id: 'builtin:roll20_greyscale_thin', name: 'Roll20 grey, thin', builtin: true, blob: 'mock-border-grey-thin', width: 256, height: 256 },
   ];
   const sources = new Map<string, { width: number; height: number }>();
   const tokenParams = new Map<number, TokenParams>();

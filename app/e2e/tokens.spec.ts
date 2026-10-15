@@ -21,8 +21,8 @@ test('library asset opens in the cutter, edits re-render, update-or-new choice',
   // Background colour + border switch.
   await page.getByRole('group', { name: 'Background' }).getByRole('button', { name: 'Colour' }).click();
   await expect(page.getByLabel('Background colour')).toBeVisible();
-  await page.getByRole('radio', { name: 'Roll20 grey' }).click();
-  await expect(page.getByRole('radio', { name: 'Roll20 grey' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Roll20 grey', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Roll20 grey', exact: true })).toHaveAttribute('aria-checked', 'true');
 
   // Opened from the library → saving asks update vs new.
   await page.getByRole('button', { name: 'Save to library…' }).click();

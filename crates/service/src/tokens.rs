@@ -17,13 +17,24 @@ use sleuth_store::{AssetImages, AssetPatch, NewAsset, Store};
 use crate::library::{check_size, store_encoded};
 use crate::{Asset, Result, Service, ServiceError};
 
-/// Bundled borders (the Python app's `images/token_borders`).
+/// Bundled borders: the Python app's `images/token_borders`, plus thin
+/// versions of both (ring squeezed to 45 % of its width, so more image shows).
 const BUILTIN_BORDERS: &[(&str, &str, &[u8])] = &[
     ("builtin:roll20", "Roll20 gold", include_bytes!("../../../assets/token_borders/roll20.png")),
     (
         "builtin:roll20_greyscale",
         "Roll20 grey",
         include_bytes!("../../../assets/token_borders/roll20_greyscale.png"),
+    ),
+    (
+        "builtin:roll20_thin",
+        "Roll20 gold, thin",
+        include_bytes!("../../../assets/token_borders/roll20_thin.png"),
+    ),
+    (
+        "builtin:roll20_greyscale_thin",
+        "Roll20 grey, thin",
+        include_bytes!("../../../assets/token_borders/roll20_greyscale_thin.png"),
     ),
 ];
 
@@ -338,7 +349,12 @@ mod tests {
         let b = svc.token_borders_list().await.unwrap();
         assert_eq!(
             b.iter().map(|b| (b.id.as_str(), b.width)).collect::<Vec<_>>(),
-            [("builtin:roll20", 442), ("builtin:roll20_greyscale", 256)]
+            [
+                ("builtin:roll20", 442),
+                ("builtin:roll20_greyscale", 256),
+                ("builtin:roll20_thin", 442),
+                ("builtin:roll20_greyscale_thin", 256)
+            ]
         );
     }
 
@@ -425,9 +441,10 @@ mod tests {
         let ring = write_test_png(d.path(), "My Ring.png", 128, 128);
         let b = svc.token_borders_add(ring, None).await.unwrap();
         assert_eq!((b.name.as_str(), b.builtin), ("My Ring", false));
-        assert_eq!(svc.token_borders_list().await.unwrap().len(), 3);
+        let builtin = BUILTIN_BORDERS.len();
+        assert_eq!(svc.token_borders_list().await.unwrap().len(), builtin + 1);
         svc.token_borders_remove(b.id.clone()).await.unwrap();
-        assert_eq!(svc.token_borders_list().await.unwrap().len(), 2);
+        assert_eq!(svc.token_borders_list().await.unwrap().len(), builtin);
         assert!(svc.token_borders_remove(b.id).await.is_err());
     }
 }
