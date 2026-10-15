@@ -16,7 +16,8 @@
   import type { FilterCatalog, MapDoc, MapLayout, Pt, SaveDetails, SizingMode } from '../../lib/types';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
-  import FiltersPanel from './FiltersPanel.svelte';
+  import FiltersPanel from '../../lib/components/FiltersPanel.svelte';
+  import Slider from '../../lib/components/Slider.svelte';
   import {
     HANDLES,
     handlePoint,
@@ -887,8 +888,8 @@
                 </select>
               </div>
             </div>
-            <label class="range"><span>Thickness</span><input type="range" min="1" max="10" bind:value={doc.thickness} /><span>{doc.thickness}</span></label>
-            <label class="range"><span>Opacity</span><input type="range" min="0" max="255" bind:value={doc.opacity} /><span>{doc.opacity}</span></label>
+            <Slider label="Thickness" min={1} max={10} bind:value={doc.thickness} />
+            <Slider label="Opacity" min={0} max={255} step={5} bind:value={doc.opacity} />
           </section>
 
           <section class="section">

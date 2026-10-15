@@ -22,6 +22,40 @@ test('inspector fits without sideways scrolling', async ({ page }) => {
   if (process.env.MAP_SHOT) await page.screenshot({ path: process.env.MAP_SHOT });
 });
 
+test('look tab: filter sliders drag, step with − / + and fit the inspector', async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await openMap(page);
+  const inspector = page.getByRole('complementary', { name: 'Map settings' });
+  await inspector.getByRole('tab', { name: 'Look' }).click();
+  await inspector.getByRole('combobox', { name: 'Filter preset' }).selectOption('Newsprint (print-friendly)');
+  expect(await inspector.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+
+  // Sharpen 150 (0–500, step 10), after Contrast: + / − step it
+  const sharpen = inspector.getByRole('slider', { name: 'Amount %' }).nth(1);
+  await expect(sharpen).toHaveValue('150');
+  await inspector.getByRole('button', { name: 'Increase Amount %' }).nth(1).click();
+  await expect(sharpen).toHaveValue('160');
+  await inspector.getByRole('button', { name: 'Decrease Amount %' }).nth(1).click();
+  await inspector.getByRole('button', { name: 'Decrease Amount %' }).nth(1).click();
+  await expect(sharpen).toHaveValue('140');
+
+  // dragging the thumb moves the slider instead of dragging the filter row
+  const box = (await sharpen.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.28, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up();
+  expect(Number(await sharpen.inputValue())).toBeGreaterThan(300);
+
+  // the value readouts stay inside the inspector
+  const right = (await inspector.boundingBox())!.x + (await inspector.boundingBox())!.width;
+  for (const btn of await inspector.getByRole('button', { name: /^Increase / }).all()) {
+    const b = (await btn.boundingBox())!;
+    expect(b.x + b.width).toBeLessThanOrEqual(right);
+  }
+  if (process.env.LOOK_SHOT) await inspector.screenshot({ path: process.env.LOOK_SHOT });
+});
+
 test('reference tool hides the grid and pages, and sides can be dragged', async ({ page }) => {
   await openMap(page);
   const stage = page.getByTestId('map-stage');

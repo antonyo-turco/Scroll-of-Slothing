@@ -1,12 +1,15 @@
 <script lang="ts">
   // Map filter pipeline editor (docs/features/map-filters.md): preset dropdown,
   // per-filter toggle + slider(s), drag to reorder, Clear all.
-  import type { FilterCatalog, FilterStep } from '../../lib/types';
+  import Slider from './Slider.svelte';
+  import type { FilterCatalog, FilterStep } from '../types';
 
   let { pipeline = $bindable(), catalog }: { pipeline: FilterStep[]; catalog: FilterCatalog | null } = $props();
 
   let preset = $state('');
   let dragFrom = $state<number | null>(null);
+  /** Row whose grip is held: only it is draggable, so sliders inside rows still slide. */
+  let armed = $state<number | null>(null);
 
   const def = (key: string) => catalog?.defs.find((d) => d.key === key);
 
@@ -55,6 +58,7 @@
     const [m] = next.splice(dragFrom, 1);
     next.splice(to, 0, m);
     dragFrom = null;
+    armed = null;
     commit(next);
   }
 
@@ -79,36 +83,42 @@
     {#each steps as s, i (s.type)}
       {@const d = def(s.type)}
       <li
-        draggable="true"
+        draggable={armed === i}
         class:on={s.enabled}
+        class:dragging={dragFrom === i}
         ondragstart={() => (dragFrom = i)}
+        ondragend={() => ((dragFrom = null), (armed = null))}
         ondragover={(e) => e.preventDefault()}
         ondrop={() => drop(i)}
       >
         <div class="head">
-          <span class="grip" aria-hidden="true">⋮⋮</span>
+          <span
+            class="grip"
+            title="Drag to reorder"
+            aria-hidden="true"
+            onpointerdown={() => (armed = i)}
+            onpointerup={() => (armed = null)}>⋮⋮</span
+          >
           <label class="name">
             <input type="checkbox" checked={s.enabled} onchange={(e) => toggle(i, e.currentTarget.checked)} />
-            {d?.label ?? s.type}
+            <span>{d?.label ?? s.type}</span>
           </label>
-          <button class="btn icon ghost" aria-label="Move {d?.label ?? s.type} up" onclick={() => move(i, -1)}>▲</button>
-          <button class="btn icon ghost" aria-label="Move {d?.label ?? s.type} down" onclick={() => move(i, 1)}>▼</button>
+          <button class="btn icon ghost" aria-label="Move {d?.label ?? s.type} up" disabled={i === 0} onclick={() => move(i, -1)}>▲</button>
+          <button class="btn icon ghost" aria-label="Move {d?.label ?? s.type} down" disabled={i === steps.length - 1} onclick={() => move(i, 1)}>▼</button>
         </div>
-        {#if s.enabled}
-          {#each d?.params ?? [] as p (p.key)}
-            <label class="param">
-              <span class="muted">{p.label}</span>
-              <input
-                type="range"
+        {#if s.enabled && d?.params.length}
+          <div class="params">
+            {#each d.params as p (p.key)}
+              <Slider
+                label={p.label}
                 min={p.min}
                 max={p.max}
                 step={p.step}
                 value={s.params[p.key] ?? p.default}
-                oninput={(e) => setParam(i, p.key, Number(e.currentTarget.value))}
+                oninput={(v) => setParam(i, p.key, v)}
               />
-              <span class="val">{s.params[p.key] ?? p.default}</span>
-            </label>
-          {/each}
+            {/each}
+          </div>
         {/if}
       </li>
     {/each}
@@ -136,46 +146,57 @@
     gap: 2px;
   }
   li {
+    min-width: 0;
     border-radius: var(--radius-sm);
     padding: 2px 4px;
   }
   li.on {
     background: var(--surface-2);
   }
+  li.dragging {
+    opacity: 0.5;
+  }
   .head {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
+    min-width: 0;
   }
   .grip {
+    flex: none;
+    width: 18px;
+    padding: 6px 0;
+    text-align: center;
     cursor: grab;
-    color: var(--text-muted, #888);
-    font-size: 10px;
+    color: var(--text-muted);
+    font-size: 14px;
+    letter-spacing: -3px;
+    touch-action: none;
   }
   .name {
     flex: 1;
+    min-width: 0;
     display: flex;
     gap: 6px;
     align-items: center;
+    min-height: 30px;
     font-size: 13px;
+    cursor: pointer;
+  }
+  .name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .head .btn {
-    padding: 0 4px;
-    font-size: 9px;
-    min-height: 0;
+    flex: none;
+    width: 28px;
+    min-height: 28px;
+    font-size: 11px;
   }
-  .param {
+  .params {
     display: grid;
-    grid-template-columns: 90px 1fr 34px;
-    gap: 6px;
-    align-items: center;
-    font-size: 12px;
-    padding-left: 20px;
-  }
-  .param input {
-    accent-color: var(--accent);
-  }
-  .val {
-    text-align: right;
+    gap: var(--space-2);
+    padding: 2px 4px 6px 20px;
   }
 </style>
