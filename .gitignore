@@ -1,19 +1,25 @@
-# Rust
+# Rust build output (also holds the release exe and the MSI bundle)
 /target/
 **/*.rs.bk
 
 # Node / frontend
 node_modules/
-app/ui/dist/
-app/ui/.svelte-kit/
+app/dist/
+app/.svelte-kit/
+app/test-results/
+app/playwright-report/
+app/blob-report/
+*.local
 *.log
+npm-debug.log*
 
 # Tauri
 app/src-tauri/target/
 app/src-tauri/gen/
 
-# Local data / secrets
+# App data, databases, secrets
 .env
+.env.*
 *.db
 *.db-wal
 *.db-shm
@@ -25,10 +31,16 @@ __pycache__/
 *.pyc
 .venv/
 
+# Claude Code: shared skills are tracked, personal and runtime files are not
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
 # OS / editors
 .DS_Store
 Thumbs.db
+desktop.ini
 .idea/
 .vscode/*
 !.vscode/extensions.json
-.claude/worktrees/
+*.swp

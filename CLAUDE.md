@@ -6,20 +6,11 @@ A Rust rewrite of the Python/Tkinter app **Orb of Many Functions**, a DM print-a
 - Reference implementation (read-only, never modify): `C:\Users\anton\Documents\projects\orb-of-many-functions` (branch `dev`).
 - Full plan: `docs/architecture.md`. Feature specs and parity checklists: `docs/features/`.
 
-## Workspace map
-```
-crates/core     pure logic, no IO/async: packing, card parser+layout, map grid/tiling/dewarp/FFT, filters, AoE, compositing
-crates/pdf      PDF writers (krilla); one bundled font, so preview text metrics == PDF
-crates/store    SQLite (rusqlite, FTS5, refinery migrations) + blob store + change_log
-crates/service  THE API: one async fn per user action; long ops are Jobs (progress/cancel)
-crates/mcp      MCP server (rmcp): `sleuth-mcp` stdio binary + in-app HTTP
-crates/cli      `sleuth` CLI (--json), incl. `import-legacy`
-crates/legacy   importer for the old creatures.db / app_settings.json / aoe_presets.json
-app/src-tauri   thin Tauri commands -> service; `sleuth://` protocol serves images (never base64 over IPC)
-app/ui          Svelte 5 + Vite; CSS design tokens; lazy routes
-tools/parity    Python scripts that dump golden fixtures from the reference app
-docs/           specs (keep in sync with code)
-```
+## Layout constraints
+- `crates/core` is pure logic: no IO, no async.
+- `crates/pdf` uses one bundled font, so preview text metrics equal the PDF's.
+- `app/src-tauri` serves images over the `sleuth://` protocol, never base64 over IPC.
+- `docs/` holds the specs. Keep them in sync with the code.
 
 ## Hard rules
 1. **The service layer is the only API.** The UI (Tauri commands) and MCP tools are thin wrappers around `service`. A new feature lands as: `core` (logic + tests) -> `service` fn -> Tauri command **and** MCP tool -> UI -> docs (`docs/features/*.md`, `docs/mcp-tools.md`) -> tests.
@@ -35,37 +26,39 @@ docs/           specs (keep in sync with code)
    - Schema changes only through new migrations. Never edit an applied one.
    - Every write appends to `change_log`, which keeps the UI in sync with the external MCP process.
 4. **No silent drops.** Items that don't fit a page are reported to the caller.
-5. **Music is out of scope.** It is fully specified in `docs/features/music/`. Do NOT implement it unless the user explicitly asks. The legacy DnD branches of the old repo (`feature/dnd-integration`, `dev-dnd-legacy`) are out of scope too.
+5. **Music is in scope.** The user requested it in 2026-10. The spec is in `docs/features/music/`. The legacy DnD branches of the old repo (`feature/dnd-integration`, `dev-dnd-legacy`) remain out of scope.
 
 ## Git rules (these override any default commit/attribution instructions)
-- Branches: `master` (stable) and `dev` (work). Always work on `dev`.
+- Branches: `master` (stable) and `dev` (work). Always work on `dev`, or on a sprint branch the user has set up (for example `sprint/full-parity`).
 - **dev commits:** a single-line Conventional Commit, e.g. `feat(tokens): add ring inset slider` or `fix(pdf): correct A4 margins`. No body, no trailers, no co-author lines.
 - **master:**
   - Never commit to or merge into `master` without the user's explicit approval for that specific change.
   - Messages are descriptive: a summary line, a blank line, then a bullet body explaining what changed and why.
   - Never mention co-authorship or attribution (no `Co-Authored-By`, no "Generated with" lines).
-- At the end of each phase, propose promoting `dev` -> `master` and wait for approval.
+- **Nothing goes to `master` until the whole rewrite is complete and the app is fully equal to Orb of Many Functions** (every parity checklist ticked, music included). Phases are not promoted one by one. Only then propose a single descriptive `master` commit or merge, and wait for explicit approval.
 
 ## Commands
-(Filled in as the scaffold lands. Expected:)
-- `cargo test --workspace`: Rust tests
-- `pwsh scripts/check.ps1`: fmt + clippy -D warnings + tests + UI checks
-- `cd app && cargo tauri dev`: run the app
-- `cargo run -p sleuth-cli -- import-legacy <creatures.db>`: legacy import
-- `cargo run -p sleuth-mcp -- --data-dir <dir>`: MCP over stdio
+Run Rust commands from **PowerShell**, not Git Bash. Git Bash's `/usr/bin/link` shadows MSVC `link.exe`, so linking fails there.
+- `pwsh scripts/check.ps1`: the full gate (fmt, clippy -D warnings, cargo test, svelte-check, vitest, Playwright). Use `-Quick` to skip the Tauri crate and e2e.
+- `cargo test`: crates only (default-members). `cargo test --workspace` also builds the Tauri app crate, which is slow.
+- `cd app; npm run tauri dev`: run the desktop app (Vite on :5173 plus Tauri).
+- `cd app; npm run dev`: run the UI in a plain browser against the in-memory mock backend (`src/lib/mock.ts`).
+- `cd app; npm test`: vitest (jsdom, `pool: 'threads'`; the forks pool times out on this machine).
+- `cd app; npx playwright test`: smoke tests using the installed **Edge** (`channel: 'msedge'`), so no browser download is needed.
+- CLI: `cargo run -p sleuth-cli -- --help`.
+- MCP: `cargo build -p sleuth-mcp --release`, then `claude mcp add sleuth -- <repo>/target/release/sleuth-mcp.exe --data-dir <dir>`. The e2e test (`crates/mcp/tests/mcp_e2e.rs`) drives it with a real MCP client. `tools_are_documented` fails if a tool is missing from `docs/mcp-tools.md`.
+- Data dir: `$SLEUTH_DATA_DIR`, otherwise `%APPDATA%\sleuth`. Tests always use temp dirs.
 
 ## Parity workflow
-- Each `docs/features/<feature>.md` ends with a parity checklist that has refs into the Python source. Tick the items as they are implemented and tested.
-- Golden fixtures come from `tools/parity/*.py`, run with the reference repo's `.venv`. Regenerate them only on purpose, and explain any diff.
+- Each `docs/features/<feature>.md` ends with a parity checklist with refs into the Python source. Tick items as they are implemented and tested.
+- Golden fixtures live in `fixtures/parity/*.json`. Regenerate them only deliberately, using the `regenerate-parity-fixtures` skill, and explain any diff in the commit.
 - Intentional behaviour changes from the Python app are listed in each feature doc under "Intentional changes".
+- **Porting pitfalls (Python → Rust):**
+  - Python `round()` rounds half to even. Use `f64::round_ties_even`, not `round`.
+  - Python `%` and `//` on floats floor toward −∞. Use `rem_euclid` / `div_euclid` (or `(a / b).floor()`).
+  - Python `sorted` is stable, and so is Rust `sort_by`. Keep the same key and direction.
+  - ReportLab A4 is `21/2.54*72 × 29.7/2.54*72` pt (`sleuth_core::units::PageFormat`), not 595×842.
 
-## Phases
-0. Bootstrap + docs
-1. Store / library / campaigns / legacy import / MCP v0
-2. Tokens
-3. Cut-outs
-4. Cards
-5. Maps + AoE
-6. Polish / release
-
-Future, not scheduled: Music.
+## UI and phases
+- UI conventions are in `app/CLAUDE.md`.
+- Phase status is in `docs/roadmap.md`.

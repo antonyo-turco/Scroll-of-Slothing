@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Scroll of Sleuthing",
+  "version": "0.1.0",
+  "identifier": "dev.kastanomata.sleuth",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Kastanomata's Scroll of Sleuthing",
+        "width": 1360,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600,
+        "dragDropEnabled": true,
+        "label": "main"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: sleuth: http://sleuth.localhost https://i.ytimg.com; media-src 'self' blob: sleuth: http://sleuth.localhost; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "msi"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "dmix"
+        ],
+        "name": "Sleuth mix",
+        "description": "Scroll of Sleuthing music mix",
+        "role": "Viewer",
+        "mimeType": "application/x-sleuth-dmix"
+      }
+    ]
+  }
+}

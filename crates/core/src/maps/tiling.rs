@@ -1,0 +1,433 @@
+//! True-physical-scale page tiling for the Map Paginator (Python
+//! `map_pdf_generator.MapPDFGenerator._tiles`).
+//!
+//! Each grid square prints at a fixed real-world size, so a large map is tiled
+//! across several pages that assemble into a life-size battlemap. The x and y
+//! axes scale independently so rectangular source cells still print square.
+
+use serde::{Deserialize, Serialize};
+
+use crate::units::{PT_PER_INCH, PageFormat};
+
+/// Inputs to the tiler. All pixel values are in full-resolution image space.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TileParams {
+    pub image_w: u32,
+    pub image_h: u32,
+    /// `(x, y, w, h)` print region, or the whole image.
+    pub region: Option<(f64, f64, f64, f64)>,
+    pub cell_w: f64,
+    pub cell_h: f64,
+    /// Printed size of one square, inches (already calibration-corrected).
+    pub square_in: f64,
+    pub format: PageFormat,
+    /// Page margin, points.
+    pub margin_pt: f64,
+    /// Page grid shift relative to the region's top-left, image px.
+    pub offset: (f64, f64),
+    pub overlap_in: f64,
+    pub align_to_grid: bool,
+    /// Grid origin in image px (used when aligning to the grid).
+    pub grid_offset: (f64, f64),
+    /// Pages turned sideways (Python printed portrait only).
+    #[serde(default)]
+    pub landscape: bool,
+}
+
+/// Page size in points for the format and orientation.
+pub fn page_size_pt(format: PageFormat, landscape: bool) -> (f64, f64) {
+    let (w, h) = format.size_pt();
+    if landscape { (h, w) } else { (w, h) }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Tile {
+    pub col: u32,
+    pub row: u32,
+    /// `(l, t, r, b)` crop of the map, clipped to the region, image px.
+    pub crop: (f64, f64, f64, f64),
+    /// The full page footprint, image px.
+    pub page_rect: (f64, f64, f64, f64),
+    /// Where the crop sits inside the page's printable area, points.
+    pub page_x_pt: f64,
+    pub page_y_pt: f64,
+    pub w_pt: f64,
+    pub h_pt: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TilePlan {
+    pub scale_x: f64,
+    pub scale_y: f64,
+    pub tiles: Vec<Tile>,
+    pub cols: u32,
+    pub rows: u32,
+}
+
+/// Snaps `v` onto the nearest grid line `origin + k·period`.
+fn snap_to_line(v: f64, origin: f64, period: f64) -> f64 {
+    if period <= 0.0 {
+        return v;
+    }
+    origin + ((v - origin) / period).round_ties_even() * period
+}
+
+/// A page must hold at least this much of the region (image px) to count.
+/// Pages that only touch the region's edge (a page boundary on the region's
+/// edge, give or take float rounding) hold no map: the renderer already
+/// skipped crops under 1 px, so they only inflated the count. Python kept them.
+const MIN_OVERLAP_PX: f64 = 1.0;
+
+/// Page positions `(index, left)` along one axis whose span overlaps `[lo, lo+len]`.
+fn axis_pages(origin: f64, step: f64, tile: f64, lo: f64, len: f64) -> Vec<f64> {
+    let hi = lo + len;
+    let min = MIN_OVERLAP_PX.min(len / 2.0);
+    let mut i = ((lo - origin) / step).floor() - 1.0;
+    let mut out = Vec::new();
+    for _ in 0..20000 {
+        let left = origin + i * step;
+        if left >= hi - min {
+            break;
+        }
+        if left + tile > lo + min {
+            out.push(left);
+        }
+        i += 1.0;
+    }
+    out
+}
+
+/// Computes the tiling without rendering (used by the live preview and export).
+pub fn plan(p: &TileParams) -> TilePlan {
+    let empty = |sx, sy| TilePlan { scale_x: sx, scale_y: sy, tiles: Vec::new(), cols: 0, rows: 0 };
+    let (w, h) = (f64::from(p.image_w), f64::from(p.image_h));
+    let (rx, ry, rw, rh) = p.region.unwrap_or((0.0, 0.0, w, h));
+    let rx = rx.max(0.0);
+    let ry = ry.max(0.0);
+    let rw = rw.min(w - rx);
+    let rh = rh.min(h - ry);
+    if p.cell_w <= 0.0 || p.cell_h <= 0.0 || rw <= 0.0 || rh <= 0.0 {
+        return empty(1.0, 1.0);
+    }
+    let sq_pt = p.square_in * PT_PER_INCH;
+    let scale_x = sq_pt / p.cell_w;
+    let scale_y = sq_pt / p.cell_h;
+    let (pw, ph) = page_size_pt(p.format, p.landscape);
+    let usable_w = pw - 2.0 * p.margin_pt;
+    let usable_h = ph - 2.0 * p.margin_pt;
+    let overlap = (p.overlap_in * PT_PER_INCH).max(0.0).min(usable_w * 0.9).min(usable_h * 0.9);
+
+    let (tile_w, tile_h, step_w, step_h, gx, gy);
+    if p.align_to_grid {
+        // Pages hold whole squares so every seam falls on a grid line; the
+        // overlap is rounded to whole squares too.
+        let cells_w = (usable_w / sq_pt).floor().max(1.0);
+        let cells_h = (usable_h / sq_pt).floor().max(1.0);
+        let ov_w = (cells_w - 1.0).min((overlap / sq_pt).round_ties_even());
+        let ov_h = (cells_h - 1.0).min((overlap / sq_pt).round_ties_even());
+        tile_w = cells_w * p.cell_w;
+        tile_h = cells_h * p.cell_h;
+        step_w = (cells_w - ov_w) * p.cell_w;
+        step_h = (cells_h - ov_h) * p.cell_h;
+        gx = snap_to_line(rx + p.offset.0, p.grid_offset.0, p.cell_w);
+        gy = snap_to_line(ry + p.offset.1, p.grid_offset.1, p.cell_h);
+    } else {
+        tile_w = usable_w / scale_x;
+        tile_h = usable_h / scale_y;
+        step_w = (usable_w - overlap) / scale_x;
+        step_h = (usable_h - overlap) / scale_y;
+        gx = rx + p.offset.0;
+        gy = ry + p.offset.1;
+    }
+    if step_w <= 0.0 || step_h <= 0.0 {
+        return empty(scale_x, scale_y);
+    }
+    let cols = axis_pages(gx, step_w, tile_w, rx, rw);
+    let rows = axis_pages(gy, step_h, tile_h, ry, rh);
+    let mut tiles = Vec::new();
+    for (rj, &top) in rows.iter().enumerate() {
+        for (ci, &left) in cols.iter().enumerate() {
+            let l = rx.max(left);
+            let t = ry.max(top);
+            let r = (rx + rw).min(left + tile_w);
+            let b = (ry + rh).min(top + tile_h);
+            if r - l <= 0.0 || b - t <= 0.0 {
+                continue;
+            }
+            tiles.push(Tile {
+                col: ci as u32,
+                row: rj as u32,
+                crop: (l, t, r, b),
+                page_rect: (left, top, left + tile_w, top + tile_h),
+                page_x_pt: (l - left) * scale_x,
+                page_y_pt: (t - top) * scale_y,
+                w_pt: (r - l) * scale_x,
+                h_pt: (b - t) * scale_y,
+            });
+        }
+    }
+    TilePlan { scale_x, scale_y, tiles, cols: cols.len() as u32, rows: rows.len() as u32 }
+}
+
+/// The orientation and page-grid shift that print the region on the fewest
+/// pages (fewer pages, fewer cuts).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FewestPages {
+    pub landscape: bool,
+    /// Page grid shift relative to the region's top-left, image px.
+    pub offset: (f64, f64),
+    pub pages: usize,
+    pub cols: u32,
+    pub rows: u32,
+}
+
+/// Searches both orientations and the page-grid shift for the layout with the
+/// fewest pages. Columns and rows are independent, so each axis is minimised
+/// on its own. Candidate shifts: whole grid squares within one page when
+/// aligning to the grid, otherwise 1/64-page steps. Ties keep portrait and the
+/// smallest shift, so an already optimal layout is left alone.
+pub fn fewest_pages(p: &TileParams) -> Option<FewestPages> {
+    let mut best: Option<FewestPages> = None;
+    for landscape in [false, true] {
+        let base = TileParams { landscape, offset: (0.0, 0.0), ..p.clone() };
+        let (pw, ph) = page_size_pt(p.format, landscape);
+        let sq_pt = p.square_in * PT_PER_INCH;
+        if sq_pt <= 0.0 || p.cell_w <= 0.0 || p.cell_h <= 0.0 {
+            return None;
+        }
+        // one page span along each axis, image px
+        let span = |usable: f64, cell: f64| (usable.max(sq_pt) / sq_pt) * cell;
+        let (span_x, span_y) =
+            (span(pw - 2.0 * p.margin_pt, p.cell_w), span(ph - 2.0 * p.margin_pt, p.cell_h));
+        let candidates = |span: f64, cell: f64| -> Vec<f64> {
+            let mut v = vec![0.0];
+            if p.align_to_grid {
+                let n = (span / cell).ceil().min(400.0) as i64;
+                for k in 1..=n {
+                    v.push(-(k as f64) * cell);
+                    v.push(k as f64 * cell);
+                }
+            } else {
+                for k in 1..64 {
+                    v.push(-span * k as f64 / 64.0);
+                }
+            }
+            v
+        };
+        let axis = |cands: Vec<f64>, x: bool| -> (f64, u32) {
+            let mut out = (0.0_f64, u32::MAX);
+            for o in cands {
+                let q = TileParams { offset: if x { (o, 0.0) } else { (0.0, o) }, ..base.clone() };
+                let t = plan(&q);
+                let n = if x { t.cols } else { t.rows };
+                if n > 0 && (n < out.1 || (n == out.1 && o.abs() < out.0.abs())) {
+                    out = (o, n);
+                }
+            }
+            out
+        };
+        let (ox, cols) = axis(candidates(span_x, p.cell_w), true);
+        let (oy, rows) = axis(candidates(span_y, p.cell_h), false);
+        if cols == u32::MAX || rows == u32::MAX {
+            continue;
+        }
+        let pages = plan(&TileParams { offset: (ox, oy), ..base.clone() }).tiles.len();
+        if best.is_none_or(|b| pages < b.pages) {
+            best = Some(FewestPages { landscape, offset: (ox, oy), pages, cols, rows });
+        }
+    }
+    best
+}
+
+/// Calibration factor: a printed 1 in measured as `mm` millimetres.
+pub fn calibration_factor(mm: f64) -> f64 {
+    if mm > 0.0 { crate::units::MM_PER_INCH / mm } else { 1.0 }
+}
+
+/// Fit check: whole squares in the region (`round(region/cell)`) printed at
+/// `square_in` (uncalibrated, as Python), compared with a target play area in
+/// feet in either orientation.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FitCheck {
+    pub squares: (i64, i64),
+    pub printed_in: (f64, f64),
+    pub fits: bool,
+}
+
+pub fn fit_check(
+    region_wh: (f64, f64),
+    cell: (f64, f64),
+    square_in: f64,
+    target_ft: (f64, f64),
+) -> Option<FitCheck> {
+    if cell.0 <= 0.0 || cell.1 <= 0.0 {
+        return None;
+    }
+    let cols = ((region_wh.0 / cell.0).round_ties_even() as i64).max(0);
+    let rows = ((region_wh.1 / cell.1).round_ties_even() as i64).max(0);
+    if cols == 0 || rows == 0 {
+        return None;
+    }
+    let (w, h) = (cols as f64 * square_in, rows as f64 * square_in);
+    let (tw, th) = (target_ft.0 * 12.0, target_ft.1 * 12.0);
+    let tol = 1e-6;
+    let fits = tw > 0.0
+        && th > 0.0
+        && ((w <= tw + tol && h <= th + tol) || (w <= th + tol && h <= tw + tol));
+    Some(FitCheck { squares: (cols, rows), printed_in: (w, h), fits })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base() -> TileParams {
+        TileParams {
+            image_w: 1000,
+            image_h: 1000,
+            region: None,
+            cell_w: 72.0,
+            cell_h: 72.0,
+            square_in: 1.0,
+            format: PageFormat::Letter,
+            margin_pt: 0.0,
+            offset: (0.0, 0.0),
+            overlap_in: 0.0,
+            align_to_grid: false,
+            grid_offset: (0.0, 0.0),
+            landscape: false,
+        }
+    }
+
+    #[test]
+    fn tiles_cover_region_without_gaps() {
+        let plan = plan(&base());
+        // 1 px == 1 pt here, so pages are 612×792 px.
+        assert_eq!((plan.cols, plan.rows), (2, 2));
+        let area: f64 =
+            plan.tiles.iter().map(|t| (t.crop.2 - t.crop.0) * (t.crop.3 - t.crop.1)).sum();
+        assert!((area - 1_000_000.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fit_check_either_orientation() {
+        let f = fit_check((2400.0, 1680.0), (70.0, 70.0), 1.0, (2.0, 3.0)).unwrap();
+        assert_eq!(f.squares, (34, 24));
+        assert!(f.fits);
+        assert!(!fit_check((2600.0, 1680.0), (70.0, 70.0), 1.0, (2.0, 3.0)).unwrap().fits);
+        assert!(fit_check((10.0, 10.0), (70.0, 70.0), 1.0, (2.0, 3.0)).is_none());
+    }
+
+    #[test]
+    fn aligned_pages_end_on_grid_lines() {
+        let p = TileParams { align_to_grid: true, grid_offset: (10.0, 0.0), ..base() };
+        let plan = plan(&p);
+        for t in &plan.tiles {
+            let k = (t.page_rect.0 - 10.0) / 72.0;
+            assert!((k - k.round()).abs() < 1e-9);
+            assert_eq!(t.page_rect.2 - t.page_rect.0, 8.0 * 72.0);
+        }
+    }
+
+    fn params(w: u32, h: u32) -> TileParams {
+        TileParams {
+            image_w: w,
+            image_h: h,
+            region: None,
+            cell_w: 100.0,
+            cell_h: 100.0,
+            square_in: 1.0,
+            format: PageFormat::A4,
+            margin_pt: 18.0,
+            offset: (0.0, 0.0),
+            overlap_in: 0.0,
+            align_to_grid: true,
+            grid_offset: (0.0, 0.0),
+            landscape: false,
+        }
+    }
+
+    #[test]
+    fn pages_that_only_touch_the_region_are_not_counted() {
+        // User's map: reference grid 40.31 × 40.09 px, region of exactly
+        // 24 × 22 squares starting on a grid line; A4 portrait holds 8 × 11
+        // squares → 3 × 2 pages. Float rounding used to add a page on each
+        // side that touched the region's edge (5 × 2 = 10).
+        let (cw, ch) = (
+            (570.3170671349525 - 449.3768612285573) / 3.0,
+            (401.8560787316836 - 281.58404052533456) / 3.0,
+        );
+        let p = TileParams {
+            image_w: 1058,
+            image_h: 889,
+            region: Some((
+                46.24284154057334,
+                0.949284710520054,
+                967.5216472511617,
+                881.9949468465599,
+            )),
+            cell_w: cw,
+            cell_h: ch,
+            square_in: 1.0,
+            format: PageFormat::A4,
+            margin_pt: 0.0,
+            offset: (0.0, 0.0),
+            overlap_in: 0.0,
+            align_to_grid: true,
+            grid_offset: (449.3768612285573 % cw, 281.58404052533456 % ch),
+            landscape: false,
+        };
+        let t = plan(&p);
+        assert_eq!((t.cols, t.rows, t.tiles.len()), (3, 2, 6));
+        assert!(t.tiles.iter().all(|t| t.crop.2 - t.crop.0 >= 1.0 && t.crop.3 - t.crop.1 >= 1.0));
+        // and the optimiser does not claim an impossible saving
+        assert!(fewest_pages(&p).is_none_or(|f| f.pages >= 6));
+        // the same region exactly one page wide is one column, not three
+        let one = TileParams { region: Some((46.24284154057334, 0.95, 8.0 * cw, 11.0 * ch)), ..p };
+        assert_eq!(plan(&one).tiles.len(), 1);
+    }
+
+    #[test]
+    fn landscape_swaps_the_page() {
+        let p = params(1000, 700);
+        let port = plan(&p);
+        let land = plan(&TileParams { landscape: true, ..p.clone() });
+        // A4 usable 7.77 × 11.19 in → 7 × 11 squares portrait, 11 × 7 landscape
+        assert_eq!((port.cols, port.rows), (2, 1));
+        assert_eq!((land.cols, land.rows), (1, 1));
+        assert_eq!(page_size_pt(PageFormat::A4, true).0, PageFormat::A4.size_pt().1);
+    }
+
+    #[test]
+    fn fewest_pages_picks_the_orientation() {
+        // 10 × 7 squares: portrait 2 pages, landscape 1
+        let f = fewest_pages(&params(1000, 700)).unwrap();
+        assert_eq!((f.landscape, f.pages), (true, 1));
+        // 7 × 11 squares fits portrait exactly: keep it, no shift
+        let f = fewest_pages(&params(700, 1100)).unwrap();
+        assert_eq!((f.landscape, f.pages, f.offset), (false, 1, (0.0, 0.0)));
+    }
+
+    #[test]
+    fn fewest_pages_fixes_a_shifted_layout() {
+        // a page grid dragged off the region start costs an extra column
+        let p = TileParams { offset: (-350.0, 0.0), ..params(1400, 1100) };
+        let dragged = plan(&p).tiles.len();
+        let f = fewest_pages(&p).unwrap();
+        assert!(f.pages < dragged, "{} < {dragged}", f.pages);
+        let applied = plan(&TileParams { landscape: f.landscape, offset: f.offset, ..p });
+        assert_eq!(applied.tiles.len(), f.pages);
+    }
+
+    #[test]
+    fn fewest_pages_free_layout_and_bad_input() {
+        let p = TileParams { align_to_grid: false, ..params(2400, 900) };
+        let f = fewest_pages(&p).unwrap();
+        let both: Vec<usize> = [false, true]
+            .iter()
+            .map(|&l| plan(&TileParams { landscape: l, ..p.clone() }).tiles.len())
+            .collect();
+        assert_eq!(f.pages, *both.iter().min().unwrap());
+        assert!(fewest_pages(&TileParams { cell_w: 0.0, ..p }).is_none());
+    }
+}

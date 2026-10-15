@@ -1,0 +1,86 @@
+{
+ "cases": [
+  {
+   "bg_color": null,
+   "border": "roll20.png",
+   "output": "token/roll20_0.png",
+   "pan_x": 0,
+   "pan_y": 0,
+   "ring_inset_pct": 0,
+   "zoom": 1.0
+  },
+  {
+   "bg_color": null,
+   "border": "roll20.png",
+   "output": "token/roll20_1.png",
+   "pan_x": 60,
+   "pan_y": -25,
+   "ring_inset_pct": 0,
+   "zoom": 1.0
+  },
+  {
+   "bg_color": null,
+   "border": "roll20.png",
+   "output": "token/roll20_2.png",
+   "pan_x": 0,
+   "pan_y": 0,
+   "ring_inset_pct": 10,
+   "zoom": 2.5
+  },
+  {
+   "bg_color": [
+    30,
+    90,
+    160
+   ],
+   "border": "roll20.png",
+   "output": "token/roll20_3.png",
+   "pan_x": -30,
+   "pan_y": 40,
+   "ring_inset_pct": 25,
+   "zoom": 0.6
+  },
+  {
+   "bg_color": null,
+   "border": "roll20_greyscale.png",
+   "output": "token/roll20_greyscale_0.png",
+   "pan_x": 0,
+   "pan_y": 0,
+   "ring_inset_pct": 0,
+   "zoom": 1.0
+  },
+  {
+   "bg_color": null,
+   "border": "roll20_greyscale.png",
+   "output": "token/roll20_greyscale_1.png",
+   "pan_x": 60,
+   "pan_y": -25,
+   "ring_inset_pct": 0,
+   "zoom": 1.0
+  },
+  {
+   "bg_color": null,
+   "border": "roll20_greyscale.png",
+   "output": "token/roll20_greyscale_2.png",
+   "pan_x": 0,
+   "pan_y": 0,
+   "ring_inset_pct": 10,
+   "zoom": 2.5
+  },
+  {
+   "bg_color": [
+    30,
+    90,
+    160
+   ],
+   "border": "roll20_greyscale.png",
+   "output": "token/roll20_greyscale_3.png",
+   "pan_x": -30,
+   "pan_y": 40,
+   "ring_inset_pct": 25,
+   "zoom": 0.6
+  }
+ ],
+ "generator": "tools/parity/generate.py",
+ "source": "orb-of-many-functions (dev)"
+}

@@ -1,0 +1,63 @@
+{
+ "cases": [
+  {
+   "input": "1.5",
+   "key": "cut_line_width",
+   "output": 1.5
+  },
+  {
+   "input": true,
+   "key": "cut_line_width",
+   "output": 1.0
+  },
+  {
+   "input": "abc",
+   "key": "cut_line_width",
+   "output": 0.5
+  },
+  {
+   "input": null,
+   "key": "cut_line_width",
+   "output": 0.5
+  },
+  {
+   "input": 2,
+   "key": "cut_line_width",
+   "output": 2.0
+  },
+  {
+   "input": false,
+   "key": "map_square_in",
+   "output": 0.0
+  },
+  {
+   "input": 1,
+   "key": "token_cut_border",
+   "output": false
+  },
+  {
+   "input": true,
+   "key": "token_cut_border",
+   "output": true
+  },
+  {
+   "input": "true",
+   "key": "token_cut_border",
+   "output": false
+  },
+  {
+   "input": "0.25",
+   "key": "map_margin_in",
+   "output": 0.25
+  },
+  {
+   "input": [
+    1
+   ],
+   "key": "map_overlap_in",
+   "output": 0.0
+  }
+ ],
+ "generator": "tools/parity/generate.py",
+ "source": "orb-of-many-functions (dev)"
+}

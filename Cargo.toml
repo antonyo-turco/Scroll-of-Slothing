@@ -1,0 +1,69 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "app/src-tauri"]
+default-members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Antonio Turco"]
+
+[workspace.dependencies]
+sleuth-core = { path = "crates/core" }
+sleuth-pdf = { path = "crates/pdf" }
+sleuth-store = { path = "crates/store" }
+sleuth-service = { path = "crates/service" }
+sleuth-mcp = { path = "crates/mcp" }
+sleuth-legacy = { path = "crates/legacy" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+rusqlite = { version = "0.40", features = ["bundled", "blob"] }
+blake3 = "1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp", "gif", "rayon"] }
+fast_image_resize = { version = "6", features = ["image"] }
+imageproc = { version = "0.27", default-features = false }
+rustfft = "6"
+krilla = "0.8"
+ttf-parser = "0.25"
+ab_glyph = "0.2"
+regex = "1"
+clap = { version = "4", features = ["derive"] }
+uuid = { version = "1", features = ["v4"] }
+time = { version = "0.3", features = ["formatting", "macros"] }
+rayon = "1"
+fastrand = "2"
+base64 = "0.22"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+schemars = "1"
+proptest = "1"
+insta = { version = "1", features = ["json"] }
+lopdf = "0.45"
+tempfile = "3"
+arboard = { version = "3", default-features = false, features = ["image-data"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# Our pixel and PDF crates do per-pixel work on images up to 8000 px; unoptimized
+# they make `tauri dev` and the tests crawl. Keep them optimized in dev too.
+[profile.dev.package.sleuth-core]
+opt-level = 2
+
+[profile.dev.package.sleuth-pdf]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

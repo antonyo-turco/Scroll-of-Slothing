@@ -1,0 +1,27 @@
+[package]
+name = "sleuth-core"
+description = "Pure domain logic and algorithms for Kastanomata's Scroll of Sleuthing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "sleuth_core"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+image.workspace = true
+fast_image_resize.workspace = true
+regex.workspace = true
+ttf-parser.workspace = true
+rayon.workspace = true
+rustfft.workspace = true
+ab_glyph.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

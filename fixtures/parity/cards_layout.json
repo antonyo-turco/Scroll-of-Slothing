@@ -1,0 +1,1143 @@
+{
+ "cases": [
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 56.0,
+      "11.0": 61.599999999999994,
+      "12.0": 83.99999999999999,
+      "13.0": 91.0,
+      "9.0": 37.8
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "A",
+        "bright",
+        "streak",
+        "flashes",
+        "from"
+       ],
+       [
+        "your",
+        "finger",
+        "to",
+        "a",
+        "point",
+        "you"
+       ],
+       [
+        "choose,",
+        "then",
+        "blossoms",
+        "into"
+       ],
+       [
+        "a",
+        "20-foot-radius",
+        "sphere",
+        "of"
+       ],
+       [
+        "flame."
+       ]
+      ],
+      "9.0": [
+       [
+        "A",
+        "bright",
+        "streak",
+        "flashes",
+        "from",
+        "your",
+        "finger",
+        "to"
+       ],
+       [
+        "a",
+        "point",
+        "you",
+        "choose,",
+        "then",
+        "blossoms",
+        "into",
+        "a"
+       ],
+       [
+        "20-foot-radius",
+        "sphere",
+        "of",
+        "flame."
+       ]
+      ]
+     },
+     "sim_body_start_y": 168.35000000000002,
+     "title": "Fireball"
+    }
+   ],
+   "markdown": "# Fireball\n**Type:** Spell\n**Level:** 3rd-level\n**Range:** 150 feet\n**Copies:** 2\n\nA bright streak flashes from your finger to a point you choose,\nthen blossoms into a **20-foot-radius sphere** of flame.\n",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 42.0,
+      "11.0": 46.199999999999996,
+      "12.0": 50.39999999999999,
+      "13.0": 54.599999999999994,
+      "9.0": 25.2
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "You",
+        "have",
+        "inexplicable",
+        "luck"
+       ],
+       [
+        "that",
+        "seems",
+        "to",
+        "kick",
+        "in",
+        "at",
+        "just"
+       ],
+       [
+        "the",
+        "right",
+        "moment."
+       ]
+      ],
+      "9.0": [
+       [
+        "You",
+        "have",
+        "inexplicable",
+        "luck",
+        "that",
+        "seems",
+        "to"
+       ],
+       [
+        "kick",
+        "in",
+        "at",
+        "just",
+        "the",
+        "right",
+        "moment."
+       ]
+      ]
+     },
+     "sim_body_start_y": 204.0,
+     "title": "Lucky"
+    }
+   ],
+   "markdown": "# Lucky\n**Type:** Feat\n\nYou have *inexplicable luck* that seems to kick in at just the right moment.",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 28.0,
+      "11.0": 30.799999999999997,
+      "12.0": 33.599999999999994,
+      "13.0": 36.4,
+      "9.0": 25.2
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "A",
+        "cunning",
+        "goblin",
+        "chieftain"
+       ],
+       [
+        "with",
+        "uncanny",
+        "reflexes",
+        "."
+       ]
+      ],
+      "9.0": [
+       [
+        "A",
+        "cunning",
+        "goblin",
+        "chieftain",
+        "with",
+        "uncanny"
+       ],
+       [
+        "reflexes",
+        "."
+       ]
+      ]
+     },
+     "sim_body_start_y": 168.35000000000002,
+     "title": "Boss Goblin"
+    }
+   ],
+   "markdown": "# Boss Goblin\n**Type:** Boss #8B0000\n**HP:** 42\n**AC:** 15\n\nA cunning goblin chieftain with __uncanny reflexes__.",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 49.0,
+      "11.0": 53.89999999999999,
+      "12.0": 58.79999999999999,
+      "13.0": 63.699999999999996,
+      "9.0": 44.099999999999994
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "Just",
+        "body",
+        "text"
+       ]
+      ],
+      "9.0": [
+       [
+        "Just",
+        "body",
+        "text"
+       ]
+      ]
+     },
+     "sim_body_start_y": 204.0,
+     "title": "No stats here"
+    }
+   ],
+   "markdown": "# No stats here\nJust body text\n\nSecond paragraph _italic_ and **bold *nested* text**.",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 14.0,
+      "11.0": 15.399999999999999,
+      "12.0": 16.799999999999997,
+      "13.0": 18.2,
+      "9.0": 12.6
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "Untitled",
+        "card",
+        "body"
+       ]
+      ],
+      "9.0": [
+       [
+        "Untitled",
+        "card",
+        "body"
+       ]
+      ]
+     },
+     "sim_body_start_y": 204.0,
+     "title": ""
+    }
+   ],
+   "markdown": "**Type:** item\n\nUntitled card body",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 14.0,
+      "11.0": 15.399999999999999,
+      "12.0": 16.799999999999997,
+      "13.0": 18.2,
+      "9.0": 12.6
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "Body"
+       ]
+      ],
+      "9.0": [
+       [
+        "Body"
+       ]
+      ]
+     },
+     "sim_body_start_y": 204.0,
+     "title": "Copies junk"
+    }
+   ],
+   "markdown": "# Copies junk\n**Type:** Ability\n**Copies:** many\n\nBody",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 14.0,
+      "11.0": 15.399999999999999,
+      "12.0": 16.799999999999997,
+      "13.0": 18.2,
+      "9.0": 12.6
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "Body"
+       ]
+      ],
+      "9.0": [
+       [
+        "Body"
+       ]
+      ]
+     },
+     "sim_body_start_y": 204.0,
+     "title": "Zero copies"
+    }
+   ],
+   "markdown": "# Zero copies\n**Copies:** 0\n**Type:** weird type words\n\nBody",
+   "overflow": []
+  },
+  {
+   "cards": [],
+   "markdown": "",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {},
+     "lines_at": {},
+     "sim_body_start_y": 204.0,
+     "title": "A"
+    },
+    {
+     "body_heights": {
+      "10.0": 14.0,
+      "11.0": 15.399999999999999,
+      "12.0": 16.799999999999997,
+      "13.0": 18.2,
+      "9.0": 12.6
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "body",
+        "b"
+       ]
+      ],
+      "9.0": [
+       [
+        "body",
+        "b"
+       ]
+      ]
+     },
+     "sim_body_start_y": 204.0,
+     "title": "B"
+    },
+    {
+     "body_heights": {},
+     "lines_at": {},
+     "sim_body_start_y": 204.0,
+     "title": "C"
+    }
+   ],
+   "markdown": "# A\n---\n# B\n**Type:** Feat\n\nbody b\n\n-----\n\n# C",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 28.0,
+      "11.0": 30.799999999999997,
+      "12.0": 33.599999999999994,
+      "13.0": 36.4,
+      "9.0": 25.2
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "Unclosed",
+        "star",
+        "and",
+        "lone",
+        "_"
+       ],
+       [
+        "underscore,",
+        "plus",
+        "a",
+        "b."
+       ]
+      ],
+      "9.0": [
+       [
+        "Unclosed",
+        "star",
+        "and",
+        "lone",
+        "_",
+        "underscore,"
+       ],
+       [
+        "plus",
+        "a",
+        "b."
+       ]
+      ]
+     },
+     "sim_body_start_y": 204.0,
+     "title": "Stray * markers _ here"
+    }
+   ],
+   "markdown": "# Stray * markers _ here\n**Type:** Spell\n\nUnclosed *star and lone _ underscore, plus a**b.",
+   "overflow": []
+  },
+  {
+   "cards": [
+    {
+     "body_heights": {
+      "10.0": 700.0,
+      "11.0": 785.4,
+      "12.0": 1007.9999999999998,
+      "13.0": 1092.0,
+      "9.0": 567.0
+     },
+     "lines_at": {
+      "13.0": [
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ],
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,"
+       ],
+       [
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ]
+      ],
+      "9.0": [
+       [
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit.",
+        "Lorem"
+       ],
+       [
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet,",
+        "consectetur"
+       ],
+       [
+        "adipiscing",
+        "elit.",
+        "Lorem",
+        "ipsum",
+        "dolor",
+        "sit"
+       ],
+       [
+        "amet,",
+        "consectetur",
+        "adipiscing",
+        "elit."
+       ]
+      ]
+     },
+     "sim_body_start_y": 156.02500000000003,
+     "title": "Long"
+    }
+   ],
+   "markdown": "# Long\n**Type:** Spell\n**Casting Time:** 1 action, which is a long description of the casting time that should wrap onto multiple lines\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. ",
+   "overflow": [
+    0
+   ]
+  },
+  {
+   "margin_x": 27.637795275590577,
+   "margin_y": 42.94488188976385,
+   "page_h": 841.8897637795277,
+   "page_layout": "A4",
+   "page_w": 595.2755905511812
+  },
+  {
+   "margin_x": 36.0,
+   "margin_y": 18.0,
+   "page_h": 792.0,
+   "page_layout": "Letter",
+   "page_w": 612.0
+  }
+ ],
+ "generator": "tools/parity/generate.py",
+ "source": "orb-of-many-functions (dev)"
+}

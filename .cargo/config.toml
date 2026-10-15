@@ -1,0 +1,16 @@
+# Build settings for faster dev builds and a smaller target/ dir.
+# These live here, not in Cargo.toml, so they apply to every crate in the workspace.
+
+# rust-lld (shipped with the Rust toolchain) links large Windows binaries much
+# faster than MSVC link.exe. If linking ever fails with it, delete these two lines
+# to fall back to link.exe.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+
+# Full debug info made target/debug grow past 50 GB and slowed every link.
+# Line tables keep file:line in panics and backtraces. Dependencies carry none.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

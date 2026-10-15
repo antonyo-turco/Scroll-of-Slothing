@@ -1,0 +1,21 @@
+[package]
+name = "sleuth-pdf"
+description = "PDF writers for printable sheets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "sleuth_pdf"
+
+[dependencies]
+sleuth-core.workspace = true
+krilla.workspace = true
+image.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+lopdf.workspace = true
+
+[lints]
+workspace = true
