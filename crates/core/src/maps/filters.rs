@@ -97,7 +97,14 @@ pub fn filter_defs() -> Vec<FilterDef> {
 /// Steps of a preset: `(filter, [(param, value)])`.
 pub type PresetSteps = &'static [(&'static str, &'static [(&'static str, f64)])];
 
-/// The 18 quick presets, verbatim: `(name, steps)`.
+/// Presets retuned on real maps (docs/features/map-filters.md, "Intentional
+/// changes"): Python ran edge_boost after dither, where the dither noise reads
+/// as edges and the page turns black; Max detail's edge_boost after adaptive
+/// filled shapes with ink. Every other preset is verbatim.
+pub const RETUNED_PRESETS: &[&str] =
+    &["Max detail B&W", "Atmospheric (dither)", "Newsprint (print-friendly)"];
+
+/// The 18 quick presets: `(name, steps)`.
 pub const PRESETS: &[(&str, PresetSteps)] = &[
     ("None (clear all)", &[]),
     (
@@ -129,15 +136,15 @@ pub const PRESETS: &[(&str, PresetSteps)] = &[
         "Max detail B&W",
         &[
             ("autocontrast", &[]),
-            ("clarity", &[("amount", 120.0)]),
+            ("clarity", &[("amount", 80.0)]),
             ("sharpen", &[("amount", 150.0)]),
-            ("adaptive", &[("sensitivity", 65.0)]),
-            ("edge_boost", &[("strength", 40.0)]),
+            ("edge_boost", &[("strength", 30.0)]),
+            ("adaptive", &[("sensitivity", 60.0)]),
         ],
     ),
     (
         "Atmospheric (dither)",
-        &[("autocontrast", &[]), ("dither", &[]), ("edge_boost", &[("strength", 50.0)])],
+        &[("autocontrast", &[]), ("edge_boost", &[("strength", 50.0)]), ("dither", &[])],
     ),
     ("Newsprint", &[("autocontrast", &[]), ("contrast", &[("amount", 140.0)]), ("dither", &[])]),
     (
@@ -146,8 +153,8 @@ pub const PRESETS: &[(&str, PresetSteps)] = &[
             ("autocontrast", &[("clip", 2.0)]),
             ("contrast", &[("amount", 120.0)]),
             ("sharpen", &[("amount", 150.0)]),
-            ("dither", &[]),
             ("edge_boost", &[("strength", 55.0)]),
+            ("dither", &[]),
         ],
     ),
     (
@@ -847,11 +854,26 @@ mod tests {
         assert_eq!(PRESETS.len(), 18);
         let p = preset_pipeline("Newsprint (print-friendly)").unwrap();
         let enabled: Vec<_> = p.iter().filter(|s| s.enabled).map(|s| s.kind.as_str()).collect();
-        assert_eq!(enabled, ["autocontrast", "contrast", "sharpen", "dither", "edge_boost"]);
+        assert_eq!(enabled, ["autocontrast", "contrast", "sharpen", "edge_boost", "dither"]);
         assert_eq!(p[0].params["clip"], 2.0);
         assert_eq!(p.len(), filter_defs().len());
         assert!(is_identity(&default_pipeline()));
         assert!(preset_pipeline("nope").is_none());
+    }
+
+    #[test]
+    fn dither_presets_keep_paper_white() {
+        // a mid-grey gradient: edge_boost after dither used to ink it all
+        let img = RgbImage::from_fn(200, 200, |x, _| {
+            let v = (60 + x / 2) as u8;
+            image::Rgb([v, v, v])
+        });
+        for name in ["Atmospheric (dither)", "Newsprint (print-friendly)"] {
+            let out = apply_pipeline(&img, &preset_pipeline(name).unwrap());
+            let white = out.as_raw().iter().filter(|&&v| v == 255).count();
+            assert!(white * 4 > out.as_raw().len(), "{name}: too much ink");
+        }
+        assert!(RETUNED_PRESETS.iter().all(|n| preset_pipeline(n).is_some()));
     }
 
     #[test]

@@ -88,6 +88,10 @@ fn map_images_match_python() {
             }
             "preset" => {
                 let name = c["name"].as_str().unwrap();
+                // intentionally retuned (map-filters.md); the filters themselves stay covered
+                if filters::RETUNED_PRESETS.contains(&name) {
+                    continue;
+                }
                 let pipeline =
                     filters::preset_pipeline(name).unwrap_or_else(|| panic!("preset {name}"));
                 // the Rust preset must enable the same steps, in order, with the same params

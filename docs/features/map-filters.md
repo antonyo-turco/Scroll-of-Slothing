@@ -29,8 +29,8 @@ A filter pipeline that makes battle maps easier to read and cheaper to print. It
 **Default order:**
 autocontrast, contrast, lightness, clarity, sharpen, sepia, grayscale, adaptive, threshold, posterize, dither, edge_boost, line_art, canny
 
-## Presets (18, verbatim)
-Applying a preset enables exactly the listed filters, in the listed order, with the given parameter overrides. Every other filter is disabled.
+## Presets (18)
+Applying a preset enables exactly the listed filters, in the listed order, with the given parameter overrides. Every other filter is disabled. Fifteen are verbatim. Three were retuned (see "Intentional changes").
 
 | Preset | Steps |
 |---|---|
@@ -38,10 +38,10 @@ Applying a preset enables exactly the listed filters, in the listed order, with 
 | Most legible (gray + edges) | autocontrast; sharpen 150; grayscale; edge_boost 70 |
 | Ink-saver (adaptive) | autocontrast; sharpen 150; adaptive 50 |
 | Detailed line maps | autocontrast; sharpen 200; adaptive 60 |
-| Max detail B&W | autocontrast; clarity 120; sharpen 150; adaptive 65; edge_boost 40 |
-| Atmospheric (dither) | autocontrast; dither; edge_boost 50 |
+| Max detail B&W | autocontrast; clarity 80; sharpen 150; edge_boost 30; adaptive 60 |
+| Atmospheric (dither) | autocontrast; edge_boost 50; dither |
 | Newsprint | autocontrast; contrast 140; dither |
-| Newsprint (print-friendly) | autocontrast clip 2; contrast 120; sharpen 150; dither; edge_boost 55 |
+| Newsprint (print-friendly) | autocontrast clip 2; contrast 120; sharpen 150; edge_boost 55; dither |
 | High-contrast B&W | autocontrast; contrast 180; threshold 55 |
 | Posterized (3 levels) | autocontrast; clarity 100; posterize 3; edge_boost 50 |
 | Posterized (4 levels) | autocontrast; posterize 4 |
@@ -56,17 +56,23 @@ Applying a preset enables exactly the listed filters, in the listed order, with 
 ## UI
 - An inspector section, "Filters". It replaces Python's separate popup window and contains:
   - a preset dropdown;
-  - a toggle and a slider for each filter;
-  - drag handles to reorder filters (Python used ▲/▼ buttons);
+  - a toggle for each filter, and a slider with − / + step buttons for each parameter;
+  - drag handles to reorder filters, plus ▲/▼ buttons (the same as Python). Only the handle starts a drag, so the sliders stay usable;
   - "Clear all".
 - The preview recomputes on the work proxy, debounced 120 ms, in Rust off the UI thread.
 
+## Intentional changes
+- **Retuned presets** (`filters::RETUNED_PRESETS`). The 18 presets were tried on real library maps: dark dungeons, photographic outdoor maps, and hand-drawn maps on light paper.
+  - *Atmospheric (dither)* and *Newsprint (print-friendly)* ran edge_boost **after** dither in Python. Dither noise is all edges, so dark and photographic maps printed almost solid black. Edge boost now runs before dither.
+  - *Max detail B&W* ran edge_boost after adaptive with clarity 120, which filled shapes with black blotches. It is now clarity 80; sharpen 150; edge_boost 30 **before** adaptive 60.
+  - The golden test skips these three. Every filter they use is still checked bit-exact.
+
 ## Parity
-The filters are ports of PIL's `libImaging` maths (3-pass box Gaussian with 24-bit fixed point, UnsharpMask integer rounding, float32 `blend`, autocontrast/colorize LUTs, Floyd–Steinberg `tobilevel`, CONTOUR 3×3) and of OpenCV for canny. The golden test (`crates/core/tests/parity_map_images.rs`) checks every filter at two parameter values, all 18 presets and canny against the Python/PIL/OpenCV output: **all are bit-exact**. The test allows ≥ 99.9 % identical pixels and MAE ≤ 0.05.
+The filters are ports of PIL's `libImaging` maths (3-pass box Gaussian with 24-bit fixed point, UnsharpMask integer rounding, float32 `blend`, autocontrast/colorize LUTs, Floyd–Steinberg `tobilevel`, CONTOUR 3×3) and of OpenCV for canny. The golden test (`crates/core/tests/parity_map_images.rs`) checks every filter at two parameter values, the 15 verbatim presets and canny against the Python/PIL/OpenCV output: **all are bit-exact**. The test allows ≥ 99.9 % identical pixels and MAE ≤ 0.05.
 
 **Checklist**
 - [x] All 13 Python filters, plus canny
 - [x] Defaults and ranges as listed
-- [x] All 18 presets, verbatim
+- [x] All 18 presets (15 verbatim, 3 retuned: see "Intentional changes")
 - [ ] Order is user-controllable
 - [x] Golden image tests within tolerance (bit-exact)
