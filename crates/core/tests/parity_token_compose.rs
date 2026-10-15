@@ -43,6 +43,7 @@ fn compose_matches_python_within_tolerance() {
             ring_inset_pct: case["ring_inset_pct"].as_f64().unwrap(),
             pan: [case["pan_x"].as_f64().unwrap(), case["pan_y"].as_f64().unwrap()],
             zoom: case["zoom"].as_f64().unwrap(),
+            filters: Vec::new(),
         };
         let got = compose(&source, &border, &params);
         let want = load(case["output"].as_str().unwrap());

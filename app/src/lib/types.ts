@@ -170,6 +170,8 @@ export interface TokenParams {
   ring_inset_pct: number;
   pan: [number, number];
   zoom: number;
+  /** Map filters on the image only (TOKEN_FILTERS); the ring is never filtered. */
+  filters: FilterStep[];
 }
 
 export interface Border {

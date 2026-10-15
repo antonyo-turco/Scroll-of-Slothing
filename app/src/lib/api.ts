@@ -94,6 +94,7 @@ export const api = {
   tokenBordersList: () => call<Border[]>('token_borders_list'),
   tokenBordersAdd: (path: string, name?: string | null) => call<Border>('token_borders_add', { path, name }),
   tokenBordersRemove: (id: string) => call<void>('token_borders_remove', { id }),
+  tokenFilterCatalog: () => call<FilterCatalog>('token_filter_catalog'),
   imageSourceFromPath: (path: string) => call<SourceImage>('image_source_from_path', { path }),
   imageSourceFromClipboard: () => call<SourceImage>('image_source_from_clipboard'),
   imageSourceInfo: (hash: string) => call<SourceImage>('image_source_info', { hash }),

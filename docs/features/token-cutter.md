@@ -13,9 +13,10 @@ Frames any image inside a circular token border and outputs a token image. The o
 ## Controls (inspector)
 | Section | Control | Default | Range |
 |---|---|---|---|
-| Border | thumbnail strip of the border set | first border | bundled `roll20.png` (442²), `roll20_greyscale.png` (256²), plus user-added borders |
+| Border | thumbnail strip of the border set | first border | bundled `roll20.png` (442²), `roll20_greyscale.png` (256²), their thin versions `roll20_thin.png` / `roll20_greyscale_thin.png`, plus user-added borders |
 | Background | none (transparent) / colour picker / eyedropper | none | the eyedropper samples the source image |
-| Ring | ring thickness (content inset) | 0 % | 0–50 % of the radius |
+| Ring | ring thickness (content inset), slider with − / + | 0 % | 0–50 % of the radius |
+| Filters | the map filter panel limited to token filters: preset dropdown, toggles, sliders with − / +, reorder | none | see "Filters" |
 | Info | name, size, tags: asked in the Save to library dialog | file stem (or the asset's), Medium (or the asset's), the asset's tags | the size labels |
 | Framing | pan (drag), zoom (wheel ×1.1 per notch), reset | centred, ×1 | zoom 0.1–10 |
 
@@ -32,10 +33,18 @@ Reference: Python `ui/token_compositing.py`.
    - Resize to `iw*base` × `ih*base`, centred, then offset by the pan.
    - Pan is stored in border-pixel units: `pan -= drag / (display/max(bw,bh))`.
    - Crop and paste onto a transparent RGBA canvas the size of the border.
+   - **Filters.** The enabled token filters run on this border-sized window, colour channels only (alpha is kept). The border is composited afterwards, so it is never filtered. Running at border size makes preview and export identical.
 2. **Content mask.** An ellipse inset by `ring_inset_pct/100 * radius`. Multiply it into the base image's alpha.
 3. **Background.** If a background colour is set, fill it inside the same mask, underneath the image.
 4. **Composite.** Alpha-composite the base, then the border on top.
 5. **Outer clip.** Clip to the border's outer circle. The centre comes from the alpha bounding box, and the radius is `min(w,h)/2`.
+
+## Filters
+- `sleuth_core::token::TOKEN_FILTERS`: the colour and tone map filters (docs/features/map-filters.md): autocontrast, contrast, lightness, clarity, sharpen, sepia, grayscale, posterize, edge_boost. The ink-saving B&W filters (adaptive, threshold, dither, line_art, canny) are for printing maps; other kinds in a token pipeline are ignored.
+- Presets: the map presets that use only token filters (8 of 18, including "None (clear all)", Most legible, Posterized 3/4, Soft and Clean grayscale, Sepia print, Faded parchment). `token_filter_catalog` (service, Tauri command, MCP tool) lists the defs and these presets.
+
+## Thin borders
+`roll20_thin.png` and `roll20_greyscale_thin.png` are the bundled rings squeezed radially to 45 % of their width; the outer rim stays put, so the image circle grows from 77 % to 90 % of the radius (about 35 % more image area). They were generated once from the originals; the texture is resampled, not redrawn.
 
 The transparency checkerboard for preview uses an 8 px square in colours (204,204,204) and white.
 
@@ -45,12 +54,13 @@ The transparency checkerboard for preview uses an 8 px square in colours (204,20
 - Export, save and add-to-sheet compose once from the full-resolution original, scaled down to the border size.
 
 ## Persistence
-- `params_json = {border, bg, ring_inset_pct, pan, zoom}` is stored on the asset, so re-editing restores the exact framing.
+- `params_json = {border, bg, ring_inset_pct, pan, zoom, filters}` is stored (`filters` defaults to empty for older assets) on the asset, so re-editing restores the exact framing.
 - The unsaved editor state is autosaved to the `workspaces` table.
 
 ## MCP
-- `token_compose {source: path|asset_id, border?, bg?, ring_inset_pct?, pan?, zoom?, name?, size?, save_to_library?, add_to_sheet?, out_png?}`
+- `token_compose {source: path|asset_id, border?, bg?, ring_inset_pct?, pan?, zoom?, filter_preset? | filters?, name?, size?, save_to_library?, add_to_sheet?, out_png?}`
   - Returns `{asset_id?, png_path?}` and a preview image.
+- `token_filter_catalog`
 - `token_borders_list`
 - `token_borders_add {path}`
 
@@ -60,6 +70,8 @@ The transparency checkerboard for preview uses an 8 px square in colours (204,20
 - Circle edges (content mask and outer clip) are anti-aliased. PIL drew hard edges. The golden test allows for this: mean error ≤ 3/255, alpha mismatch ≤ 1 % of pixels. Measured: 0.12–0.77 and ≤ 0.31 %.
 - Edit params are stored, so re-editing is non-destructive.
 - Users can add their own border PNGs (they need transparency).
+- Thin versions of both bundled borders, to show more of the image (user request, 2026-10-15). Python had only the two thick rings.
+- Token filters: the colour/tone map filters on the image only, never the ring (user request, 2026-10-15). Python tokens had no filters.
 - The cutter draft (source, framing, name, size) is autosaved and restored after a restart.
 - Name and size are not inspector fields: "Save to library" asks for name, size and tags in one dialog (user request, 2026-10-11). Python had name and size fields in the panel and no tags at save time. For an asset opened from the library it offers Update existing / Save as new / Cancel instead of Python's Yes/No/Cancel. Add to sheet uses the last name and size (the sheet can change both).
 

@@ -193,6 +193,10 @@ pub struct TokenComposeParams {
     /// Pan in border pixels (positive = view moves right / down over the image).
     pub pan_x: Option<f64>,
     pub pan_y: Option<f64>,
+    /// Filters on the image (never the ring): a preset name from token_filter_catalog...
+    pub filter_preset: Option<String>,
+    /// ...or a full pipeline [{type, enabled, params}] of token filters.
+    pub filters: Option<Vec<Value>>,
     pub name: Option<String>,
     /// Tiny | Small | Medium | Large | Huge | Gargantuan
     pub size: Option<String>,
@@ -500,6 +504,13 @@ impl SleuthServer {
     #[tool(description = "Add a border image (PNG with a transparent centre) from a file path.")]
     async fn token_borders_add(&self, Parameters(p): Parameters<BorderAddParams>) -> ToolResult {
         done(self.svc.token_borders_add(PathBuf::from(p.path), p.name).await)
+    }
+
+    #[tool(
+        description = "List the filters a token can use (colour/tone map filters, applied to the image, never the ring) and the presets built from them."
+    )]
+    async fn token_filter_catalog(&self) -> ToolResult {
+        ok(&self.svc.token_filter_catalog())
     }
 
     #[tool(
@@ -1483,6 +1494,14 @@ impl SleuthServer {
         }
         if let Some(v) = p.pan_y {
             params.pan[1] = v;
+        }
+        if let Some(name) = p.filter_preset {
+            params.filters = sleuth_core::token::token_preset_pipeline(&name).ok_or_else(|| {
+                ServiceError::InvalidInput(format!("unknown token filter preset {name:?}"))
+            })?;
+        } else if let Some(pl) = p.filters {
+            params.filters = serde_json::from_value(Value::Array(pl))
+                .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
         }
         let params = params.clamped();
         let name = p.name.unwrap_or(name);

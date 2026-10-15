@@ -15,7 +15,7 @@ test('library asset opens in the cutter, edits re-render, update-or-new choice',
 
   const preview = page.getByTestId('token-preview');
   const before = await preview.getAttribute('src');
-  await page.getByLabel(/Ring thickness/).fill('30');
+  await page.getByRole('slider', { name: /Ring thickness/ }).fill('30');
   await expect(preview).not.toHaveAttribute('src', before!);
 
   // Background colour + border switch.
@@ -23,6 +23,14 @@ test('library asset opens in the cutter, edits re-render, update-or-new choice',
   await expect(page.getByLabel('Background colour')).toBeVisible();
   await page.getByRole('radio', { name: 'Roll20 grey', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Roll20 grey', exact: true })).toHaveAttribute('aria-checked', 'true');
+
+  // Thin borders are offered; filters (image only) come from the token catalog.
+  await expect(page.getByRole('radio', { name: 'Roll20 gold, thin' })).toBeVisible();
+  const filters = page.getByRole('combobox', { name: 'Filter preset' });
+  await expect(filters.locator('option', { hasText: 'Newsprint' })).toHaveCount(0);
+  await filters.selectOption('Sepia print');
+  await expect(page.getByRole('checkbox', { name: 'Sepia' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: /Dither/ })).toHaveCount(0);
 
   // Opened from the library → saving asks update vs new.
   await page.getByRole('button', { name: 'Save to library…' }).click();
@@ -49,7 +57,9 @@ test('library asset opens in the cutter, edits re-render, update-or-new choice',
   // Reopening restores the saved framing (ring 30%).
   await inspector.getByRole('button', { name: 'Open in Token Cutter' }).click();
   await expect(page.getByTestId('token-preview')).toBeVisible();
-  await expect(page.getByLabel(/Ring thickness/)).toHaveValue('30');
+  await expect(page.getByRole('slider', { name: /Ring thickness/ })).toHaveValue('30');
+  await expect(page.getByRole('checkbox', { name: 'Sepia' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Grayscale' })).not.toBeChecked();
 });
 
 test('drag pans and wheel zooms the preview', async ({ page }) => {

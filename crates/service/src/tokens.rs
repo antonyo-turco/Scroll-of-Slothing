@@ -10,12 +10,12 @@ use std::sync::Arc;
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
-use sleuth_core::token::{TokenParams, compose};
+use sleuth_core::token::{self, TokenParams, compose};
 use sleuth_core::units::SizeLabel;
 use sleuth_store::{AssetImages, AssetPatch, NewAsset, Store};
 
 use crate::library::{check_size, store_encoded};
-use crate::{Asset, Result, Service, ServiceError};
+use crate::{Asset, FilterCatalog, FilterPreset, Result, Service, ServiceError};
 
 /// Bundled borders: the Python app's `images/token_borders`, plus thin
 /// versions of both (ring squeezed to 45 % of its width, so more image shows).
@@ -173,6 +173,20 @@ impl Service {
             .ok_or_else(|| ServiceError::NotFound(format!("border {id}")))?;
         let svc = self.clone();
         self.blocking(move |s| svc.inner.images.get(s, &border.blob)).await
+    }
+
+    /// The map filters a token can use, and the map presets built only from them.
+    pub fn token_filter_catalog(&self) -> FilterCatalog {
+        FilterCatalog {
+            defs: token::token_filter_defs(),
+            presets: token::token_preset_names()
+                .into_iter()
+                .map(|name| FilterPreset {
+                    name: name.to_string(),
+                    pipeline: token::token_preset_pipeline(name).unwrap_or_default(),
+                })
+                .collect(),
+        }
     }
 
     /// Stores an image file as an editing source.
@@ -356,6 +370,23 @@ mod tests {
                 ("builtin:roll20_greyscale_thin", 256)
             ]
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn filters_render_and_survive_save_and_reopen() {
+        let (_d, svc, src, params) = setup().await;
+        let cat = svc.token_filter_catalog();
+        assert!(cat.defs.iter().all(|d| token::TOKEN_FILTERS.contains(&d.key)));
+        let sepia = cat.presets.iter().find(|p| p.name == "Sepia print").unwrap();
+        let p = TokenParams { filters: sepia.pipeline.clone(), ..params.clone() };
+        let plain = svc.token_render(src.hash.clone(), params, true).await.unwrap();
+        let tinted = svc.token_render(src.hash.clone(), p.clone(), true).await.unwrap();
+        assert_ne!(plain, tinted);
+        let a = svc
+            .token_save_to_library(src.hash, p.clone(), "Orc".into(), "Medium".into(), None)
+            .await
+            .unwrap();
+        assert_eq!(svc.token_open_asset(a.id).await.unwrap().params.filters, p.filters);
     }
 
     #[tokio::test(flavor = "multi_thread")]

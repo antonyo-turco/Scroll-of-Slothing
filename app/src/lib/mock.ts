@@ -12,7 +12,7 @@ import {
 } from './types';
 import cardTemplates from '../../../assets/cards/templates.json';
 import { createMusicMockHandlers } from './mock-music';
-import { createMapsMockHandlers } from './mock-maps';
+import { createMapsMockHandlers, MOCK_TOKEN_FILTER_CATALOG } from './mock-maps';
 
 export interface Backend {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -333,6 +333,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
 
   Object.assign(handlers, {
     token_borders_list: () => borders,
+    token_filter_catalog: () => MOCK_TOKEN_FILTER_CATALOG,
     token_borders_add: ({ path, name }: Record<string, unknown>) => {
       const b = { id: `user:${++seq}`, name: (name as string) || String(path).split(/[\\/]/).pop()!.replace(/\.[^.]+$/, ''), builtin: false, blob: `mock-border-${seq}`, width: 300, height: 300 };
       borders.push(b);
@@ -377,7 +378,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     },
     token_open_asset: ({ id }: Record<string, unknown>) => {
       const a = getAsset(id as number);
-      const params = tokenParams.get(a.id) ?? { border: 'builtin:roll20', bg: null, ring_inset_pct: 0, pan: [0, 0], zoom: 1 };
+      const params = tokenParams.get(a.id) ?? { border: 'builtin:roll20', bg: null, ring_inset_pct: 0, pan: [0, 0], zoom: 1, filters: [] };
       sources.set(a.original_blob, sources.get(a.original_blob) ?? { width: 512, height: 512 });
       return { source: { hash: a.original_blob, ...sources.get(a.original_blob)! }, params, name: a.name, size: a.size_label, asset_id: a.id };
     },

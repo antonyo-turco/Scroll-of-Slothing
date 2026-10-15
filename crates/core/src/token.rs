@@ -5,8 +5,48 @@ use fast_image_resize::{
     self as fr,
     images::{Image as FrImage, ImageRef},
 };
-use image::{Rgba, RgbaImage};
+use image::{RgbImage, Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
+
+use crate::maps::filters::{self, FilterStep};
+
+/// Map filters a token can use (the colour/tone ones; the ink-saving B&W
+/// filters are for printing maps). Other kinds in `filters` are ignored.
+pub const TOKEN_FILTERS: &[&str] = &[
+    "autocontrast",
+    "contrast",
+    "lightness",
+    "clarity",
+    "sharpen",
+    "sepia",
+    "grayscale",
+    "posterize",
+    "edge_boost",
+];
+
+/// Definitions of the token filters, in the map pipeline's default order.
+pub fn token_filter_defs() -> Vec<filters::FilterDef> {
+    filters::filter_defs().into_iter().filter(|d| TOKEN_FILTERS.contains(&d.key)).collect()
+}
+
+/// A map preset as a token pipeline (every token filter listed, the preset's
+/// ones enabled). `None` for unknown presets and those using map-only filters.
+pub fn token_preset_pipeline(name: &str) -> Option<Vec<FilterStep>> {
+    let full = filters::preset_pipeline(name)?;
+    if full.iter().any(|s| s.enabled && !TOKEN_FILTERS.contains(&s.kind.as_str())) {
+        return None;
+    }
+    Some(full.into_iter().filter(|s| TOKEN_FILTERS.contains(&s.kind.as_str())).collect())
+}
+
+/// Names of the map presets that work on tokens, in catalog order.
+pub fn token_preset_names() -> Vec<&'static str> {
+    filters::PRESETS
+        .iter()
+        .map(|(n, _)| *n)
+        .filter(|n| token_preset_pipeline(n).is_some())
+        .collect()
+}
 
 /// Editable token parameters (persisted as the asset's `params_json`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -22,6 +62,8 @@ pub struct TokenParams {
     pub pan: [f64; 2],
     /// Zoom multiplier on top of cover-fit (0.1–10).
     pub zoom: f64,
+    /// Filter pipeline applied to the framed image only (never the border).
+    pub filters: Vec<FilterStep>,
 }
 
 impl Default for TokenParams {
@@ -32,7 +74,31 @@ impl Default for TokenParams {
             ring_inset_pct: 0.0,
             pan: [0.0, 0.0],
             zoom: 1.0,
+            filters: Vec::new(),
         }
+    }
+}
+
+/// Runs the enabled token filters on the colour channels; alpha is kept.
+fn apply_token_filters(img: &mut RgbaImage, pipeline: &[FilterStep]) {
+    let steps: Vec<FilterStep> = pipeline
+        .iter()
+        .filter(|s| s.enabled && TOKEN_FILTERS.contains(&s.kind.as_str()))
+        .cloned()
+        .collect();
+    if filters::is_identity(&steps) {
+        return;
+    }
+    let (w, h) = img.dimensions();
+    let rgb = RgbImage::from_fn(w, h, |x, y| {
+        let p = img.get_pixel(x, y);
+        image::Rgb([p[0], p[1], p[2]])
+    });
+    let out = filters::apply_pipeline(&rgb, &steps);
+    for (px, f) in img.pixels_mut().zip(out.pixels()) {
+        px[0] = f[0];
+        px[1] = f[1];
+        px[2] = f[2];
     }
 }
 
@@ -192,7 +258,9 @@ pub fn compose(base: &RgbaImage, border: &RgbaImage, params: &TokenParams) -> Rg
     let radius = f64::from(w.min(h)) / 2.0;
     let ei = (p.ring_inset_pct / 100.0 * radius).trunc();
     let content = ellipse_mask(w, h, ei, ei, f64::from(w) - ei - 1.0, f64::from(h) - ei - 1.0);
-    let fitted = fit_with_transform(base, w, h, p.pan, p.zoom);
+    let mut fitted = fit_with_transform(base, w, h, p.pan, p.zoom);
+    // On the border-sized window: preview and export match, and the ring is untouched.
+    apply_token_filters(&mut fitted, &p.filters);
     let outer = outer_ring_mask(border);
 
     let mut out = RgbaImage::new(w, h);
@@ -311,6 +379,49 @@ mod tests {
                 assert_eq!(t.dimensions(), (101, 101));
             }
         }
+    }
+
+    #[test]
+    fn filters_change_the_image_but_not_the_ring() {
+        let border = ring(100, 40.0, 50.0);
+        let img = solid(100, 100, [200, 40, 40, 255]);
+        let step = |kind: &str| FilterStep {
+            kind: kind.into(),
+            enabled: true,
+            params: Default::default(),
+        };
+        let plain = compose(&img, &border, &TokenParams::default());
+        let grey = compose(
+            &img,
+            &border,
+            &TokenParams { filters: vec![step("grayscale")], ..Default::default() },
+        );
+        let c = grey.get_pixel(50, 50);
+        assert!(c[0] == c[1] && c[1] == c[2], "centre is grey: {c:?}");
+        assert_eq!(grey.get_pixel(50, 5), plain.get_pixel(50, 5), "ring untouched");
+        // map-only filters (ink-saving B&W) are ignored on tokens
+        let dither = compose(
+            &img,
+            &border,
+            &TokenParams { filters: vec![step("dither")], ..Default::default() },
+        );
+        assert_eq!(dither, plain);
+        // old params_json without the field still loads
+        let old: TokenParams = serde_json::from_str(r#"{"border":"b","zoom":2.0}"#).unwrap();
+        assert!(old.filters.is_empty());
+    }
+
+    #[test]
+    fn token_filters_are_known_filters() {
+        let defs = filters::filter_defs();
+        assert!(TOKEN_FILTERS.iter().all(|k| defs.iter().any(|d| d.key == *k)));
+        assert_eq!(token_filter_defs().len(), TOKEN_FILTERS.len());
+        let names = token_preset_names();
+        assert!(names.contains(&"Sepia print") && names.contains(&"Clean grayscale"));
+        assert!(!names.contains(&"Newsprint"), "dither is map-only");
+        let p = token_preset_pipeline("Faded parchment").unwrap();
+        assert_eq!(p.len(), TOKEN_FILTERS.len());
+        assert_eq!(p.iter().filter(|s| s.enabled).count(), 3);
     }
 
     #[test]

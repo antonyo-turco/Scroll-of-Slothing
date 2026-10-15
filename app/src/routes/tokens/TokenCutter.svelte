@@ -8,7 +8,9 @@
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
-  import { type Border, type SourceImage, type TokenParams, type SaveDetails } from '../../lib/types';
+  import FiltersPanel from '../../lib/components/FiltersPanel.svelte';
+  import Slider from '../../lib/components/Slider.svelte';
+  import { type Border, type FilterCatalog, type SourceImage, type TokenParams, type SaveDetails } from '../../lib/types';
 
   const DRAFT_KEY = 'tokens.cutter';
 
@@ -22,13 +24,14 @@
 
   const blank = (border = ''): Draft => ({
     source: null,
-    params: { border, bg: null, ring_inset_pct: 0, pan: [0, 0], zoom: 1 },
+    params: { border, bg: null, ring_inset_pct: 0, pan: [0, 0], zoom: 1, filters: [] },
     name: '',
     size: 'Medium',
     asset_id: null,
   });
 
   let borders = $state<Border[]>([]);
+  let catalog = $state<FilterCatalog | null>(null);
   let d = $state<Draft>(blank());
   let previewUrl = $state<string | null>(null);
   let rendering = $state(false);
@@ -91,8 +94,10 @@
   onMount(async () => {
     try {
       borders = await api.tokenBordersList();
+      catalog = await api.tokenFilterCatalog().catch(() => null);
       const saved = await api.workspaceGet<Draft>(DRAFT_KEY).catch(() => null);
       d = saved && borders.some((b) => b.id === saved.params.border) ? saved : blank(borders[0]?.id ?? '');
+      d.params.filters ??= []; // drafts saved before token filters existed
       const req = app.openRequest;
       if (req && req.route === 'tokens.cutter') {
         app.openRequest = null;
@@ -115,7 +120,7 @@
 
   async function openAsset(id: number) {
     const draft = await api.tokenOpenAsset(id);
-    d = { ...draft };
+    d = { ...draft, params: { ...draft.params, filters: draft.params.filters ?? [] } };
   }
 
   function setSource(src: SourceImage) {
@@ -377,11 +382,14 @@
         {/each}
         <button class="border add" title="Add border…" aria-label="Add border" onclick={addBorder}>+</button>
       </div>
-      <label class="range" for="ring">
-        <span>Ring thickness</span>
-        <input id="ring" type="range" min="0" max="50" step="1" bind:value={d.params.ring_inset_pct} />
-        <span>{Math.round(d.params.ring_inset_pct)}%</span>
-      </label>
+      <Slider label="Ring thickness %" min={0} max={50} bind:value={d.params.ring_inset_pct} />
+      <p class="note">The thin borders show more of the image.</p>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">Filters</h3>
+      <FiltersPanel bind:pipeline={d.params.filters} {catalog} />
+      <p class="note">Filters change the image only, never the border.</p>
     </section>
 
     <section class="section">

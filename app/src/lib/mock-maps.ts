@@ -76,6 +76,18 @@ export const MOCK_FILTER_CATALOG: FilterCatalog = {
   presets: PRESET_STEPS.map(([name]) => ({ name, pipeline: presetPipeline(name) })),
 };
 
+// Token filters (sleuth_core::token::TOKEN_FILTERS): colour/tone only.
+const TOKEN_FILTERS = ['autocontrast', 'contrast', 'lightness', 'clarity', 'sharpen', 'sepia', 'grayscale', 'posterize', 'edge_boost'];
+const isToken = (k: string) => TOKEN_FILTERS.includes(k);
+
+export const MOCK_TOKEN_FILTER_CATALOG: FilterCatalog = {
+  defs: FILTER_DEFS.filter((d) => isToken(d.key)),
+  presets: PRESET_STEPS.filter(([, steps]) => steps.every(([t]) => isToken(t))).map(([name]) => ({
+    name,
+    pipeline: presetPipeline(name).filter((s) => isToken(s.type)),
+  })),
+};
+
 export function defaultMapDoc(): MapDoc {
   return {
     source: null, pre_warp: null, name: '', asset_id: null, detected_dpi: 70, dpi_detected: false,

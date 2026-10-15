@@ -175,6 +175,7 @@ pub fn run() {
             commands::map_export_pdf,
             commands::map_save_asset,
             commands::map_filter_catalog,
+            commands::token_filter_catalog,
             commands::aoe_presets_list,
             commands::aoe_presets_save,
             commands::aoe_presets_delete,

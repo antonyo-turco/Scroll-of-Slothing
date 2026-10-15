@@ -567,6 +567,11 @@ pub fn map_filter_catalog(svc: Svc<'_>) -> FilterCatalog {
     svc.map_filter_catalog()
 }
 
+#[tauri::command]
+pub fn token_filter_catalog(svc: Svc<'_>) -> FilterCatalog {
+    svc.token_filter_catalog()
+}
+
 // ── AoE templates ──
 
 #[tauri::command]
