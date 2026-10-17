@@ -487,6 +487,19 @@
     }
   }
 
+  // The cut-lines hint can raise the margin; turning cut lines off puts it back.
+  let marginBeforeHint: number | null = null;
+  function setSafeMargin() {
+    if (!doc) return;
+    marginBeforeHint = doc.margin_in;
+    doc.margin_in = 0.2;
+  }
+  function cutLinesChanged() {
+    if (!doc || doc.cut_border) return;
+    if (marginBeforeHint != null && doc.margin_in === 0.2) doc.margin_in = marginBeforeHint;
+    marginBeforeHint = null;
+  }
+
   /** Print region = content inside uniform borders, snapped to grid lines. */
   async function fitRegion() {
     if (!doc) return;
@@ -790,6 +803,7 @@
               <div class="segmented" role="group" aria-label="Page format">
                 <button aria-pressed={doc.format === 'A4'} onclick={() => (doc!.format = 'A4')}>A4</button>
                 <button aria-pressed={doc.format === 'Letter'} onclick={() => (doc!.format = 'Letter')}>Letter</button>
+                <button aria-pressed={doc.format === 'A3'} onclick={() => (doc!.format = 'A3')}>A3</button>
               </div>
             </div>
             <div class="prop">
@@ -803,13 +817,17 @@
               <span>1 square =</span>
               <span class="with-unit"><input class="input" type="number" min="0.05" step="0.05" aria-label="1 square = (in)" bind:value={doc.square_in} /><span>in</span></span>
             </label>
+            <label class="prop">
+              <span>Margin</span>
+              <span class="with-unit"><input class="input" type="number" min="0" step="0.05" aria-label="Margin (in)" bind:value={doc.margin_in} /><span>in</span></span>
+            </label>
             <label class="check" title="Lines along every edge of each page's map, out to the paper edge, to trim the white margin">
-              <input type="checkbox" bind:checked={doc.cut_border} /> Cut lines (trim the white margin)
+              <input type="checkbox" bind:checked={doc.cut_border} onchange={cutLinesChanged} /> Cut lines (trim the white margin)
             </label>
             {#if doc.cut_border && (doc.margin_in ?? 0) < 0.2}
               <div class="note warn" data-testid="margin-hint">
                 Most printers can't print within about 0.2 in (5 mm) of the paper edge, so the map's edges and the cut lines get clipped.
-                <button class="btn ghost linkish" onclick={() => (doc!.margin_in = 0.2)}>Set margin to 0.2 in</button>
+                <button class="btn ghost linkish" onclick={setSafeMargin}>Set margin to 0.2 in</button>
               </div>
             {/if}
           </section>
@@ -856,10 +874,7 @@
 
           <details class="section">
             <summary>Advanced</summary>
-            <div class="pair">
-              <label class="field">Margin (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.margin_in} /></label>
-              <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
-            </div>
+            <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
             <label class="field">1 in prints as (mm) <input class="input" type="number" min="1" step="0.1" bind:value={doc.calibration_mm} /></label>
             <p class="note">Printer calibration: measure a printed inch and enter it here.</p>
             <label class="check"><input type="checkbox" bind:checked={doc.align_to_grid} /> Align pages to grid</label>

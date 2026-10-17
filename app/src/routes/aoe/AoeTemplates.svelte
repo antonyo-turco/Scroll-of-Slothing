@@ -398,7 +398,7 @@
       <div class="prop">
         <span>Paper</span>
         <div class="segmented" role="group" aria-label="Page format">
-          {#each ['A4', 'Letter'] as f (f)}
+          {#each ['A4', 'Letter', 'A3'] as f (f)}
             <button aria-pressed={cfg.page_format === f} onclick={() => (cfg.page_format = f as PageFormat)}>{f}</button>
           {/each}
         </div>

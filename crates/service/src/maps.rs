@@ -980,7 +980,14 @@ mod tests {
         assert_eq!(imaging::dimensions(&png), Some((700, 500)));
         let page = svc.map_preview_page(doc.clone(), 1, 0.5).await.unwrap();
         assert!(imaging::dimensions(&page).is_some());
-        assert!(svc.map_preview_page(doc, 5, 0.5).await.is_err());
+        assert!(svc.map_preview_page(doc.clone(), 5, 0.5).await.is_err());
+
+        // the same 14×10 in map fits one landscape A3 page (16.54×11.69 in)
+        let a3 = MapDoc { format: PageFormat::A3, landscape: true, ..doc };
+        let layout = svc.map_layout(a3.clone()).await.unwrap();
+        assert_eq!(layout.tiles.len(), 1);
+        let page = svc.map_preview_page(a3, 0, 0.5).await.unwrap();
+        assert_eq!(imaging::dimensions(&page), Some((595, 420)));
     }
 
     #[tokio::test(flavor = "multi_thread")]

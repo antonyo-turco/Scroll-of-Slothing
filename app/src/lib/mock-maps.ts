@@ -12,6 +12,7 @@ type Emit = (e: Record<string, unknown>) => void;
 const PAGE_PT: Record<PageFormat, [number, number]> = {
   Letter: [612, 792],
   A4: [(21 / 2.54) * 72, (29.7 / 2.54) * 72],
+  A3: [(29.7 / 2.54) * 72, (42 / 2.54) * 72],
 };
 const WORK_MAX = 2000;
 
@@ -338,7 +339,7 @@ export function createMapsMockHandlers(emit: Emit): Record<string, Handler> {
   };
   const sheetLayout = (inch: number, format: PageFormat): AoeSheetLayout => {
     const dpi = 150;
-    const [pw, ph] = format === 'A4' ? [1240, 1754] : [1275, 1650];
+    const [pw, ph] = format === 'A3' ? [1754, 2480] : format === 'A4' ? [1240, 1754] : [1275, 1650];
     const m = 30, gap = Math.round(sheet.gap_in * dpi);
     const placed: AoeSheetLayout['placed'] = [];
     const skipped: string[] = [];

@@ -34,6 +34,7 @@
   }
 
   const FORMATS: PageFormat[] = ['Letter', 'A4'];
+  const MAP_FORMATS: PageFormat[] = ['Letter', 'A4', 'A3'];
   const STYLES: CutLineStyle[] = ['Dashed', 'Dotted', 'Solid'];
   const THEMES: { id: Theme; label: string }[] = [
     { id: 'system', label: 'System' },
@@ -75,7 +76,7 @@
 
 {#snippet formatPicker(key: 'token_page_format' | 'object_page_format' | 'card_page_format' | 'map_page_format')}
   <div class="segmented" role="group" aria-label="Page format">
-    {#each FORMATS as f (f)}
+    {#each key === 'map_page_format' ? MAP_FORMATS : FORMATS as f (f)}
       <button aria-pressed={app.settings[key] === f} onclick={() => save(key, f)}>{f}</button>
     {/each}
   </div>

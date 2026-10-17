@@ -35,7 +35,8 @@ function validate(key: string, value: unknown): string | null {
     if (positive.includes(key)) return value > 0 ? null : 'must be > 0';
     return value >= 0 ? null : 'must be ≥ 0';
   }
-  if (key.endsWith('_page_format')) return value === 'Letter' || value === 'A4' ? null : 'invalid format';
+  if (key === 'map_page_format') return ['Letter', 'A4', 'A3'].includes(value as string) ? null : 'invalid format';
+  if (key.endsWith('_page_format')) return value === 'Letter' || value === 'A4' ? null : 'must be Letter or A4 (A3 is for maps only)';
   if (key === 'cut_line_style') return ['Dashed', 'Dotted', 'Solid'].includes(value as string) ? null : 'invalid style';
   if (key === 'theme') return ['system', 'light', 'dark'].includes(value as string) ? null : 'invalid theme';
   if (key === 'cut_line_color') return /^#[0-9a-fA-F]{6}$/.test(value as string) ? null : 'invalid colour';

@@ -547,6 +547,7 @@ pub fn page_inches(format: PageFormat) -> (f64, f64) {
     match format {
         PageFormat::A4 => (8.2677, 11.6929),
         PageFormat::Letter => (8.5, 11.0),
+        PageFormat::A3 => (11.6929, 16.5354),
     }
 }
 

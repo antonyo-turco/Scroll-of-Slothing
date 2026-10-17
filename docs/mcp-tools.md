@@ -48,12 +48,12 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `map_dewarp` / `map_undo_dewarp` | 5 | Perspective de-warp from a reference block, and undo |
 | `map_detect_grid` / `map_fit_region` | 5 | Detect the embedded grid (square size + offset); fit the print region to the content (trim uniform borders, snap to grid lines) |
 | `map_fewest_pages` | 5 | Switch to the orientation and page-grid shift with the fewest pages (fewer cuts) |
-| `map_set_print` / `map_set_region` / `map_toggle_page` / `map_layout` | 5 | Print settings, region and page offset, page include/exclude, tiling + fit check |
+| `map_set_print` / `map_set_region` / `map_toggle_page` / `map_layout` | 5 | Print settings (format Letter, A4 or A3), region and page offset, page include/exclude, tiling + fit check |
 | `map_preview` / `map_preview_page` | 5 | Working preview image; one printed page as an image |
 | `map_export_pdf` / `map_save_asset` | 5 | Tiled PDF export (job); save to the library with full state (job) |
 | `aoe_render` / `aoe_info` | 5 | Render a template (info + image); info only |
 | `aoe_presets_list` / `aoe_presets_save` / `aoe_presets_delete` | 5 | Built-in and user presets (overwrite needs `overwrite: true`) |
-| `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_set_gap` / `aoe_sheet_layout` / `aoe_sheet_export_pdf` | 5 | Multi-template sheet (MaxRects packing, skipped items reported; export is a job) |
+| `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_set_gap` / `aoe_sheet_layout` / `aoe_sheet_export_pdf` | 5 | Multi-template sheet on Letter, A4 or A3 (MaxRects packing, skipped items reported; export is a job) |
 | `aoe_export_template_pdf` / `aoe_export_png` | 5 | One template as a tiled true-scale PDF (job) or PNG |
 | `ui_navigate` / `ui_open_asset` | 6 | In-app server only |
 | `music_tracks_list` / `music_track_add` / `music_track_delete` | 7 | Music library: YouTube links and uploaded audio, tagged |

@@ -10,7 +10,7 @@ Global preferences, stored in the `settings` table (key → JSON) with typed def
 | `token_page_format` | `Letter`\|`A4` | `Letter` | | token sheet |
 | `object_page_format` | `Letter`\|`A4` | `Letter` | | object sheet (*new key*; Python hardcoded Letter) |
 | `card_page_format` | `Letter`\|`A4` | `A4` | | cards (*new key*; Python hardcoded A4) |
-| `map_page_format` | `Letter`\|`A4` | `A4` | | map paginator, AoE |
+| `map_page_format` | `Letter`\|`A4`\|`A3` | `A4` | | map paginator, AoE (A3 is new; the other `*_page_format` keys refuse it) |
 | `token_cut_border` | bool | false | | token sheet |
 | `map_cut_border` | bool | false | | map paginator |
 | `cut_line_style` | `Dashed`\|`Dotted`\|`Solid` | `Dashed` | must be one of these | all cut guides |

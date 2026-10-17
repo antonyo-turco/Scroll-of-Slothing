@@ -218,6 +218,13 @@ impl Settings {
                     Err(e) => err(e.to_string()),
                 }
             };
+            (@sheet $field:ident) => {
+                match serde_json::from_value::<PageFormat>(v.clone()) {
+                    Ok(f) if f.is_sheet_format() => self.$field = f,
+                    Ok(_) => err("must be Letter or A4 (A3 is for maps only)".into()),
+                    Err(e) => err(e.to_string()),
+                }
+            };
             ($field:ident, f64, $check:expr, $msg:literal) => {
                 match v.as_f64() {
                     Some(x) if $check(x) => self.$field = x,
@@ -232,9 +239,9 @@ impl Settings {
             },
             "sidebar_collapsed" => set!(sidebar_collapsed, bool),
             "theme" => set!(theme, Theme),
-            "token_page_format" => set!(token_page_format, PageFormat),
-            "object_page_format" => set!(object_page_format, PageFormat),
-            "card_page_format" => set!(card_page_format, PageFormat),
+            "token_page_format" => set!(@sheet token_page_format),
+            "object_page_format" => set!(@sheet object_page_format),
+            "card_page_format" => set!(@sheet card_page_format),
             "map_page_format" => set!(map_page_format, PageFormat),
             "token_cut_border" => set!(token_cut_border, bool),
             "map_cut_border" => set!(map_cut_border, bool),
@@ -259,7 +266,8 @@ impl Settings {
     pub fn from_legacy_json(v: &Value) -> Self {
         let mut s = Settings::default();
         let Some(obj) = v.as_object() else { return s };
-        let fmt = |v: &Value, d: PageFormat| v.as_str().and_then(PageFormat::parse).unwrap_or(d);
+        let fmt =
+            |v: &Value, d: PageFormat| v.as_str().and_then(PageFormat::parse_sheet).unwrap_or(d);
         for (k, v) in obj {
             match k.as_str() {
                 "start_tab" => {
@@ -384,6 +392,21 @@ mod tests {
         assert_eq!(s.map_square_in, 1.0, "invalid value must not be applied");
         let keys: Vec<_> = errors.keys().map(String::as_str).collect();
         assert_eq!(keys, ["bogus", "cut_line_color", "map_square_in", "start_view"]);
+    }
+
+    #[test]
+    fn a3_is_for_maps_only() {
+        let mut s = Settings::default();
+        let errors = s.apply_patch(&obj(json!({
+            "map_page_format": "A3",
+            "token_page_format": "A3",
+            "object_page_format": "A3",
+            "card_page_format": "A3"
+        })));
+        assert_eq!(s.map_page_format, PageFormat::A3);
+        assert_eq!((s.token_page_format, s.card_page_format), (PageFormat::Letter, PageFormat::A4));
+        let keys: Vec<_> = errors.keys().map(String::as_str).collect();
+        assert_eq!(keys, ["card_page_format", "object_page_format", "token_page_format"]);
     }
 
     #[test]

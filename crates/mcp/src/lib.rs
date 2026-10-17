@@ -577,7 +577,7 @@ impl SleuthServer {
         &self,
         Parameters(p): Parameters<SheetOptionsParams>,
     ) -> ToolResult {
-        let format = match p.format.as_deref().map(PageFormat::parse) {
+        let format = match p.format.as_deref().map(PageFormat::parse_sheet) {
             Some(None) => {
                 return fail(&ServiceError::InvalidInput("format must be Letter or A4".into()));
             }
@@ -677,7 +677,7 @@ impl SleuthServer {
         &self,
         Parameters(p): Parameters<ObjectOptionsParams>,
     ) -> ToolResult {
-        let format = match p.format.as_deref().map(PageFormat::parse) {
+        let format = match p.format.as_deref().map(PageFormat::parse_sheet) {
             Some(None) => {
                 return fail(&ServiceError::InvalidInput("format must be Letter or A4".into()));
             }
@@ -919,7 +919,7 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Set print options: format Letter|A4, landscape, square_in (printed inches per square), calibration_mm (measured mm of a printed inch), margin_in, overlap_in, align_to_grid, cut_border (cut lines along every page edge, out to the paper edge)."
+        description = "Set print options: format Letter|A4|A3, landscape, square_in (printed inches per square), calibration_mm (measured mm of a printed inch), margin_in, overlap_in, align_to_grid, cut_border (cut lines along every page edge, out to the paper edge)."
     )]
     async fn map_set_print(&self, Parameters(p): Parameters<MapPrintParams>) -> ToolResult {
         done(self.map_patch(to_obj(&p)).await)
@@ -1346,7 +1346,7 @@ impl SleuthServer {
     /// Card options from tool params, defaulting the format to the `card_page_format` setting.
     async fn card_opts(&self, p: &CardsParams) -> Result<CardOptions, ServiceError> {
         let format = match p.format.as_deref() {
-            Some(f) => PageFormat::parse(f)
+            Some(f) => PageFormat::parse_sheet(f)
                 .ok_or_else(|| ServiceError::InvalidInput("format must be Letter or A4".into()))?,
             None => self.svc.settings_get().await?.card_page_format,
         };
@@ -1602,9 +1602,10 @@ fn png_result(r: Result<Vec<u8>, ServiceError>) -> ToolResult {
     }
 }
 
+/// Map and AoE formats: Letter, A4 or A3.
 fn parse_format(f: &str) -> Result<PageFormat, ServiceError> {
     PageFormat::parse(f)
-        .ok_or_else(|| ServiceError::InvalidInput("format must be Letter or A4".into()))
+        .ok_or_else(|| ServiceError::InvalidInput("format must be Letter, A4 or A3".into()))
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -1668,7 +1669,7 @@ pub struct MapDewarpParams {
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct MapPrintParams {
-    /// Letter | A4
+    /// Letter | A4 | A3
     pub format: Option<String>,
     /// Turn the pages sideways.
     pub landscape: Option<bool>,
@@ -1733,14 +1734,14 @@ pub struct GapParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct AoeSheetParams {
     pub inch: f64,
-    /// Letter | A4
+    /// Letter | A4 | A3
     pub format: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct AoeSheetExportParams {
     pub inch: f64,
-    /// Letter | A4
+    /// Letter | A4 | A3
     pub format: String,
     pub path: String,
 }

@@ -1,7 +1,8 @@
 // Mirrors of the Rust types serialized by the service layer.
 // Keep in sync with crates/core/src/settings.rs and crates/service/src/*.rs.
 
-export type PageFormat = 'Letter' | 'A4';
+/** A3 is offered for maps (Map Paginator, AoE templates) only. */
+export type PageFormat = 'Letter' | 'A4' | 'A3';
 export type CutLineStyle = 'Dashed' | 'Dotted' | 'Solid';
 export type Theme = 'system' | 'light' | 'dark';
 

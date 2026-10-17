@@ -172,6 +172,27 @@ test('inspector tabs follow the canvas tool, and the margin hint fixes the margi
   await expect(hint).toBeVisible();
   await hint.getByRole('button', { name: 'Set margin to 0.2 in' }).click();
   await expect(hint).toBeHidden();
-  await inspector.getByText('Advanced').click();
-  await expect(inspector.getByRole('spinbutton', { name: 'Margin (in)' })).toHaveValue('0.2');
+  const margin = inspector.getByRole('spinbutton', { name: 'Margin (in)' });
+  await expect(margin).toHaveValue('0.2');
+
+  // turning cut lines off undoes the hint's margin, and the trim can be redone
+  await inspector.getByRole('checkbox', { name: /Cut lines/ }).uncheck();
+  await expect(margin).toHaveValue('0');
+  await inspector.getByRole('checkbox', { name: /Cut lines/ }).check();
+  await expect(hint).toBeVisible();
+});
+
+test('A3 paper fits more of the map on each page', async ({ page }) => {
+  await openMap(page);
+  const inspector = page.getByRole('complementary', { name: 'Map settings' });
+  const summary = page.getByTestId('tiling-summary');
+  const pages = async () => Number((await summary.textContent())!.match(/(\d+) page/)![1]);
+  await inspector.getByRole('tab', { name: 'Pages' }).click();
+  const format = inspector.getByRole('group', { name: 'Page format' });
+  await format.getByRole('button', { name: 'A4' }).click();
+  await expect(summary).toContainText('page');
+  const a4 = await pages();
+  await format.getByRole('button', { name: 'A3' }).click();
+  await expect(format.getByRole('button', { name: 'A3' })).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(pages).toBeLessThan(a4);
 });

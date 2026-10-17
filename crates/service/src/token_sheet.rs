@@ -80,6 +80,18 @@ fn save(s: &Store, sheet: &TokenSheet) -> Result<()> {
     Ok(())
 }
 
+/// Token, object and card sheets print on Letter or A4; A3 is for maps only.
+pub(crate) fn check_sheet_format(f: PageFormat) -> Result<PageFormat> {
+    if f.is_sheet_format() {
+        Ok(f)
+    } else {
+        Err(ServiceError::InvalidInput(format!(
+            "{} is for maps only; sheets print on Letter or A4",
+            f.as_str()
+        )))
+    }
+}
+
 pub(crate) fn thumb_of(s: &Store, image_hash: &str) -> Result<String> {
     let img = imaging::decode(&s.read_blob(image_hash)?)
         .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
@@ -272,6 +284,7 @@ impl Service {
         format: Option<PageFormat>,
         cut_border: Option<bool>,
     ) -> Result<TokenSheet> {
+        format.map(check_sheet_format).transpose()?;
         self.sheet_mutate(move |_, sheet| {
             if let Some(f) = format {
                 sheet.format = f;
@@ -354,6 +367,15 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
         panic!("job timeout");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn sheets_refuse_a3() {
+        let (_d, svc) = temp_service();
+        let err = svc.token_sheet_set_options(Some(PageFormat::A3), None).await.unwrap_err();
+        assert!(matches!(err, ServiceError::InvalidInput(_)), "{err:?}");
+        assert!(svc.object_sheet_set_options(Some(PageFormat::A3), None).await.is_err());
+        assert_eq!(svc.token_sheet_get().await.unwrap().format, PageFormat::Letter);
     }
 
     #[tokio::test(flavor = "multi_thread")]
