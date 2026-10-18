@@ -2,6 +2,7 @@
   // Token Sheet: items, packed page preview, PDF export. Spec: docs/features/token-sheet.md.
   import { onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFiles, pickSavePath } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import { SIZE_LABELS, type PageFormat, type SheetLayout, type TokenSheet } from '../../lib/types';
@@ -157,7 +158,7 @@
 
   <aside class="inspector" aria-label="Sheet items">
     <section class="section items">
-      <h3 class="section-title">Tokens on the sheet</h3>
+      <h3 class="section-title">Tokens on the sheet <InfoTip label="About the token sheet" text="Each item prints as many copies as you set, at its creature size (Tiny ½ in, Medium 1 in, Large 2 in…). Items too large for a page are reported in the status bar." /></h3>
       {#if loaded && sheet.items.length === 0}
         <p class="note">No tokens yet.</p>
       {/if}

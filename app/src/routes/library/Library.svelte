@@ -6,10 +6,11 @@
   import Icon from '../../lib/components/Icon.svelte';
   import VirtualGrid from '../../lib/components/VirtualGrid.svelte';
   import { LibraryState, SORTS } from '../../lib/library.svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import { ASSET_KINDS, KIND_LABELS, type Asset } from '../../lib/types';
-  import AssetCard from './AssetCard.svelte';
+  import AssetCard, { ROW_COLUMNS, VARIANT_SIZE, type CardVariant } from './AssetCard.svelte';
   import AssetInspector from './AssetInspector.svelte';
   import ImportDialog from './ImportDialog.svelte';
   import TagManager from './TagManager.svelte';
@@ -23,9 +24,26 @@
   let search: HTMLInputElement | undefined = $state();
 
   const selecting = $derived(lib.selected.size > 0);
+
+  // View mode: big cards, a detail list, or compact pills. Remembered per user.
+  const VIEW_KEY = 'library.view';
+  const VIEWS: { id: CardVariant; label: string; icon: 'grid' | 'list' | 'pills' }[] = [
+    { id: 'card', label: 'Cards', icon: 'grid' },
+    { id: 'row', label: 'List', icon: 'list' },
+    { id: 'pill', label: 'Pills', icon: 'pills' },
+  ];
+  let view = $state<CardVariant>('card');
+  const size = $derived(VARIANT_SIZE[view]);
+  function setView(v: CardVariant) {
+    view = v;
+    void api.workspaceSet(VIEW_KEY, v).catch(() => {});
+  }
   const topTags = $derived(lib.allTags.filter((t) => t.count > 0).slice(0, 24));
 
   onMount(() => {
+    void api.workspaceGet<CardVariant>(VIEW_KEY).then((v) => {
+      if (v && v in VARIANT_SIZE) view = v;
+    }).catch(() => {});
     void lib.loadReference().then(() => lib.refresh());
     let unlisten: (() => void) | undefined;
     void onFileDrop((paths) => {
@@ -159,9 +177,17 @@
       <label class="toggle">
         <input type="checkbox" bind:checked={lib.pinnedOnly} onchange={() => lib.refresh()} /> ★ Pinned
       </label>
+      <InfoTip label="About the library" text="Search matches names, aliases and tags. Tags combine (all must match). Ctrl+click or Shift+click selects several assets for bulk actions. ★ pins an asset so you can find it quickly." />
       <select class="input" aria-label="Sort" bind:value={lib.sort} onchange={() => lib.refresh()}>
         {#each SORTS as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
       </select>
+      <div class="segmented views" role="group" aria-label="View">
+        {#each VIEWS as v (v.id)}
+          <button aria-pressed={view === v.id} aria-label="{v.label} view" title="{v.label} view" onclick={() => setView(v.id)}>
+            <Icon name={v.icon} size={16} />
+          </button>
+        {/each}
+      </div>
     </div>
 
     {#if topTags.length}
@@ -214,9 +240,22 @@
           {/if}
         </div>
       {:else}
-        <VirtualGrid items={lib.items} itemWidth={176} itemHeight={258} key={(a) => a.id}>
+        {#if view === 'row'}
+          <div class="list-head" style:grid-template-columns={ROW_COLUMNS} aria-hidden="true">
+            <span></span><span>Name</span><span>Kind</span><span>Size</span><span>Tags</span><span>Updated</span><span>★</span>
+          </div>
+        {/if}
+        <VirtualGrid
+          items={lib.items}
+          itemWidth={size.w}
+          itemHeight={size.h}
+          gap={view === 'row' ? 0 : view === 'pill' ? 8 : 12}
+          fill={view === 'row'}
+          key={(a) => a.id}
+        >
           {#snippet item(a: Asset)}
             <AssetCard
+              variant={view}
               asset={a}
               selected={lib.selected.has(a.id)}
               active={lib.activeId === a.id}
@@ -332,7 +371,31 @@
   .grid-area {
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
     padding: var(--space-2) 0 0 var(--space-4);
+  }
+  /* The list header takes its share, so the scroller fills the rest. */
+  .grid-area > :global(.viewport) {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    padding-right: var(--space-2);
+  }
+  .list-head {
+    display: grid;
+    gap: var(--space-3);
+    padding: 0 calc(var(--space-2) + 1px) 6px;
+    margin-right: var(--space-2);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .views button {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--space-2);
   }
   .empty {
     height: 100%;

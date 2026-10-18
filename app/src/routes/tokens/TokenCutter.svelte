@@ -4,6 +4,7 @@
   // requests are gated so at most one is in flight and the latest state wins.
   import { onDestroy, onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
@@ -366,7 +367,7 @@
     </section>
 
     <section class="section">
-      <h3 class="section-title">Border</h3>
+      <h3 class="section-title">Border <InfoTip label="About borders" text="The ring drawn around the token. The thin borders show more of the image. Ring thickness moves the cut inwards." /></h3>
       <div class="borders" role="radiogroup" aria-label="Border">
         {#each borders as b (b.id)}
           <button
@@ -383,17 +384,15 @@
         <button class="border add" title="Add border…" aria-label="Add border" onclick={addBorder}>+</button>
       </div>
       <Slider label="Ring thickness %" min={0} max={50} bind:value={d.params.ring_inset_pct} />
-      <p class="note">The thin borders show more of the image.</p>
     </section>
 
     <section class="section">
-      <h3 class="section-title">Filters</h3>
+      <h3 class="section-title">Filters <InfoTip label="About filters" text="Colour and tone filters change the image only, never the border. They run in order, top to bottom." /></h3>
       <FiltersPanel bind:pipeline={d.params.filters} {catalog} />
-      <p class="note">Filters change the image only, never the border.</p>
     </section>
 
     <section class="section">
-      <h3 class="section-title">Background</h3>
+      <h3 class="section-title">Background <InfoTip label="About the background" text="Fills transparent areas behind the image. Use the pipette to pick a colour from the image itself." /></h3>
       <div class="row">
         <div class="segmented" role="group" aria-label="Background">
           <button aria-pressed={d.params.bg === null} onclick={() => (d.params.bg = null)}>None</button>

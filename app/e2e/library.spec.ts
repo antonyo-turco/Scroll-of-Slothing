@@ -72,3 +72,24 @@ test('open in editor routes each kind to its editor with the asset loaded', asyn
     await expect(page.getByText(/Editing library asset #\d+/)).toBeVisible();
   }
 });
+
+test('list and pill views show the same assets and are remembered', async ({ page }) => {
+  const view = page.getByRole('group', { name: 'View' });
+  await view.getByRole('button', { name: 'List view' }).click();
+  await expect(page.getByTestId('asset-card')).toHaveCount(7);
+  await expect(page.getByText('Updated', { exact: true })).toBeVisible();
+  // Rows still select and pin.
+  const first = page.getByTestId('asset-card').first();
+  await first.getByRole('button', { name: /^Pin / }).click();
+  await expect(first.getByRole('button', { name: /^Unpin / })).toBeVisible();
+
+  await view.getByRole('button', { name: 'Pills view' }).click();
+  await expect(page.getByTestId('asset-card')).toHaveCount(7);
+  await expect(view.getByRole('button', { name: 'Pills view' })).toHaveAttribute('aria-pressed', 'true');
+
+  // Hash navigation keeps the in-memory mock (a reload would reset it).
+  await page.evaluate(() => (location.hash = '#/cards'));
+  await expect(page.getByLabel('Deck markdown')).toBeVisible();
+  await page.evaluate(() => (location.hash = '#/library'));
+  await expect(page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Pills view' })).toHaveAttribute('aria-pressed', 'true');
+});

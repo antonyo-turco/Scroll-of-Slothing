@@ -7,6 +7,7 @@
   import { pickFile, pickSavePath } from '../../lib/api';
   import { DMIX_EXTENSION, music, type Channel, type ChannelRole, type DuckMode, type Soundbite, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   let { onImport }: { onImport: (path: string) => Promise<void> } = $props();
 
@@ -155,6 +156,7 @@
     <button class="btn" onclick={openSave} disabled={!st?.channels.length && !st?.soundbites.length}>💾 Save as New</button>
     <button class="btn" onclick={() => void music.toggleVideo()}>📹 Toggle Video</button>
     <div class="spacer"></div>
+    <InfoTip label="About ducking" text="Ducking lowers the music while a soundbite or sound effect plays, so it can be heard. Soft lowers it a little, Strong a lot." />
     <div class="segmented" role="group" aria-label="Duck under SFX" title="Duck the music while a soundbite plays">
       <span class="seg-label">🔉 Duck</span>
       {#each DUCKS as [mode, label] (mode)}
@@ -225,7 +227,7 @@
   </div>
 
   <div class="toolbar">
-    <h2>Soundbites <PlayIndicator status={musicUi.oneshotStatus} /> {#if st?.soundbites_running}<span class="pill">running</span>{/if}</h2>
+    <h2>Soundbites <InfoTip label="About soundbites" text="Short sounds that play on their own at random times between the minimum and maximum interval, such as birds or distant thunder." /> <PlayIndicator status={musicUi.oneshotStatus} /> {#if st?.soundbites_running}<span class="pill">running</span>{/if}</h2>
     <div class="spacer"></div>
     {#if st?.sfx_queue}<span class="muted small">{st.sfx_queue} queued</span>{/if}
     <button class="btn" onclick={openSoundbite}>+ Soundbite</button>

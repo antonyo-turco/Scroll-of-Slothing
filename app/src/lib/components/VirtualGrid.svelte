@@ -9,6 +9,7 @@
     itemHeight,
     gap = 12,
     overscan = 2,
+    fill = false,
     key,
     item,
   }: {
@@ -16,6 +17,8 @@
     itemWidth: number;
     itemHeight: number;
     gap?: number;
+    /** One full-width column (a list); `itemWidth` is ignored. */
+    fill?: boolean;
     overscan?: number;
     key: (t: T) => string | number;
     item: Snippet<[T, number]>;
@@ -26,7 +29,7 @@
   let height = $state(0);
   let scrollTop = $state(0);
 
-  const cols = $derived(Math.max(1, Math.floor((width + gap) / (itemWidth + gap))));
+  const cols = $derived(fill ? 1 : Math.max(1, Math.floor((width + gap) / (itemWidth + gap))));
   const rowH = $derived(itemHeight + gap);
   const rows = $derived(Math.ceil(items.length / cols));
   const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - overscan));
@@ -50,7 +53,7 @@
     <div
       class="grid"
       style:transform="translateY({first * rowH}px)"
-      style:grid-template-columns="repeat({cols}, {itemWidth}px)"
+      style:grid-template-columns={fill ? 'minmax(0, 1fr)' : `repeat(${cols}, ${itemWidth}px)`}
       style:gap="{gap}px"
     >
       {#each visible as v (key(v.it))}

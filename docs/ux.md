@@ -14,7 +14,7 @@
 ## Navigation
 Campaigns and sessions (the Python "Manage Campaigns" tab, the top-bar campaign picker, and every campaign or session filter) were removed at the user's request on 2026-10-11. Most material is reused across sessions; tags and the ★ Pinned star organise it instead. See `features/campaigns-sessions.md`.
 
-The left rail has 6 destinations instead of Python's 16 tabs. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
+The left rail has 7 destinations instead of Python's 16 tabs, in two groups: the print tools (Library to Maps), then a separator (`Destination.groupStart` in `nav.ts`), then the audio tools (Music, Transcribe). It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
 
 | Route | Python tabs it replaces |
 |---|---|
@@ -24,6 +24,7 @@ The left rail has 6 destinations instead of Python's 16 tabs. It can collapse to
 | `cards` | Card Printer |
 | `maps.paginator`, `maps.aoe` | Map Paginator, AoE Templates |
 | `music` (tabs inside the view) | Library, Mixer, Soundscapes, Playlists, Soundboard |
+| `transcribe.file` | (new: speech to text) |
 | `settings` (pinned to the bottom of the rail) | Settings |
 
 Sub-routes appear as segmented tabs in the top bar.
@@ -107,4 +108,5 @@ What it relies on:
 - The command palette is an ARIA combobox: the input owns the keys, and `aria-activedescendant` points at the highlighted option. Esc restores the previous focus.
 - Text on the accent uses `--accent-contrast` (dark, 5.5:1). The dark theme has its own `--danger`, `--success` and `--warning` so status text stays at or above 4.5:1.
 - Hidden live regions that keep running (the YouTube video panel) are `inert`, not just `aria-hidden`.
+- Explanations live in ⓘ tips (`InfoTip.svelte`) next to the section title or control they explain, instead of paragraphs of help text. A tip is a real button with an `aria-label` ("About …") and `aria-describedby` pointing at a `role="tooltip"`; it shows on hover and keyboard focus, closes on Esc (WCAG 1.4.13), and is `position: fixed` so scrolling panels don't clip it. Status lines, warnings, confirmations and empty states stay visible: they describe the current state, not how a control works.
 - Status glyphs such as the music playback indicator carry `role="img"` and a label, and stay distinguishable with `prefers-reduced-motion`.

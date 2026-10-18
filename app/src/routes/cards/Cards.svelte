@@ -5,6 +5,7 @@
   import { api, isTauri, pickFile, pickSavePath } from '../../lib/api';
   import Modal from '../../lib/components/Modal.svelte';
   import { registerCardFonts } from '../../lib/fonts';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import type { CardOptions, CardTemplates, DeckLayout, DeckSummary, Flip, PageFormat } from '../../lib/types';
@@ -229,6 +230,7 @@
         {/each}
       </div>
       <label class="check"><input type="checkbox" bind:checked={s.opts.double_sided} /> Double-sided</label>
+      <InfoTip label="About double-sided printing" text="Text that doesn’t fit on the front continues on the back. Pick the edge your printer flips on: long edge for most duplex printers." />
       {#if s.opts.double_sided}
         <div class="segmented" role="group" aria-label="Flip edge">
           {#each [['long', 'Long edge'], ['short', 'Short edge']] as [f, label] (f)}

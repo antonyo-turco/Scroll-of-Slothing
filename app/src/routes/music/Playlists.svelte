@@ -6,6 +6,7 @@
   import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { music, type Playlist, type PlaylistAction, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   let list = $state<Playlist[]>([]);
   let open = $state<Record<string, boolean>>({});
@@ -97,7 +98,8 @@
 
 <div class="pane">
   <div class="view-toolbar">
-    <span class="label">Tracks played one after another, on their own channel.</span>
+    <span class="label">Playlists</span>
+    <InfoTip label="About playlists" text="Tracks played one after another, on their own channel, alongside the mix. Shuffle and repeat are set per playlist." />
     <div class="spacer"></div>
     <button class="btn primary" onclick={() => openEditor(null)}>+ New Playlist</button>
   </div>

@@ -181,8 +181,7 @@
     </section>
 
     <section class="card">
-      <h2>Cut guide line</h2>
-      <p class="muted hint">Used for token cut circles and map page borders.</p>
+      <h2>Cut guide line <InfoTip label="About cut guides" text="The line drawn to cut along: token cut circles and map page borders." /></h2>
       <div class="field">
         <span class="label">Style</span>
         <div class="segmented" role="group" aria-label="Cut line style">
@@ -356,18 +355,24 @@
     <section class="card">
       <h2>Data</h2>
       <p class="muted hint">Stored in <code>{dataDir}</code></p>
-      <div>
+      <div class="label-row">
         <button class="btn" onclick={importLegacy}>Import from Orb of Many Functions…</button>
+        <InfoTip
+          label="About the import"
+          text="Pick the old db/creatures.db. Assets, tags, settings and AoE presets are copied; the old files are only read. Running it again only adds what is missing."
+        />
       </div>
-      <p class="muted hint">
-        Pick the old <code>db/creatures.db</code>. Assets, tags, settings and AoE presets are
-        copied; the old files are only read. Running it again only adds what is missing.
-      </p>
     </section>
 
     <details class="card advanced">
       <summary><h2>Advanced</h2></summary>
-      {@render toggle('mcp_http_enabled', 'Enable in-app MCP server (HTTP, localhost only)')}
+      <div class="label-row">
+        {@render toggle('mcp_http_enabled', 'Enable in-app MCP server (HTTP, localhost only)')}
+        <InfoTip
+          label="About the MCP server"
+          text="Lets AI assistants such as Claude drive the app over a local connection. The standalone sleuth-mcp server works regardless of this setting."
+        />
+      </div>
       {#if app.settings.mcp_http_enabled}
         <p class="muted hint" data-testid="mcp-url">
           {#if mcp}
@@ -376,7 +381,6 @@
           {:else}Starting… (if this stays, port 8765 may be in use){/if}
         </p>
       {/if}
-      <p class="muted hint">The standalone <code>sleuth-mcp</code> server works regardless of this setting.</p>
     </details>
   </div>
 

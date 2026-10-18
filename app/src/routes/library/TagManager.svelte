@@ -1,6 +1,7 @@
 <script lang="ts">
   // Rename (auto-merge), merge and delete tags. Spec: docs/features/tags.md.
   import { api } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import Modal from '../../lib/components/Modal.svelte';
   import { app } from '../../lib/state.svelte';
   import type { TagCount } from '../../lib/types';
@@ -47,7 +48,7 @@
     <p class="muted">No tags yet. Add tags to assets from the details panel.</p>
   {:else}
     <div class="merge">
-      <span>Merge</span>
+      <span>Merge <InfoTip label="About tags" text="Merge moves every asset from one tag to another. Renaming a tag to an existing name merges the two." /></span>
       <select class="input" aria-label="Tag to merge" bind:value={mergeSrc}>
         <option value={null}>tag…</option>
         {#each tags as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
@@ -83,7 +84,6 @@
         </li>
       {/each}
     </ul>
-    <p class="muted hint">Renaming a tag to an existing name merges the two.</p>
   {/if}
 </Modal>
 

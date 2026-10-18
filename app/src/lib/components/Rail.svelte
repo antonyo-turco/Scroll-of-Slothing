@@ -30,7 +30,7 @@
 
   <ul>
     {#each DESTINATIONS as d (d.id)}
-      <li>
+      <li class:group-start={d.groupStart}>
         <button
           class="item"
           class:active={current === d.id}
@@ -145,6 +145,12 @@
     position: absolute;
     top: 3px;
     right: 6px;
+  }
+  /* Separator above a new group of destinations (print tools | audio tools). */
+  .group-start {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
   }
   .badge {
     margin-left: auto;

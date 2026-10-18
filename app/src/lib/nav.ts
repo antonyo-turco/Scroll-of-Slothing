@@ -4,7 +4,7 @@
 import type { Component } from 'svelte';
 
 export type IconName =
-  | 'library' | 'token' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'settings'
+  | 'library' | 'token' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'settings'
   | 'search' | 'chevron-left' | 'chevron-right' | 'x' | 'check' | 'loader' | 'command';
 
 export interface View {
@@ -22,6 +22,8 @@ export interface Destination {
   views: View[];
   disabled?: boolean;
   hint?: string;
+  /** Draw a separator above this destination (starts a new group in the rail). */
+  groupStart?: boolean;
 }
 
 const placeholder = () => import('../routes/Placeholder.svelte');
@@ -43,7 +45,8 @@ export const DESTINATIONS: Destination[] = [
     { id: 'maps.paginator', label: 'Paginator', phase: 5, load: () => import('../routes/maps/MapPaginator.svelte') },
     { id: 'maps.aoe', label: 'AoE templates', phase: 5, load: () => import('../routes/aoe/AoeTemplates.svelte') },
   ] },
-  { id: 'music', label: 'Music', icon: 'music',
+  // Audio tools form their own group, below the print tools.
+  { id: 'music', label: 'Music', icon: 'music', groupStart: true,
     views: [{ id: 'music', label: 'Music', phase: 7, load: () => import('../routes/music/Music.svelte') }] },
   { id: 'transcribe', label: 'Transcribe', icon: 'mic', views: [
     { id: 'transcribe.file', label: 'File', phase: 8, load: () => import('../routes/transcribe/TranscribeFile.svelte') },

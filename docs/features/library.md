@@ -16,6 +16,12 @@ See the `assets` table in `../data-model.md`. Kinds: `token`, `cutout`, `map`.
   - Pinned only.
 - **Views:** the "★ Pinned" toggle replaces the old Tagged Assets tab (Pinned + This session); sessions were removed at the user's request on 2026-10-11.
 
+**View modes** (new, 2026-10-18): a segmented switch next to the sort picker, remembered in the workspace (`library.view`).
+- **Cards**: the grid described below (176 × 258 px).
+- **List**: one full-width row per asset (48 px) with a 40 px thumbnail, name and aliases, kind, size select, tags, updated date and the pin star, under a column header. The whole row is the click target, so selection (click, Ctrl/Shift+click) works as in the grid.
+- **Pills**: compact tiles (112 × 142 px) with a smaller image and the name only; the pin star shows on hover.
+- All three are the same `AssetCard` component (`variant`), so the hover preview, pinning and selection behave identically; `VirtualGrid` has a `fill` mode for the single-column list.
+
 **Grid**
 - A virtualized card grid. Each card has:
   - a pin star;
