@@ -134,6 +134,74 @@ pub fn pack(items: &[TokenItem], format: PageFormat, mode: GridMode) -> Layout {
     layout
 }
 
+/// Most extra space put between neighbouring token columns (or rows) when
+/// justifying, so a half-empty page doesn't scatter its tokens.
+pub const MAX_JUSTIFY_GAP_PT: f64 = 18.0;
+
+/// Spreads each page's tokens to use the empty space inside the margins, so
+/// they are easy to cut apart. `pack` places tokens edge to edge on its grid
+/// and leaves the leftover width and height as a strip around the block; this
+/// shares that space out evenly between token columns and rows (at most
+/// [`MAX_JUSTIFY_GAP_PT`] each) and centres the result. Tokens keep their size
+/// and page; nothing that fitted stops fitting.
+///
+/// Why nothing overlaps: every token is shifted by `gap × rank` of its grid
+/// column (and row), where ranks count the distinct columns where tokens start.
+/// A token to the right of another starts at a later column, so it moves at
+/// least one gap further than its neighbour.
+pub fn justify(layout: &mut Layout, mode: GridMode) {
+    let (pw, ph) = (layout.page_w, layout.page_h);
+    let cell = mode.cell_pt();
+    for page in &mut layout.pages {
+        if page.len() < 2 {
+            continue;
+        }
+        // Each token's cell block, in top-down coordinates.
+        let blocks: Vec<(f64, f64, f64, f64)> = page
+            .iter()
+            .map(|p| {
+                let block = mode.cells(p.w) as f64 * cell;
+                let inset = (block - p.w) / 2.0;
+                let left = p.x - inset;
+                let top = ph - (p.y - inset) - block;
+                (left, top, block, inset)
+            })
+            .collect();
+        let key = |v: f64| (v / cell * 1000.0).round() as i64;
+        let ranks = |vals: Vec<f64>| {
+            let mut ks: Vec<i64> = vals.into_iter().map(key).collect();
+            ks.sort_unstable();
+            ks.dedup();
+            ks
+        };
+        let xs = ranks(blocks.iter().map(|b| b.0).collect());
+        let ys = ranks(blocks.iter().map(|b| b.1).collect());
+        let rank = |ks: &[i64], v: f64| ks.binary_search(&key(v)).unwrap_or(0) as f64;
+
+        let min_left = blocks.iter().map(|b| b.0).fold(f64::INFINITY, f64::min);
+        let min_top = blocks.iter().map(|b| b.1).fold(f64::INFINITY, f64::min);
+        let width = blocks.iter().map(|b| b.0 + b.2).fold(f64::NEG_INFINITY, f64::max) - min_left;
+        let height = blocks.iter().map(|b| b.1 + b.2).fold(f64::NEG_INFINITY, f64::max) - min_top;
+        let gap = |free: f64, n: usize| {
+            if n < 2 { 0.0 } else { (free / (n - 1) as f64).clamp(0.0, MAX_JUSTIFY_GAP_PT) }
+        };
+        let gx = gap(pw - 2.0 * MARGIN_PT - width, xs.len());
+        let gy = gap(ph - 2.0 * MARGIN_PT - height, ys.len());
+
+        let moved: Vec<(f64, f64)> = blocks
+            .iter()
+            .map(|b| (b.0 - min_left + gx * rank(&xs, b.0), b.1 - min_top + gy * rank(&ys, b.1)))
+            .collect();
+        let new_w = blocks.iter().zip(&moved).map(|(b, m)| m.0 + b.2).fold(0.0, f64::max);
+        let new_h = blocks.iter().zip(&moved).map(|(b, m)| m.1 + b.2).fold(0.0, f64::max);
+        let (ox, oy) = ((pw - new_w) / 2.0, (ph - new_h) / 2.0);
+        for ((p, b), m) in page.iter_mut().zip(&blocks).zip(&moved) {
+            p.x = ox + m.0 + b.3;
+            p.y = ph - (oy + m.1 + b.2) + b.3;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -208,7 +276,74 @@ mod tests {
         );
     }
 
+    /// Smallest horizontal (or vertical) gap between tokens that share rows (or columns).
+    fn min_gaps(page: &[Placement]) -> (f64, f64) {
+        let (mut gx, mut gy) = (f64::INFINITY, f64::INFINITY);
+        for (i, a) in page.iter().enumerate() {
+            for b in &page[i + 1..] {
+                let rows_overlap = a.y < b.y + b.h - 1e-9 && b.y < a.y + a.h - 1e-9;
+                let cols_overlap = a.x < b.x + b.w - 1e-9 && b.x < a.x + a.w - 1e-9;
+                if rows_overlap {
+                    gx = gx.min((b.x - (a.x + a.w)).max(a.x - (b.x + b.w)));
+                }
+                if cols_overlap {
+                    gy = gy.min((b.y - (a.y + a.h)).max(a.y - (b.y + b.h)));
+                }
+            }
+        }
+        (gx, gy)
+    }
+
+    #[test]
+    fn justify_spreads_medium_tokens_on_a4() {
+        // A4 fits 7 Medium tokens per row with ~71 pt to spare: ~11.8 pt gaps.
+        let mut l = pack(&[item(SizeLabel::Medium, 14)], PageFormat::A4, GridMode::HalfInch);
+        let (before, _) = min_gaps(&l.pages[0]);
+        assert!(before.abs() < 1e-9, "packed edge to edge");
+        justify(&mut l, GridMode::HalfInch);
+        let (gx, gy) = min_gaps(&l.pages[0]);
+        assert!(gx > 11.0 && gx <= MAX_JUSTIFY_GAP_PT + 1e-9, "column gap {gx}");
+        assert!(gy > 11.0 && gy <= MAX_JUSTIFY_GAP_PT + 1e-9, "row gap {gy}");
+        assert!(l.pages[0].iter().all(|p| p.w == 72.0), "sizes unchanged");
+    }
+
+    #[test]
+    fn justify_keeps_a_single_token_and_page_counts() {
+        let mut one = pack(&[item(SizeLabel::Large, 1)], PageFormat::Letter, GridMode::HalfInch);
+        let before = one.clone();
+        justify(&mut one, GridMode::HalfInch);
+        assert_eq!(one, before, "nothing to spread");
+        let items = [item(SizeLabel::Tiny, 300), item(SizeLabel::Huge, 3)];
+        let mut l = pack(&items, PageFormat::Letter, GridMode::HalfInch);
+        let pages: Vec<usize> = l.pages.iter().map(Vec::len).collect();
+        justify(&mut l, GridMode::HalfInch);
+        assert_eq!(l.pages.iter().map(Vec::len).collect::<Vec<_>>(), pages);
+    }
+
     proptest! {
+        #[test]
+        fn justified_pages_never_overlap_and_stay_inside_the_margins(
+            spec in prop::collection::vec((0usize..6, 0u32..12), 0..8),
+            a4 in any::<bool>(),
+        ) {
+            let items: Vec<TokenItem> = spec.iter().map(|&(s, c)| item(SizeLabel::ALL[s], c)).collect();
+            let fmt = if a4 { PageFormat::A4 } else { PageFormat::Letter };
+            let mut l = pack(&items, fmt, GridMode::HalfInch);
+            justify(&mut l, GridMode::HalfInch);
+            let (pw, ph) = fmt.size_pt();
+            for page in &l.pages {
+                for (i, a) in page.iter().enumerate() {
+                    prop_assert!(a.x >= MARGIN_PT - 1e-6 && a.y >= MARGIN_PT - 1e-6, "{a:?}");
+                    prop_assert!(a.x + a.w <= pw - MARGIN_PT + 1e-6 && a.y + a.h <= ph - MARGIN_PT + 1e-6, "{a:?}");
+                    for b in &page[i + 1..] {
+                        let overlap = a.x < b.x + b.w - 1e-6 && b.x < a.x + a.w - 1e-6
+                            && a.y < b.y + b.h - 1e-6 && b.y < a.y + a.h - 1e-6;
+                        prop_assert!(!overlap, "{a:?} overlaps {b:?}");
+                    }
+                }
+            }
+        }
+
         #[test]
         fn placements_never_overlap_and_stay_on_the_page(
             spec in prop::collection::vec((0usize..6, 0u32..12), 0..8),

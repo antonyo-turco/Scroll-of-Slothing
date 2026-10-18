@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
 use sleuth_core::pack::Layout;
-use sleuth_core::pack::token_grid::{GridMode, TokenItem, pack};
+use sleuth_core::pack::token_grid::{GridMode, TokenItem, justify, pack};
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::{PageFormat, SizeLabel};
 use sleuth_pdf::{CutLine, PdfError};
@@ -128,7 +128,9 @@ fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
             copies: i.copies,
         })
         .collect();
-    let layout = pack(&items, sheet.format, GridMode::HalfInch);
+    let mut layout = pack(&items, sheet.format, GridMode::HalfInch);
+    // Spread the tokens into the page's spare space so they're easy to cut apart.
+    justify(&mut layout, GridMode::HalfInch);
     let view = SheetLayout {
         page_w: layout.page_w,
         page_h: layout.page_h,

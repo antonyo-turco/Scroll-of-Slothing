@@ -58,6 +58,13 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 
 **Position on the page:** `x = off_x + col*cell`, `y = H - off_y - (row+cells)*cell`, in PDF bottom-left coordinates.
 
+**Justification (app path, after packing; `token_grid::justify`, 2026-10-18).** `pack` places tokens edge to edge, which makes them hard to cut apart, and leaves the page's spare width and height as a strip around the block. Justify shares that space out evenly between token columns and between token rows, like justified text:
+- gap = `(usable − occupied) / (columns − 1)`, capped at **18 pt (¼ in)** so a half-empty page doesn't scatter; the same vertically; the block is then centred inside the 10 pt margins;
+- each token moves by `gap × rank` of its grid column (and row), where ranks count the distinct columns tokens start on, so neighbours always end up at least one gap apart and nothing overlaps (property test);
+- sizes, pages and which tokens fit are unchanged: it only redistributes space that was empty.
+- Typical gaps: A4, Medium tokens ≈ 12 pt between columns and rows; Letter, Medium ≈ 2 pt between columns (Letter's grid is nearly full width) and ≈ 6 pt between rows.
+- The Python-parity `Legacy` mode and its golden fixture don't use it.
+
 **Size change from Python**
 - Python used a 72 pt cell, so Tiny and Small tokens printed at 1 inch.
 - The packer takes `cell_pt` as a parameter, and the app uses **36 pt (0.5 in)**. Each token takes `ceil(size_pt/36)` cells per side and is drawn at its **true size**, centred in its cell block.
@@ -95,6 +102,7 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 ## Intentional changes
 - UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of tokens on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.
 - Half-inch packing grid: Tiny and Small print at their true size (see "Size change from Python" above).
+- Justified pages: spare space is spread between tokens so they are easy to cut (see "Justification" above). Python packed them edge to edge.
 - An item that can never fit is reported once and creates no pages (Python opened an empty page per copy).
 - Images are embedded as PNG with transparency (Python wrote a temporary JPEG per token, flattened on white).
 - Non-square images are fitted inside their cell, centred, in both the preview and the PDF. Python stretched them to a square.
