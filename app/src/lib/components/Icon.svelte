@@ -12,6 +12,8 @@
     map: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
     flag: 'M4 22V4M4 4h13l-2 4 2 4H4',
     music: 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+    wind: 'M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7',
+    bell: 'M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21a2 2 0 0 0 4 0',
     grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
     list: 'M4 5h2v2H4zM9 6h11M4 11h2v2H4zM9 12h11M4 17h2v2H4zM9 18h11',
     pills: 'M3 4h5v5H3zM9.5 4h5v5h-5zM16 4h5v5h-5zM3 11h5v5H3zM9.5 11h5v5h-5zM16 11h5v5h-5zM3 18h5v2H3zM9.5 18h5v2h-5z',

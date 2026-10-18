@@ -53,7 +53,16 @@
 
 Rows are striped. The list is sorted by added_at, newest first. **New:** the Title, Length, Loop and Added headers sort the table; a second click reverses the direction, and tracks of unknown length always sort last.
 
+**Category (new, 2026-10-18).** Every track is `music`, `ambient` or `soundbite` (see `data-model.md` for the backfill).
+- It decides where **Add to mix** puts the track: music and ambient tracks become a channel with that role; soundbites join the **soundbite list** (random intervals, 30–90 s, volume 80). `music_channel_add` without a role uses the category too (soundbite → `sfx`).
+- The track dialog has a Category switch: **Auto** (new tracks only: the server guesses from the title, loop flag and length), Music, Ambient, Soundbite. Choosing Soundbite turns *Loop by default* off.
+
+**Rows (2026-10-18)** use the same look as the asset Library's list view (`.list-row` in `app.css`): 48 px rows, a 40 px thumbnail, the title (and "uploaded file" for uploads), a category pill, tags, length, loop, added date, the actions and the ★ favourite last. YouTube tracks show the video's thumbnail (`i.ytimg.com/vi/<id>/mqdefault.jpg`, already allowed by the CSP); uploads and unrecognised URLs show the category's icon. It is a `role="table"` grid, so screen readers still read rows and sortable column headers.
+
+**Suggest tags… (2026-10-18).** `sleuth_core::music::suggest_tags` reads tags from the title: places (swamp, cave, dungeon, temple, sewer…), scenes and moods (combat, exploration, peaceful, mysterious, dark…), sounds and creatures (water, insects, rats, undead…) and sources (Darkest Dungeon, Witcher, Zelda, Hollow Knight). Keywords match word starts ("rat " and "rats" are whole words, so "rattling" is not a rat), and a source's name is removed before the other rules run, so "Darkest Dungeon" alone doesn't mean "dark" or "dungeon". The dialog lists the tags each track would gain; existing tags are kept and nothing changes until **Add tags**. Also `sleuth music tags [--apply]` and the `music_tags_suggest` / `music_tags_apply` MCP tools.
+
 **Filters (new, 2026-10-18)**, in a bar under the search:
+- **Category**: All, Music, Ambient, Soundbites.
 - **★ Favourites**: only favourite tracks.
 - **Length**: any, under 1 min, 1–5 min, 5–15 min, over 15 min. Tracks whose length isn't known yet are hidden while a length filter is on.
 - **Loop**: loop or once, loops only, plays once only.

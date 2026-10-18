@@ -22,6 +22,7 @@ async fn yt_track(svc: &Service, title: &str) -> Track {
         loop_by_default: Some(true),
         duration: Some(3.0),
         tags: vec!["mood".into()],
+        category: None,
     })
     .await
     .unwrap()
@@ -168,6 +169,7 @@ fn yt_input(title: &str, duration: Option<f64>) -> TrackInput {
         loop_by_default: Some(true),
         duration,
         tags: vec![],
+        category: None,
     }
 }
 
@@ -900,6 +902,7 @@ async fn tracks_filter_by_favourite_loop_and_length() {
         loop_by_default: Some(looping),
         duration,
         tags: vec![],
+        category: None,
     };
     let rain = svc.music_track_create(mk("Rain", true, Some(600.0))).await.unwrap();
     let door = svc.music_track_create(mk("Door", false, Some(3.0))).await.unwrap();
@@ -964,4 +967,76 @@ async fn pinned_soundscapes_come_first_and_survive_updates() {
     svc.music_soundscape_set_pinned(zulu.id.clone(), false).await.unwrap();
     assert_eq!(names(svc.music_soundscapes_list().await.unwrap()), ["Alpha", "Zulu"]);
     assert!(svc.music_soundscape_set_pinned("nope".into(), true).await.is_err());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn categories_are_guessed_kept_and_route_the_mixer() {
+    let (_d, svc) = temp_service();
+    svc.music_attach_engine().await.unwrap();
+    let mk = |title: &str, looping: bool, duration: f64, category: Option<&str>| TrackInput {
+        source: "youtube".into(),
+        url: Some(format!("https://youtu.be/{title}")),
+        file_path: None,
+        title: title.into(),
+        notes: None,
+        loop_by_default: Some(looping),
+        duration: Some(duration),
+        tags: vec![],
+        category: category.map(String::from),
+    };
+    let amb = svc.music_track_create(mk("Swamp Ambience", true, 3600.0, None)).await.unwrap();
+    let sfx = svc.music_track_create(mk("SFX - Rat Screech", false, 16.0, None)).await.unwrap();
+    let song = svc.music_track_create(mk("Tavern", true, 200.0, Some("music"))).await.unwrap();
+    assert_eq!(
+        (amb.category.as_str(), sfx.category.as_str(), song.category.as_str()),
+        ("ambient", "soundbite", "music")
+    );
+    assert!(svc.music_track_create(mk("Bad", true, 1.0, Some("sfx"))).await.is_err());
+
+    // An update without a category keeps it; with one, changes it.
+    let kept = svc
+        .music_track_update(amb.id.clone(), mk("Swamp at night", true, 3600.0, None))
+        .await
+        .unwrap();
+    assert_eq!(kept.category, "ambient");
+    let moved = svc
+        .music_track_update(song.id.clone(), mk("Tavern", true, 200.0, Some("ambient")))
+        .await
+        .unwrap();
+    assert_eq!(moved.category, "ambient");
+
+    // The category filter.
+    let q = TrackQuery { category: Some("soundbite".into()), ..Default::default() };
+    assert_eq!(svc.music_tracks_list(q).await.unwrap().len(), 1);
+
+    // Without an explicit role, channels take the category's role.
+    let st = svc.music_channel_add(amb.id.clone(), None, None, None, false).await.unwrap();
+    assert_eq!(st.channels.last().unwrap().role, "ambient");
+    let st = svc.music_channel_add(sfx.id.clone(), None, None, None, false).await.unwrap();
+    assert_eq!(st.channels.last().unwrap().role, "sfx");
+    let st = svc
+        .music_channel_add(amb.id.clone(), Some("music".into()), None, None, false)
+        .await
+        .unwrap();
+    assert_eq!(st.channels.last().unwrap().role, "music");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tag_suggestions_add_but_never_remove() {
+    let (_d, svc) = temp_service();
+    let mut input = yt_input("Dark Swamp | Exploration Ambience", None);
+    input.tags = vec!["Swamp".into(), "mine".into()];
+    let t = svc.music_track_create(input).await.unwrap();
+    svc.music_track_create(yt_input("Plain", None)).await.unwrap();
+
+    let sug = svc.music_tags_suggest().await.unwrap();
+    assert_eq!(sug.len(), 1, "only tracks with something to add");
+    assert_eq!(sug[0].add, ["exploration", "dark"], "existing tags (any case) are skipped");
+    assert_eq!(svc.music_tags_apply(sug).await.unwrap(), 1);
+    let after = svc.music_track_get(t.id.clone()).await.unwrap();
+    let mut tags = after.tags.clone();
+    tags.sort();
+    assert_eq!(tags, ["Swamp", "dark", "exploration", "mine"]);
+    assert_eq!(after.category, "ambient");
+    assert!(svc.music_tags_suggest().await.unwrap().is_empty());
 }

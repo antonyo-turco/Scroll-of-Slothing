@@ -43,7 +43,7 @@ pub use maps::{FilterCatalog, FilterPreset, MapDoc, MapLayout, SizingMode, WORK_
 pub use music::{
     ChannelPatch as MusicChannelPatch, DuckMode, EngineEvent as MusicEngineEvent, MixImportResult,
     MixerState, MusicImportReport, PlaylistInput, SoundbitePatch, SoundboardInput, SoundscapeInput,
-    TrackInput, TrackMeta, media_mime,
+    TagSuggestion as MusicTagSuggestion, TrackInput, TrackMeta, media_mime,
 };
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use settings::SettingsUpdate;

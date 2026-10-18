@@ -206,6 +206,8 @@ pub fn run() {
             commands::music_track_get,
             commands::music_track_create,
             commands::music_track_update,
+            commands::music_tags_suggest,
+            commands::music_tags_apply,
             commands::music_track_set_favorite,
             commands::music_track_delete,
             commands::music_fetch_youtube_meta,

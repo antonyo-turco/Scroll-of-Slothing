@@ -148,6 +148,18 @@ pub struct StrIdParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicTagsItem {
+    pub track_id: String,
+    /// Tags to add.
+    pub add: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MusicTagsApplyParams {
+    pub items: Vec<MusicTagsItem>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct StrIdFlagParams {
     pub id: String,
     /// true to set, false to clear.
@@ -1326,6 +1338,32 @@ impl SleuthServer {
     )]
     async fn music_track_add(&self, Parameters(p): Parameters<MusicTrackParams>) -> ToolResult {
         done(self.svc.music_track_create(p.input).await)
+    }
+
+    #[tool(
+        description = "Tags suggested by each music track's title that it doesn't have yet (e.g. swamp, combat, rats). Changes nothing; pass the result (or a subset) to music_tags_apply."
+    )]
+    async fn music_tags_suggest(&self) -> ToolResult {
+        done(self.svc.music_tags_suggest().await)
+    }
+
+    #[tool(
+        description = "Add tags to music tracks (existing tags are kept). Returns how many tracks changed."
+    )]
+    async fn music_tags_apply(
+        &self,
+        Parameters(p): Parameters<MusicTagsApplyParams>,
+    ) -> ToolResult {
+        let items = p
+            .items
+            .into_iter()
+            .map(|i| sleuth_service::MusicTagSuggestion {
+                track_id: i.track_id,
+                title: String::new(),
+                add: i.add,
+            })
+            .collect();
+        done(self.svc.music_tags_apply(items).await)
     }
 
     #[tool(description = "Mark a music track as a favourite (on: true) or not. Returns the track.")]

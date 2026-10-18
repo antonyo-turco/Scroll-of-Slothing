@@ -2,7 +2,9 @@
   // Add/edit a track (Python ui/dm_music_track_dialog.py).
   import Modal from '../../lib/components/Modal.svelte';
   import { pickFile } from '../../lib/api';
-  import { MEDIA_EXTENSIONS, formatDuration, music, type Track, type TrackInput, type TrackSource } from '../../lib/music';
+  import {
+    MEDIA_EXTENSIONS, TRACK_CATEGORIES, formatDuration, music, type Track, type TrackCategory, type TrackInput, type TrackSource,
+  } from '../../lib/music';
   import { app } from '../../lib/state.svelte';
 
   let {
@@ -23,6 +25,8 @@
   let title = $state('');
   let notes = $state('');
   let loop = $state(true);
+  /** null = Auto: the server guesses from the title, loop flag and length. */
+  let category = $state<TrackCategory | null>(null);
   let duration = $state<number | null>(null);
   let tags = $state<string[]>([]);
   let tagInput = $state('');
@@ -41,6 +45,7 @@
       title = t?.title ?? '';
       notes = t?.notes ?? '';
       loop = t?.loop_by_default ?? true;
+      category = t?.category ?? null;
       duration = t?.duration ?? null;
       tags = t ? [...t.tags] : [];
       tagInput = '';
@@ -99,6 +104,7 @@
       loop_by_default: loop,
       duration,
       tags,
+      category,
     };
     saving = true;
     try {
@@ -137,6 +143,23 @@
       <span class="label">Title {#if duration}<span class="muted">· {formatDuration(duration)}</span>{/if}</span>
       <input class="input" bind:value={title} />
     </label>
+    <div class="field">
+      <span class="label">Category</span>
+      <div class="segmented" role="group" aria-label="Category">
+        {#if !track}<button type="button" aria-pressed={category === null} onclick={() => (category = null)} title="Guess from the title and length">Auto</button>{/if}
+        {#each TRACK_CATEGORIES as c (c.id)}
+          <button
+            type="button"
+            aria-pressed={category === c.id}
+            onclick={() => {
+              category = c.id;
+              // Soundbites are one-shots: don't loop them by default.
+              if (c.id === 'soundbite') loop = false;
+            }}>{c.label}</button
+          >
+        {/each}
+      </div>
+    </div>
     <label class="check"><input type="checkbox" bind:checked={loop} /> Loop by default</label>
     <div class="field">
       <span class="label">Tags</span>

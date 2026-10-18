@@ -49,6 +49,9 @@ enum Cmd {
     /// Settings.
     #[command(subcommand)]
     Settings(SettingsCmd),
+    /// Music library.
+    #[command(subcommand)]
+    Music(MusicCmd),
     /// Speech-to-text models.
     #[command(subcommand)]
     Stt(SttCmd),
@@ -98,6 +101,21 @@ enum SttCmd {
     /// The OpenRouter API key for cloud transcription.
     #[command(subcommand)]
     Key(KeyCmd),
+}
+
+#[derive(Subcommand)]
+enum MusicCmd {
+    /// List tracks with their category and tags.
+    Tracks {
+        /// Only this category: music, ambient or soundbite.
+        #[arg(long)]
+        category: Option<String>,
+    },
+    /// Show the tags each title suggests; with --apply, add them.
+    Tags {
+        #[arg(long)]
+        apply: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -266,6 +284,37 @@ async fn main() -> Result<()> {
                 }
             })?;
         }
+        Cmd::Music(c) => match c {
+            MusicCmd::Tracks { category } => {
+                let q = sleuth_service::MusicTrackQuery { category, ..Default::default() };
+                print(j, &svc.music_tracks_list(q).await?, |ts| {
+                    for t in ts {
+                        println!("{:<10} {}  [{}]", t.category, t.title, t.tags.join(", "));
+                    }
+                })?
+            }
+            MusicCmd::Tags { apply } => {
+                let sug = svc.music_tags_suggest().await?;
+                if !j {
+                    for s in &sug {
+                        println!("{}\n    + {}", s.title, s.add.join(", "));
+                    }
+                }
+                if apply {
+                    let n = svc.music_tags_apply(sug).await?;
+                    print(j, &serde_json::json!({ "tracks_changed": n }), |_| {
+                        println!("Tagged {n} track(s)")
+                    })?;
+                } else if j {
+                    print(j, &sug, |_| {})?;
+                } else {
+                    println!(
+                        "{} track(s) would change; run again with --apply to add the tags.",
+                        sug.len()
+                    );
+                }
+            }
+        },
         Cmd::Stt(c) => match c {
             SttCmd::Models => print(j, &svc.stt_models_list().await?, |ms| {
                 for m in ms {

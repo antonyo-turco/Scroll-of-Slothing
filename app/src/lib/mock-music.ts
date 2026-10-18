@@ -19,9 +19,9 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
   const id = (p: string) => `mock-${p}-${++seq}`;
   const now = () => new Date().toISOString();
   const tracks: Track[] = [
-    { id: 'mock-t1', source: 'youtube', url: 'https://youtu.be/dQw4w9WgXcQ', blob_hash: null, title: 'Tavern Ambience', notes: '', loop_by_default: true, duration: 3600, added_at: now(), favorite: true, campaign_ids: [], session_ids: [], tags: ['tavern'] },
-    { id: 'mock-t2', source: 'upload', url: null, blob_hash: 'mock-audio-1', title: 'Thunder Clap', notes: '', loop_by_default: false, duration: 4, added_at: now(), favorite: false, campaign_ids: [], session_ids: [], tags: ['sfx'] },
-    { id: 'mock-t3', source: 'youtube', url: 'https://youtu.be/abc', blob_hash: null, title: 'Battle Drums', notes: '', loop_by_default: true, duration: 245, added_at: now(), favorite: false, campaign_ids: [], session_ids: [], tags: ['battle'] },
+    { id: 'mock-t1', source: 'youtube', url: 'https://youtu.be/dQw4w9WgXcQ', blob_hash: null, title: 'Tavern Ambience', notes: '', loop_by_default: true, duration: 3600, added_at: now(), favorite: true, category: 'ambient', campaign_ids: [], session_ids: [], tags: ['tavern'] },
+    { id: 'mock-t2', source: 'upload', url: null, blob_hash: 'mock-audio-1', title: 'Thunder Clap', notes: '', loop_by_default: false, duration: 4, added_at: now(), favorite: false, category: 'soundbite', campaign_ids: [], session_ids: [], tags: ['sfx'] },
+    { id: 'mock-t3', source: 'youtube', url: 'https://youtu.be/abc', blob_hash: null, title: 'Battle Drums', notes: '', loop_by_default: true, duration: 245, added_at: now(), favorite: false, category: 'music', campaign_ids: [], session_ids: [], tags: ['battle'] },
   ];
   let channels: Channel[] = [];
   let soundbites: Soundbite[] = [];
@@ -61,6 +61,7 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
         .filter((t) => (q.tags ?? []).every((g) => t.tags.includes(g)))
         .filter((t) => !q.text || t.title.toLowerCase().includes(q.text.toLowerCase()))
         .filter((t) => !q.favorites_only || t.favorite)
+        .filter((t) => !q.category || t.category === q.category)
         .filter((t) => q.looping == null || t.loop_by_default === q.looping)
         .filter((t) => !bounded || (t.duration != null
           && (q.min_duration == null || t.duration >= q.min_duration)
@@ -74,6 +75,7 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
         id: id('t'), source: i.source, url: i.source === 'youtube' ? (i.url ?? '') : null,
         blob_hash: i.source === 'upload' ? `mock-audio-${seq}` : null, title: i.title, notes: i.notes ?? '',
         loop_by_default: i.loop_by_default ?? true, duration: i.duration ?? null, added_at: now(), favorite: false,
+        category: i.category ?? (/sfx/i.test(i.title) || (i.loop_by_default === false && (i.duration ?? 999) <= 120) ? 'soundbite' : /ambien/i.test(i.title) ? 'ambient' : 'music'),
         campaign_ids: [], session_ids: [], tags: i.tags ?? [],
       };
       tracks.push(t);
@@ -86,9 +88,26 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
       Object.assign(t, {
         title: i.title, notes: i.notes ?? t.notes, loop_by_default: i.loop_by_default ?? t.loop_by_default,
         url: i.source === 'youtube' ? (i.url ?? t.url) : t.url,
-        tags: i.tags ?? t.tags, duration: i.duration ?? t.duration,
+        tags: i.tags ?? t.tags, duration: i.duration ?? t.duration, category: i.category ?? t.category,
       });
       return t;
+    },
+    // A small keyword list standing in for sleuth_core::music::suggest_tags.
+    music_tags_suggest: () => {
+      const rules: [string, RegExp][] = [['tavern', /\btavern/i], ['combat', /\b(battle|drum|fight)/i], ['weather', /\b(thunder|rain|storm)/i]];
+      return tracks
+        .map((t) => ({ track_id: t.id, title: t.title, add: rules.filter(([g, re]) => re.test(t.title) && !t.tags.includes(g)).map(([g]) => g) }))
+        .filter((s) => s.add.length);
+    },
+    music_tags_apply: ({ items }) => {
+      let n = 0;
+      for (const it of items as { track_id: string; add: string[] }[]) {
+        const t = track(it.track_id);
+        const before = t.tags.length;
+        t.tags = [...new Set([...t.tags, ...it.add])];
+        if (t.tags.length > before) n++;
+      }
+      return n;
     },
     music_track_set_favorite: ({ id: tid, favorite }) => {
       const t = track(tid as string);

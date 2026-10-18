@@ -4,7 +4,7 @@
 import type { Component } from 'svelte';
 
 export type IconName =
-  | 'library' | 'token' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'settings'
+  | 'library' | 'token' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'settings'
   | 'search' | 'chevron-left' | 'chevron-right' | 'x' | 'check' | 'loader' | 'command';
 
 export interface View {

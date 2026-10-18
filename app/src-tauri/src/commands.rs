@@ -667,8 +667,9 @@ pub fn aoe_sheet_export_pdf(svc: Svc<'_>, inch: f64, format: PageFormat, path: P
 
 use sleuth_service::{
     DuckMode, MixImportResult, MixerState, MusicChannelPatch, MusicEngineEvent, MusicImportReport,
-    MusicPlaylist, MusicSoundboard, MusicSoundscape, MusicTrack, MusicTrackQuery, PlaylistInput,
-    SoundbitePatch, SoundboardInput, SoundscapeInput, TrackInput, TrackMeta,
+    MusicPlaylist, MusicSoundboard, MusicSoundscape, MusicTagSuggestion, MusicTrack,
+    MusicTrackQuery, PlaylistInput, SoundbitePatch, SoundboardInput, SoundscapeInput, TrackInput,
+    TrackMeta,
 };
 
 #[tauri::command]
@@ -689,6 +690,16 @@ pub async fn music_track_create(svc: Svc<'_>, input: TrackInput) -> Res<MusicTra
 #[tauri::command]
 pub async fn music_track_update(svc: Svc<'_>, id: String, input: TrackInput) -> Res<MusicTrack> {
     svc.music_track_update(id, input).await
+}
+
+#[tauri::command]
+pub async fn music_tags_suggest(svc: Svc<'_>) -> Res<Vec<MusicTagSuggestion>> {
+    svc.music_tags_suggest().await
+}
+
+#[tauri::command]
+pub async fn music_tags_apply(svc: Svc<'_>, items: Vec<MusicTagSuggestion>) -> Res<usize> {
+    svc.music_tags_apply(items).await
 }
 
 #[tauri::command]

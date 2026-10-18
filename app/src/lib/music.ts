@@ -25,6 +25,27 @@ import type { ServiceEvent } from './types';
 
 export type TrackSource = 'youtube' | 'upload';
 
+/** What a track is for; it decides where "Add to mix" puts it. */
+export type TrackCategory = 'music' | 'ambient' | 'soundbite';
+export const TRACK_CATEGORIES: { id: TrackCategory; label: string; plural: string }[] = [
+  { id: 'music', label: 'Music', plural: 'Music' },
+  { id: 'ambient', label: 'Ambient', plural: 'Ambient' },
+  { id: 'soundbite', label: 'Soundbite', plural: 'Soundbites' },
+];
+
+/** YouTube's medium thumbnail for a video URL (null for uploads or odd URLs). */
+export function youtubeThumb(url: string | null): string | null {
+  const m = url?.match(/(?:youtu\.be\/|[?&]v=|\/(?:embed|shorts|live)\/)([\w-]{11})/);
+  return m ? `https://i.ytimg.com/vi/${m[1]}/mqdefault.jpg` : null;
+}
+
+export interface TagSuggestion {
+  track_id: string;
+  title: string;
+  /** tags to add */
+  add: string[];
+}
+
 export interface Track {
   id: string;
   source: TrackSource;
@@ -39,6 +60,7 @@ export interface Track {
   duration: number | null;
   added_at: string;
   favorite: boolean;
+  category: TrackCategory;
   campaign_ids: string[];
   session_ids: string[];
   tags: string[];
@@ -55,6 +77,8 @@ export interface TrackInput {
   loop_by_default?: boolean;
   duration?: number | null;
   tags?: string[];
+  /** null/omitted: keep it (edit) or let the server guess it (new track) */
+  category?: TrackCategory | null;
 }
 
 export interface TrackQuery {
@@ -63,6 +87,7 @@ export interface TrackQuery {
   /** Live title search. */
   text?: string;
   favorites_only?: boolean;
+  category?: TrackCategory | null;
   /** true: only looping tracks; false: only one-shots. */
   looping?: boolean | null;
   /** Seconds, inclusive. Tracks of unknown length are left out when set. */
@@ -368,6 +393,8 @@ export const music = {
   trackGet: (id: string) => call<Track>('music_track_get', { id }),
   trackCreate: (input: TrackInput) => call<Track>('music_track_create', { input }),
   trackUpdate: (id: string, input: TrackInput) => call<Track>('music_track_update', { id, input }),
+  tagsSuggest: () => call<TagSuggestion[]>('music_tags_suggest'),
+  tagsApply: (items: TagSuggestion[]) => call<number>('music_tags_apply', { items }),
   trackSetFavorite: (id: string, favorite: boolean) => call<Track>('music_track_set_favorite', { id, favorite }),
   trackDelete: (id: string) => call<void>('music_track_delete', { id }),
   /** YouTube title (oEmbed) + duration (watch page), best effort. */
