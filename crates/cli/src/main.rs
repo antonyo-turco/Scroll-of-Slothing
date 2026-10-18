@@ -7,8 +7,10 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::Serialize;
 use serde_json::{Map, Value};
+use sleuth_core::stt::{Correction, ExportFormat};
 use sleuth_service::{
-    AssetPatch, AssetQuery, AssetSort, ExportWhat, ImportFile, LegacyImportOptions, Service,
+    AssetPatch, AssetQuery, AssetSort, ExportWhat, ImportFile, JobState, LegacyImportOptions,
+    Service, TranscribeOptions, TranscribeResult,
 };
 
 #[derive(Parser)]
@@ -46,8 +48,49 @@ enum Cmd {
     /// Settings.
     #[command(subcommand)]
     Settings(SettingsCmd),
+    /// Speech-to-text models.
+    #[command(subcommand)]
+    Stt(SttCmd),
+    /// Transcribe an audio file with the local engine.
+    Transcribe {
+        file: PathBuf,
+        /// Model id (see `sleuth stt models`).
+        #[arg(long)]
+        model: Option<String>,
+        /// Language code, or `auto`.
+        #[arg(long, default_value = "it")]
+        language: String,
+        /// Output format: txt | md | srt | vtt.
+        #[arg(long, default_value = "txt")]
+        format: String,
+        /// Write here instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// A term to spell right (repeatable), e.g. `--glossary "hit points"`.
+        #[arg(long = "glossary")]
+        glossary: Vec<String>,
+        /// A correction applied afterwards (repeatable), e.g. `--correct "bioldar=beholder"`.
+        #[arg(long = "correct")]
+        corrections: Vec<String>,
+        /// Beam width; 1 is greedy (faster).
+        #[arg(long)]
+        beam: Option<u32>,
+        /// CPU threads (default: the engine's choice).
+        #[arg(long)]
+        threads: Option<u32>,
+    },
     /// Print the data directory in use.
     Info,
+}
+
+#[derive(Subcommand)]
+enum SttCmd {
+    /// List models and whether they are installed.
+    Models,
+    /// Download a model.
+    Download { id: String },
+    /// Delete a downloaded model.
+    Delete { id: String },
 }
 
 #[derive(Subcommand)]
@@ -128,6 +171,31 @@ fn print<T: Serialize + std::fmt::Debug>(json: bool, v: &T, human: impl FnOnce(&
     Ok(())
 }
 
+/// Waits for a job, drawing its progress on stderr. Returns the job result.
+async fn wait_job(svc: &Service, id: &str) -> Result<Value> {
+    let mut last = String::new();
+    loop {
+        let st = svc.job_status(id)?;
+        let line = format!("{:>3.0}% {}", st.progress * 100.0, st.message);
+        if line != last {
+            eprint!("\r{line:<60}");
+            last = line;
+        }
+        match st.state {
+            JobState::Running => tokio::time::sleep(std::time::Duration::from_millis(200)).await,
+            JobState::Done => {
+                eprintln!();
+                return Ok(st.result.unwrap_or(Value::Null));
+            }
+            JobState::Cancelled => anyhow::bail!("cancelled"),
+            JobState::Failed => {
+                eprintln!();
+                anyhow::bail!("{}", st.error.unwrap_or_default())
+            }
+        }
+    }
+}
+
 fn parse_sort(s: &str) -> Result<AssetSort> {
     serde_json::from_value(Value::String(s.replace('-', "_")))
         .with_context(|| format!("unknown sort {s:?} (newest|oldest|name_asc|name_desc|kind|size)"))
@@ -177,6 +245,67 @@ async fn main() -> Result<()> {
                     println!("FAILED #{} {}: {}", f.legacy_id, f.name, f.error);
                 }
             })?;
+        }
+        Cmd::Stt(c) => match c {
+            SttCmd::Models => print(j, &svc.stt_models_list().await?, |ms| {
+                for m in ms {
+                    let mark = if m.installed { "installed" } else { "" };
+                    println!("{:<22} {:>6} MB  {:<42} {mark}", m.id, m.size / 1_048_576, m.label);
+                }
+            })?,
+            SttCmd::Download { id } => {
+                let job = svc.stt_model_download(id)?;
+                let r = wait_job(&svc, &job).await?;
+                print(j, &r, |r| println!("Saved {}", r["path"].as_str().unwrap_or_default()))?;
+            }
+            SttCmd::Delete { id } => {
+                svc.stt_model_delete(id).await?;
+                print(j, &Value::Null, |_| println!("Deleted"))?;
+            }
+        },
+        Cmd::Transcribe {
+            file,
+            model,
+            language,
+            format,
+            out,
+            glossary,
+            corrections,
+            beam,
+            threads,
+        } => {
+            let corrections = corrections
+                .iter()
+                .map(|c| match c.split_once('=') {
+                    Some((from, to)) => Ok(Correction { from: from.into(), to: to.into() }),
+                    None => anyhow::bail!("--correct needs from=to, got {c:?}"),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let fmt: ExportFormat = serde_json::from_value(Value::String(format.clone()))
+                .with_context(|| format!("unknown format {format:?} (txt|md|srt|vtt)"))?;
+            let title = file.file_stem().map(|s| s.to_string_lossy().into_owned());
+            let opts = TranscribeOptions {
+                model,
+                language: Some(language),
+                glossary,
+                corrections,
+                beam_size: beam,
+                threads,
+            };
+            let job = svc.transcribe_file(file, opts)?;
+            let r: TranscribeResult = serde_json::from_value(wait_job(&svc, &job).await?)?;
+            if j {
+                println!("{}", serde_json::to_string_pretty(&r)?);
+            } else {
+                let text = svc.transcript_format(&r.segments, fmt, title.as_deref());
+                match out {
+                    Some(p) => {
+                        std::fs::write(&p, text)?;
+                        eprintln!("Wrote {}", p.display());
+                    }
+                    None => print!("{text}"),
+                }
+            }
         }
         Cmd::Library(c) => match c {
             LibraryCmd::Search { query, kinds, tags, pinned, sort, limit } => {

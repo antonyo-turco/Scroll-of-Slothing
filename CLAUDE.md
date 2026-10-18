@@ -46,6 +46,7 @@ Run Rust commands from **PowerShell**, not Git Bash. Git Bash's `/usr/bin/link` 
 - `cd app; npm test`: vitest (jsdom, `pool: 'threads'`; the forks pool times out on this machine).
 - `cd app; npx playwright test`: smoke tests using the installed **Edge** (`channel: 'msedge'`), so no browser download is needed.
 - CLI: `cargo run -p sleuth-cli -- --help`.
+- Speech to text (`crates/stt`) builds whisper.cpp, which needs LLVM and CMake. `.cargo/config.toml` sets `LIBCLANG_PATH` and `CMAKE_BUILD_TYPE=Release`. After changing a `GGML_*`/`CMAKE_*` variable, run `cargo clean -p whisper-rs-sys`: its build script doesn't notice env changes.
 - MCP: `cargo build -p sleuth-mcp --release`, then `claude mcp add sleuth -- <repo>/target/release/sleuth-mcp.exe --data-dir <dir>`. The e2e test (`crates/mcp/tests/mcp_e2e.rs`) drives it with a real MCP client. `tools_are_documented` fails if a tool is missing from `docs/mcp-tools.md`.
 - Data dir: `$SLEUTH_DATA_DIR`, otherwise `%APPDATA%\sleuth`. Tests always use temp dirs.
 

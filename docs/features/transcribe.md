@@ -2,20 +2,43 @@
 
 You turn speech into text, either from an audio file or live from the microphone. Transcripts are saved with timestamps and can be exported as TXT, Markdown, SRT or VTT. This is a new feature: Orb of Many Functions has no equivalent, so there is no parity checklist. The feature checklist at the end tracks it instead.
 
-Status: planned (phase 8, after parity).
+Status: in progress (phase 8, after parity). Step 1 is done: `crates/stt`, file transcription and model management in the service and CLI.
 
 ## Engines
 Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, and you can override it per transcription.
 
 ### Local (default): whisper.cpp through `whisper-rs`
 - Runs offline. Audio never leaves the machine.
-- Models are ggml files downloaded from Hugging Face into `<data-dir>/models/`. Each download runs as a Job with progress and cancel and is checked against a pinned blake3 hash.
-- Model choices: `base`, `small`, `medium` and `large-v3-turbo`, all **multilingual**. The `.en` models are not offered, because the main language is Italian.
-  - Default for files: `large-v3-turbo`.
-  - Default for live: `small`.
+- Models are ggml files downloaded from the whisper.cpp Hugging Face repo into `<data-dir>/models/`.
+  - Each download runs as a Job with progress and cancel.
+  - It is written to a `.part` file and checked against the SHA-256 that Hugging Face publishes, pinned in `sleuth_stt::models::CATALOG`. It is renamed only if the hash matches.
+  - A model counts as installed when its file has the expected size.
+- Model choices, all **multilingual** (the `.en` models are not offered, because the main language is Italian):
+
+  | id | Size | Use |
+  |---|---|---|
+  | `base` | 141 MB | Fast, rough |
+  | `small` | 465 MB | Default for live |
+  | `medium-q5_0` | 514 MB | |
+  | `large-v3-turbo-q5_0` | 547 MB | Default for files |
+  | `large-v3-turbo` | 1549 MB | Best, slow on the CPU |
+- The last loaded model stays in memory, so repeated transcriptions skip the load.
 - Backend: CPU. A `vulkan` cargo feature is optional; it works on the dev machine's Intel Iris Xe.
 - Uses whisper.cpp's built-in Silero VAD, its progress callback (which drives Job progress) and its abort callback (which handles cancel).
-- Build: needs LLVM (`libclang`, for bindgen) and CMake with the Visual Studio generator. `scripts/check.ps1` checks for both and prints a clear error when either is missing.
+- Build: needs LLVM (`libclang`, for bindgen) and CMake (the Visual Studio generator is used).
+  - `.cargo/config.toml` sets `LIBCLANG_PATH` to the default LLVM path and `CMAKE_BUILD_TYPE=Release`. In dev, whisper-rs-sys would otherwise build `RelWithDebInfo`, and on MSVC that limits inlining.
+  - On MSVC, ggml detects the CPU's SIMD itself (`FindSIMD.cmake`). The dev machine gets AVX-512.
+- **Measured speed** (dev machine, i7-1185G7 at about 1.5 GHz under load because it is power-throttled, 12.6 s Italian TTS clip, with the glossary):
+
+  | Model | Time | Result |
+  |---|---|---|
+  | `base` | ~5 s | misses "beholder" |
+  | `small` | 11 s (beam 1), 17 s (beam 5) | misses "beholder" |
+  | `medium-q5_0` | 53 s | all terms right |
+  | `large-v3-turbo-q5_0` | ~76 s | "Beholdar" |
+
+  On this CPU only `base` runs faster than real time, so live mode with `small` needs the GPU (Vulkan) or a faster machine. Release vs RelWithDebInfo, OpenMP, AVX2 vs AVX-512 and clang-cl vs MSVC were all tried: none changed these numbers by more than about 20%.
+- **whisper-rs 0.16 bug:** `set_abort_callback_safe` casts its user data to the wrong type, so a plain closure reads garbage and aborts at random ("failed to encode", -6). `local.rs` passes a pre-boxed `Box<dyn FnMut() -> bool>`, which makes the types agree. Recheck this when upgrading whisper-rs.
 
 ### Cloud: OpenRouter format
 - Calls `POST {base_url}/audio/transcriptions` with a JSON body. Fields:
@@ -38,8 +61,8 @@ Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, a
 - **Corrections.** These are find/replace rules applied after transcription (`core::stt::apply_corrections`), whole-word and case-insensitive, for example `idpoint` → `hit points`. They fix misspellings the glossary doesn't catch. Rules can be re-applied to existing transcripts.
 
 ## Audio pipeline (`crates/stt`)
-- Decoding: `symphonia` (wav, mp3, flac, ogg/vorbis, opus, m4a/aac).
-- Resampling: `rubato`, to 16 kHz mono f32.
+- Decoding: `symphonia` 0.5 (wav, mp3, flac, ogg/vorbis, m4a/aac/alac, mkv/webm, caf, aiff). Multichannel audio is averaged to mono, and corrupt frames are skipped. Opus is not supported by symphonia 0.5.
+- Resampling: `rubato` (FFT, fixed ratio), to 16 kHz mono f32. The filter delay is removed, so the output has exactly `round(len * 16000 / rate)` samples, aligned with the input.
 - Microphone capture: `cpal`, in Rust. Capture is owned by the service, so MCP and the CLI can run live sessions too. This also means no WebView2 microphone permission and no audio over IPC.
 - `crates/core` stays pure. `core::stt` holds:
   - segment merging;
@@ -102,6 +125,15 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
   - cloud base URL and API key;
   - model manager.
 - The mock backend (`src/lib/mock.ts`) gets canned models, a fake Job and a timed fake live session, so the UI runs in a plain browser.
+
+## CLI
+```
+sleuth stt models                      # catalog, with what is installed
+sleuth stt download large-v3-turbo-q5_0
+sleuth stt delete base
+sleuth transcribe session.mp3 --format srt --out session.srt     --glossary "Dungeon Master" --glossary beholder     --correct "beholdar=beholder" [--model small] [--language it|en|auto] [--beam 1] [--threads 4]
+```
+`--json` prints the full result: model, language, duration and segments.
 
 ## Phases
 1. `crates/stt`: decoding, resampling, the local engine, model download; `sleuth-cli transcribe <file>`.

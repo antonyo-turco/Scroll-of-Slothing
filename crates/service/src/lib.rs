@@ -18,6 +18,7 @@ mod music;
 mod object_sheet;
 mod organize;
 mod settings;
+mod stt;
 mod token_sheet;
 mod tokens;
 mod ui;
@@ -54,6 +55,7 @@ pub use sleuth_store::{
     MusicChannel, MusicPlaylist, MusicSoundbite, MusicSoundboard, MusicSoundboardButton,
     MusicSoundscape, MusicTrack, MusicTrackQuery,
 };
+pub use stt::{SttModel, TranscribeOptions, TranscribeResult};
 pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
 pub use tokens::{Border, SourceImage, TokenDraft};
 pub use ui::editor_route;
@@ -89,6 +91,7 @@ struct Inner {
     images: imgcache::ImageCache,
     maps: maps::MapCache,
     music: music::MusicRuntime,
+    stt: stt::SttRuntime,
     ui_attached: std::sync::atomic::AtomicBool,
 }
 
@@ -105,6 +108,7 @@ impl Service {
                 images: imgcache::ImageCache::default(),
                 maps: maps::MapCache::default(),
                 music: music::MusicRuntime::default(),
+                stt: stt::SttRuntime::default(),
                 ui_attached: std::sync::atomic::AtomicBool::new(false),
             }),
         })

@@ -14,3 +14,11 @@ debug = "line-tables-only"
 
 [profile.dev.package."*"]
 debug = false
+
+# whisper-rs (crates/stt) needs libclang for bindgen. This is the default LLVM
+# install path (`winget install LLVM.LLVM`); a LIBCLANG_PATH you set yourself wins.
+[env]
+LIBCLANG_PATH = { value = 'C:\Program Files\LLVM\bin', force = false }
+# whisper-rs-sys builds whisper.cpp as RelWithDebInfo in dev, which on MSVC limits
+# inlining (/Ob1) and makes ggml several times slower. Build it as Release always.
+CMAKE_BUILD_TYPE = { value = "Release", force = false }

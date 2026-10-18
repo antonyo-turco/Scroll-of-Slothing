@@ -9,5 +9,6 @@ pub mod imaging;
 pub mod maps;
 pub mod pack;
 pub mod settings;
+pub mod stt;
 pub mod token;
 pub mod units;
