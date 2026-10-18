@@ -203,7 +203,8 @@ pub struct TokenComposeParams {
     pub source_path: Option<String>,
     /// ...or an existing library asset (re-edit; its saved framing is the starting point).
     pub asset_id: Option<i64>,
-    /// Border id from token_borders_list (default: first border).
+    /// Border id from token_borders_list (default: first border). It sets the shape too
+    /// (e.g. builtin:roll20_square, builtin:roll20_hex_thin, builtin:none_hex for no border).
     pub border: Option<String>,
     /// "#rrggbb" fill behind the image, or "none" for transparent.
     pub background: Option<String>,
@@ -688,12 +689,16 @@ impl SleuthServer {
     }
 
     // ── tokens ──
-    #[tool(description = "List token borders (built-in and user-added) with their ids.")]
+    #[tool(
+        description = "List token borders (built-in and user-added) with their ids, shape (circle, square, hex = pointy-top hexagon, octagon, decagon) and whether they are borderless (the image only clipped to the shape). The shape of a token follows its border."
+    )]
     async fn token_borders_list(&self) -> ToolResult {
         done(self.svc.token_borders_list().await)
     }
 
-    #[tool(description = "Add a border image (PNG with a transparent centre) from a file path.")]
+    #[tool(
+        description = "Add a border image (PNG with a transparent centre) from a file path. Its shape is detected from the opaque silhouette (the closest of circle, square, hex, octagon, decagon)."
+    )]
     async fn token_borders_add(&self, Parameters(p): Parameters<BorderAddParams>) -> ToolResult {
         done(self.svc.token_borders_add(PathBuf::from(p.path), p.name).await)
     }

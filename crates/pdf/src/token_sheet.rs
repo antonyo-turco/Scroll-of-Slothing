@@ -2,17 +2,21 @@
 //! Images are embedded as PNG with alpha (Python flattened to a temp JPEG).
 
 use krilla::Document;
+use krilla::geom::{Path, PathBuilder};
 use krilla::page::PageSettings;
 use sleuth_core::pack::Layout;
+use sleuth_core::token::TokenShape;
 
 use crate::{CutLine, PdfError, Progress, Result, circle, draw_image, png_image, stroke_path, top};
 
 /// Renders a packed token layout. `images[i]` is the PNG for layout item `i`.
-/// With `cut`, a circle of radius `min(w, h) / 2` is stroked around each token.
+/// With `cut`, each token's outline is stroked: `shapes[i]` (circle when
+/// missing). A circle has radius `min(w, h) / 2`; a polygon is the largest one
+/// that fits the drawn image's box.
 pub fn render(
     layout: &Layout,
     images: &[Vec<u8>],
-    cut: Option<&CutLine>,
+    cut: Option<(&CutLine, &[TokenShape])>,
     progress: Progress<'_>,
 ) -> Result<Vec<u8>> {
     // One embedded image per item, reused for every copy.
@@ -47,11 +51,10 @@ pub fn render(
                 fw as f32,
                 fh as f32,
             );
-            if let Some(cut) = cut {
-                let r = (pl.w.min(pl.h) / 2.0) as f32;
-                if let Some(path) =
-                    circle(pl.x as f32 + pl.w as f32 / 2.0, y + pl.h as f32 / 2.0, r)
-                {
+            if let Some((cut, shapes)) = cut {
+                let shape = shapes.get(pl.item).copied().unwrap_or_default();
+                let (cx, cy) = (pl.x as f32 + pl.w as f32 / 2.0, y + pl.h as f32 / 2.0);
+                if let Some(path) = outline(shape, cx, cy, pl.w.min(pl.h), fw, fh) {
                     stroke_path(&mut surface, &path, cut.stroke());
                 }
             }
@@ -63,6 +66,27 @@ pub fn render(
         }
     }
     doc.finish().map_err(|e| PdfError::Write(format!("{e:?}")))
+}
+
+/// Cut path around a token centred on `(cx, cy)` in a `cell`-sized slot whose
+/// image is drawn `fw`×`fh` (top-left origin).
+fn outline(shape: TokenShape, cx: f32, cy: f32, cell: f64, fw: f64, fh: f64) -> Option<Path> {
+    if shape == TokenShape::Circle {
+        return circle(cx, cy, (cell / 2.0) as f32);
+    }
+    let pts = shape.vertices(f64::from(cx), f64::from(cy), shape.fit_radius(fw, fh));
+    polygon(&pts.into_iter().map(|(x, y)| (x as f32, y as f32)).collect::<Vec<_>>())
+}
+
+fn polygon(pts: &[(f32, f32)]) -> Option<Path> {
+    let mut pb = PathBuilder::new();
+    let (&(x0, y0), rest) = pts.split_first()?;
+    pb.move_to(x0, y0);
+    for &(x, y) in rest {
+        pb.line_to(x, y);
+    }
+    pb.close();
+    pb.finish()
 }
 
 /// Largest `aspect`-shaped box inside `w`×`h`.
@@ -138,7 +162,8 @@ mod tests {
             pack(&[TokenItem { size_pt: 72.0, copies: 3 }], PageFormat::Letter, GridMode::HalfInch);
         let plain = render(&layout, &[png([0, 0, 0, 255])], None, &mut |_| true).unwrap();
         let cut = CutLine::from_settings(&Settings::default());
-        let with_cut = render(&layout, &[png([0, 0, 0, 255])], Some(&cut), &mut |_| true).unwrap();
+        let with_cut =
+            render(&layout, &[png([0, 0, 0, 255])], Some((&cut, &[])), &mut |_| true).unwrap();
         let content = |b: &[u8]| {
             let d = doc(b);
             let p = *d.get_pages().values().next().unwrap();
@@ -150,6 +175,22 @@ mod tests {
         assert_eq!(strokes(&a), 0);
         assert_eq!(strokes(&b), 3, "one stroke per token:\n{b}");
         assert!(b.contains("[2 3]"), "dashed per settings:\n{b}");
+        assert!(b.matches(" c").count() >= 12, "circles are curves:\n{b}");
+        // Square and hexagon tokens get straight-sided cut lines.
+        for (shape, lines) in [
+            (TokenShape::Square, 3),
+            (TokenShape::Hex, 5),
+            (TokenShape::Octagon, 7),
+            (TokenShape::Decagon, 9),
+        ] {
+            let bytes =
+                render(&layout, &[png([0, 0, 0, 255])], Some((&cut, &[shape])), &mut |_| true)
+                    .unwrap();
+            let c = content(&bytes);
+            assert_eq!(strokes(&c), 3);
+            assert_eq!(c.matches(" l\n").count() + c.matches(" l ").count(), 3 * lines, "{c}");
+            assert!(!c.contains(" c\n") && !c.contains(" c "), "no curves:\n{c}");
+        }
     }
 
     #[test]

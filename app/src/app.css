@@ -207,6 +207,7 @@ select.input {
   min-height: 32px;
 }
 .segmented button[aria-pressed="true"],
+.segmented button[aria-checked="true"],
 .segmented button[aria-selected="true"] {
   background: var(--accent-soft);
   color: var(--text);

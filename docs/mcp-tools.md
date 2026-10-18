@@ -33,7 +33,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `tags_delete` | 1 | Delete a tag |
 | `jobs_status` / `jobs_cancel` | 1 | Background jobs |
 | `legacy_import` | 1 | Import from Orb of Many Functions (job; idempotent; source read-only) |
-| `token_borders_list` / `token_borders_add` | 2 | Border set (4 built-ins: Roll20 gold/grey, normal and thin) |
+| `token_borders_list` / `token_borders_add` | 2 | Border set with each border's `shape` (`circle`/`square`/`hex`/`octagon`/`decagon`) and `borderless` flag. 17 built-ins: Roll20 gold/grey round, normal and thin; Roll20 gold square, hexagon, octagon and decagon, normal and thin; No border for each shape. Added borders get a detected shape |
 | `token_filter_catalog` | 2 | Filters a token can use (9 colour/tone map filters, on the image only) and the 8 map presets built from them |
 | `token_compose` | 2 | Make a token from a file or library asset, with optional `filter_preset` or `filters` pipeline (optionally save, add to sheet, write PNG); returns the image |
 | `token_sheet_list` / `token_sheet_add` / `token_sheet_update` / `token_sheet_remove` / `token_sheet_clear` / `token_sheet_set_options` | 2 | Token sheet items and options |

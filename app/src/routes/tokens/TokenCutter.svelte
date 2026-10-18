@@ -11,7 +11,8 @@
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import FiltersPanel from '../../lib/components/FiltersPanel.svelte';
   import Slider from '../../lib/components/Slider.svelte';
-  import { type Border, type FilterCatalog, type SourceImage, type TokenParams, type SaveDetails } from '../../lib/types';
+  import { TOKEN_SHAPES, shapePath } from '../../lib/token-shapes';
+  import { type Border, type FilterCatalog, type SourceImage, type TokenParams, type TokenShape, type SaveDetails } from '../../lib/types';
 
   const DRAFT_KEY = 'tokens.cutter';
 
@@ -44,6 +45,19 @@
   let sourceImg: HTMLImageElement | undefined = $state();
 
   const border = $derived(borders.find((b) => b.id === d.params.border) ?? null);
+
+  // Shape picker: the shape follows the chosen border; picking a shape picks
+  // that shape's border of the same kind (plain, thin or none).
+  const SHAPES = TOKEN_SHAPES.map((s) => ({ ...s, path: shapePath(s.id, 1.5, 1.5, 13, 13) }));
+  const shape = $derived<TokenShape>(border?.shape ?? 'circle');
+  const variant = (b: Border) => (b.borderless ? 'none' : b.id.includes('_thin') ? 'thin' : 'plain');
+  function pickShape(s: TokenShape) {
+    if (s === shape) return;
+    const options = borders.filter((b) => b.shape === s);
+    const same = border ? options.find((b) => variant(b) === variant(border)) : undefined;
+    const next = same ?? options[0];
+    if (next) d.params.border = next.id;
+  }
   const bgHex = $derived(
     d.params.bg ? '#' + d.params.bg.map((c) => c.toString(16).padStart(2, '0')).join('') : '#ffffff',
   );
@@ -367,18 +381,30 @@
     </section>
 
     <section class="section">
-      <h3 class="section-title">Border <InfoTip label="About borders" text="The ring drawn around the token. The thin borders show more of the image. Ring thickness moves the cut inwards." /></h3>
+      <h3 class="section-title">Border <InfoTip label="About borders" text="Pick the token's shape, then its border. Thin borders show more of the image; No border only cuts the image to the shape. Ring thickness moves the cut inwards." /></h3>
+      <div class="segmented fill" role="radiogroup" aria-label="Shape">
+        {#each SHAPES as s (s.id)}
+          <button role="radio" aria-checked={shape === s.id} aria-label={s.label} title={s.label} onclick={() => pickShape(s.id)}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d={s.path} fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg>
+          </button>
+        {/each}
+      </div>
       <div class="borders" role="radiogroup" aria-label="Border">
-        {#each borders as b (b.id)}
+        {#each borders.filter((b) => b.shape === shape) as b (b.id)}
           <button
             role="radio"
             aria-checked={d.params.border === b.id}
             class="border"
             class:sel={d.params.border === b.id}
             title={b.name}
+            aria-label={b.name}
             onclick={() => (d.params.border = b.id)}
           >
-            <img src={blobUrl(b.blob)} alt={b.name} />
+            {#if b.borderless}
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d={SHAPES.find((s) => s.id === b.shape)?.path} fill="none" stroke="currentColor" stroke-width="0.6" stroke-dasharray="1.2 1" /></svg>
+            {:else}
+              <img src={blobUrl(b.blob)} alt="" />
+            {/if}
           </button>
         {/each}
         <button class="border add" title="Add border…" aria-label="Add border" onclick={addBorder}>+</button>
@@ -459,10 +485,17 @@
     background: var(--surface-2);
     cursor: pointer;
   }
-  .border img {
+  .border img,
+  .border svg {
     width: 100%;
     height: 100%;
     object-fit: contain;
+  }
+  .border svg {
+    color: var(--text-muted);
+  }
+  .segmented + .borders {
+    margin-top: var(--space-2);
   }
   .border.sel {
     border-color: var(--accent);

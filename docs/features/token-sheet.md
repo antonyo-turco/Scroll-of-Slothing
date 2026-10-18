@@ -37,7 +37,8 @@ The sheet is autosaved to the `workspaces` table under `token_sheet`. Python los
 ## Page options
 - Format: Letter or A4. Default comes from the `token_page_format` setting.
 - Cut border: on or off. Default comes from the `token_cut_border` setting.
-  - When on, each token gets a circle with radius `min(w,h)/2`, drawn in the cut-line style.
+  - When on, each token gets its outline drawn in the cut-line style: a circle with radius `min(w,h)/2`, or the token's polygon (square, hexagon, octagon, decagon) as large as fits the drawn image.
+  - The outline is `SheetItem.shape`, detected from the image when the item is added (`token::detect_shape`, see token-cutter.md "Shapes"). Items saved before shapes existed are circles. A fully opaque picture added to the sheet counts as a square, so its cut line no longer crosses the picture.
   - When off, the preview shows a light grey `#cccccc` cell outline instead. The outline is not printed.
 
 ## Packing algorithm (core::pack::token_grid)
@@ -103,6 +104,7 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 - UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of tokens on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.
 - Half-inch packing grid: Tiny and Small print at their true size (see "Size change from Python" above).
 - Justified pages: spare space is spread between tokens so they are easy to cut (see "Justification" above). Python packed them edge to edge.
+- Cut lines follow the token's shape (circle, square, hexagon, octagon, decagon; 2026-10-18). Python always drew circles.
 - An item that can never fit is reported once and creates no pages (Python opened an empty page per copy).
 - Images are embedded as PNG with transparency (Python wrote a temporary JPEG per token, flattened on white).
 - Non-square images are fitted inside their cell, centred, in both the preview and the PDF. Python stretched them to a square.

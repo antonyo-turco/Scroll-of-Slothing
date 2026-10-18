@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
 use sleuth_core::pack::Layout;
 use sleuth_core::pack::token_grid::{GridMode, TokenItem, justify, pack};
-use sleuth_core::token::TokenParams;
+use sleuth_core::token::{TokenParams, TokenShape, detect_shape};
 use sleuth_core::units::{PageFormat, SizeLabel};
 use sleuth_pdf::{CutLine, PdfError};
 use sleuth_store::Store;
@@ -31,6 +31,10 @@ pub struct SheetItem {
     pub thumb: String,
     /// Library asset this item came from, if any.
     pub asset_id: Option<i64>,
+    /// Outline for the cut line, detected from the image when added (older
+    /// items: circle, as before).
+    #[serde(default)]
+    pub shape: TokenShape,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -101,22 +105,31 @@ pub(crate) fn thumb_of(s: &Store, image_hash: &str) -> Result<String> {
     Ok(s.put_blob(&webp, "image/webp", Some(t.dimensions()))?.hash)
 }
 
+/// Outline of a stored image (see `detect_shape`).
+fn shape_of(s: &Store, image_hash: &str) -> Result<TokenShape> {
+    let img = imaging::decode(&s.read_blob(image_hash)?)
+        .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+    Ok(detect_shape(&img.to_rgba8()))
+}
+
 fn new_item(
+    s: &Store,
     label: String,
     size: String,
     image: String,
     thumb: String,
     asset_id: Option<i64>,
-) -> SheetItem {
-    SheetItem {
+) -> Result<SheetItem> {
+    Ok(SheetItem {
         id: uuid::Uuid::new_v4().to_string(),
         label,
         size,
         copies: 1,
+        shape: shape_of(s, &image)?,
         image,
         thumb,
         asset_id,
-    }
+    })
 }
 
 fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
@@ -182,7 +195,7 @@ impl Service {
                     None => thumb_of(s, &a.rendered_blob)?,
                 };
                 let size = SizeLabel::parse(&a.size_label).unwrap_or_default().as_str().to_string();
-                sheet.items.push(new_item(a.name, size, a.rendered_blob, thumb, Some(a.id)));
+                sheet.items.push(new_item(s, a.name, size, a.rendered_blob, thumb, Some(a.id))?);
             }
             Ok(())
         })
@@ -204,7 +217,7 @@ impl Service {
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_else(|| "Token".into());
                 let thumb = thumb_of(s, &src.hash)?;
-                sheet.items.push(new_item(label, size.clone(), src.hash, thumb, None));
+                sheet.items.push(new_item(s, label, size.clone(), src.hash, thumb, None)?);
             }
             Ok(())
         })
@@ -226,7 +239,7 @@ impl Service {
             let thumb = thumb_of(s, &img.hash)?;
             let label =
                 if label.trim().is_empty() { "Token".into() } else { label.trim().to_string() };
-            sheet.items.push(new_item(label, size, img.hash, thumb, None));
+            sheet.items.push(new_item(s, label, size, img.hash, thumb, None)?);
             Ok(())
         })
         .await
@@ -327,7 +340,9 @@ impl Service {
             let cut = sheet
                 .cut_border
                 .then(|| CutLine::from_settings(&store.load_settings().unwrap_or_default()));
-            let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut.as_ref(), &mut |p| {
+            let shapes: Vec<TokenShape> = sheet.items.iter().map(|i| i.shape).collect();
+            let cut = cut.as_ref().map(|c| (c, shapes.as_slice()));
+            let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut, &mut |p| {
                 ctx.progress(0.05 + 0.9 * p, "rendering pages");
                 !ctx.is_cancelled()
             })

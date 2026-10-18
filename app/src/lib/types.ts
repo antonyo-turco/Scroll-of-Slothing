@@ -183,6 +183,10 @@ export interface TokenParams {
   filters: FilterStep[];
 }
 
+/** Token outline (crates/core/src/token.rs `TokenShape`): `hex` is pointy-top,
+ *  `octagon` has flat top/bottom/sides, `decagon` a flat top and bottom. */
+export type TokenShape = 'circle' | 'square' | 'hex' | 'octagon' | 'decagon';
+
 export interface Border {
   id: string;
   name: string;
@@ -190,6 +194,9 @@ export interface Border {
   blob: string;
   width: number;
   height: number;
+  shape: TokenShape;
+  /** A blank border: the image is only clipped to the shape. */
+  borderless: boolean;
 }
 
 export interface SourceImage {
@@ -214,6 +221,8 @@ export interface SheetItem {
   image: string;
   thumb: string;
   asset_id: number | null;
+  /** Outline for the cut line, detected from the image when added. */
+  shape: TokenShape;
 }
 
 export interface TokenSheet {

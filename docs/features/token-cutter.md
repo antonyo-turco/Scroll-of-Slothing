@@ -1,6 +1,6 @@
 # Token Cutter
 
-Frames any image inside a circular token border and outputs a token image. The output size equals the border's pixel size.
+Frames any image inside a token border (round, square, hexagonal, octagonal or decagonal) and outputs a token image. The output size equals the border's pixel size.
 
 ## Inputs
 - Drop a file onto the view, browse for one, paste with Ctrl+V, or "Open in editor" from the Library.
@@ -13,7 +13,8 @@ Frames any image inside a circular token border and outputs a token image. The o
 ## Controls (inspector)
 | Section | Control | Default | Range |
 |---|---|---|---|
-| Border | thumbnail strip of the border set | first border | bundled `roll20.png` (442²), `roll20_greyscale.png` (256²), their thin versions `roll20_thin.png` / `roll20_greyscale_thin.png`, plus user-added borders |
+| Shape | radio (icons): Circle / Square / Hexagon / Octagon / Decagon, above the border strip | the current border's shape | picking a shape selects that shape's border of the same kind (plain, thin or no border) |
+| Border | thumbnail strip of the current shape's borders | first border | circle: bundled `roll20.png` (442²), `roll20_greyscale.png` (256²), their thin versions `roll20_thin.png` / `roll20_greyscale_thin.png`; square, hexagon, octagon, decagon: `roll20_<shape>.png` and `roll20_<shape>_thin.png` (gold); a **No border** per shape (`none.png`, blank); plus user-added borders |
 | Background | none (transparent) / colour picker / eyedropper | none | the eyedropper samples the source image |
 | Ring | ring thickness (content inset), slider with − / + | 0 % | 0–50 % of the radius |
 | Filters | the map filter panel limited to token filters: preset dropdown, toggles, sliders with − / +, reorder | none | see "Filters" |
@@ -34,14 +35,28 @@ Reference: Python `ui/token_compositing.py`.
    - Pan is stored in border-pixel units: `pan -= drag / (display/max(bw,bh))`.
    - Crop and paste onto a transparent RGBA canvas the size of the border.
    - **Filters.** The enabled token filters run on this border-sized window, colour channels only (alpha is kept). The border is composited afterwards, so it is never filtered. Running at border size makes preview and export identical.
-2. **Content mask.** An ellipse inset by `ring_inset_pct/100 * radius`. Multiply it into the base image's alpha.
+2. **Content mask.** The border's shape (see "Shapes"), inset by `ring_inset_pct/100 * radius`, where radius = `min(w,h)/2`. Circle: an ellipse in the inset box (unchanged from Python). Multiply it into the base image's alpha.
 3. **Background.** If a background colour is set, fill it inside the same mask, underneath the image.
 4. **Composite.** Alpha-composite the base, then the border on top.
-5. **Outer clip.** Clip to the border's outer circle. The centre comes from the alpha bounding box, and the radius is `min(w,h)/2`.
+5. **Outer clip.** Clip to the border's outer edge, in its shape. The centre comes from the alpha bounding box; the radius is the largest that fits the box (circle: `min(w,h)/2`). A blank border has no alpha, so there's no outer clip: the content mask is the token's edge.
 
 ## Filters
 - `sleuth_core::token::TOKEN_FILTERS`: the colour and tone map filters (docs/features/map-filters.md): autocontrast, contrast, lightness, clarity, sharpen, sepia, grayscale, posterize, edge_boost. The ink-saving B&W filters (adaptive, threshold, dither, line_art, canny) are for printing maps; other kinds in a token pipeline are ignored.
 - Presets: the map presets that use only token filters (8 of 18, including "None (clear all)", Most legible, Posterized 3/4, Soft and Clean grayscale, Sepia print, Faded parchment). `token_filter_catalog` (service, Tauri command, MCP tool) lists the defs and these presets.
+
+## Shapes
+`sleuth_core::token::TokenShape`, each scaled so it touches the square canvas:
+- `circle`;
+- `square`;
+- `hex`: a pointy-top regular hexagon (vertices at top and bottom, √3/2 as wide as tall; it fits Roll20's vertical hex grid);
+- `octagon`: flat sides at the top, bottom, left and right;
+- `decagon`: flat top and bottom, vertices left and right (cos 18° ≈ 0.951 as tall as wide).
+
+The polygons are regular (side count, first side's normal, circumradius); `app/src/lib/token-shapes.ts` mirrors them for the UI.
+- A border's shape is part of the border list (`Border.shape`). Built-ins declare it; an added border's is detected from its alpha (`detect_shape`): the opaque silhouette (each row filled between its first and last opaque pixel) is compared with each shape fitted to the same box, and the closest wins (ties go to the circle).
+- The polygon gold borders are made from the round ones by `tools/token_borders/shape_borders.py`: each pixel is measured with the shape's polygon norm and mapped back onto the ring at the same angle, so the frame keeps the ring's width, bevel and upper-left lighting along every side.
+- **No border** (one per shape) is a blank 442² image: the image is just cut to the shape. Ring thickness still insets it.
+- The token sheet detects each item's shape from its image when it is added and cuts along it (see token-sheet.md).
 
 ## Thin borders
 `roll20_thin.png` and `roll20_greyscale_thin.png` are the bundled rings squeezed radially to 45 % of their width; the outer rim stays put, so the image circle grows from 77 % to 90 % of the radius (about 35 % more image area). They were generated once from the originals; the texture is resampled, not redrawn.
@@ -71,6 +86,7 @@ The transparency checkerboard for preview uses an 8 px square in colours (204,20
 - Edit params are stored, so re-editing is non-destructive.
 - Users can add their own border PNGs (they need transparency).
 - Thin versions of both bundled borders, to show more of the image (user request, 2026-10-15). Python had only the two thick rings.
+- Square, hexagonal, octagonal and decagonal tokens (gold, normal and thin) and a No border option for each shape, with a shape picker above the borders (user request, 2026-10-18). Python tokens were round only.
 - Token filters: the colour/tone map filters on the image only, never the ring (user request, 2026-10-15). Python tokens had no filters.
 - The cutter draft (source, framing, name, size) is autosaved and restored after a restart.
 - Name and size are not inspector fields: "Save to library" asks for name, size and tags in one dialog (user request, 2026-10-11). Python had name and size fields in the panel and no tags at save time. For an asset opened from the library it offers Update existing / Save as new / Cancel instead of Python's Yes/No/Cancel. Add to sheet uses the last name and size (the sheet can change both).
