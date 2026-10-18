@@ -14,11 +14,11 @@ use sleuth_core::stt::{ExportFormat, Segment};
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    Asset, AssetPage, AssetPatch, AssetQuery, Border, CardOptions, CardSummary, CutoutDraft, Deck,
-    DeckSummary, ExportWhat, ImportFile, ImportReport, JobId, JobStatus, LegacyImportOptions,
-    ObjectItemPatch, ObjectSheet, RenameOutcome, Service, ServiceError, SettingsUpdate,
-    SheetItemPatch, SheetLayout, SourceImage, SttModel, TagCount, TokenDraft, TokenSheet,
-    TranscribeOptions,
+    Asset, AssetPage, AssetPatch, AssetQuery, Border, CardOptions, CardSummary, CloudKeyInfo,
+    CloudKeyStatus, CutoutDraft, Deck, DeckSummary, ExportWhat, ImportFile, ImportReport, JobId,
+    JobStatus, LegacyImportOptions, ObjectItemPatch, ObjectSheet, RenameOutcome, Service,
+    ServiceError, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage, SttModel, TagCount,
+    TokenDraft, TokenSheet, TranscribeOptions,
 };
 use tauri::State;
 use tauri::ipc::Response;
@@ -919,6 +919,26 @@ pub fn stt_model_download(svc: Svc<'_>, id: String) -> Res<JobId> {
 #[tauri::command]
 pub async fn stt_model_delete(svc: Svc<'_>, id: String) -> Res<()> {
     svc.stt_model_delete(id).await
+}
+
+#[tauri::command]
+pub async fn stt_cloud_key_status(svc: Svc<'_>) -> Res<CloudKeyStatus> {
+    svc.stt_cloud_key_status().await
+}
+
+#[tauri::command]
+pub async fn stt_cloud_key_set(svc: Svc<'_>, key: String) -> Res<CloudKeyStatus> {
+    svc.stt_cloud_key_set(key).await
+}
+
+#[tauri::command]
+pub async fn stt_cloud_key_clear(svc: Svc<'_>) -> Res<CloudKeyStatus> {
+    svc.stt_cloud_key_clear().await
+}
+
+#[tauri::command]
+pub async fn stt_cloud_key_test(svc: Svc<'_>) -> Res<CloudKeyInfo> {
+    svc.stt_cloud_key_test().await
 }
 
 #[tauri::command]

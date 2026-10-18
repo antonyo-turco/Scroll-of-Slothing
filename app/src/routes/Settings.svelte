@@ -5,13 +5,60 @@
   import { api, isTauri, pickFile } from '../lib/api';
   import { ALL_VIEWS, findView } from '../lib/nav';
   import { app } from '../lib/state.svelte';
-  import type { CutLineStyle, PageFormat, Settings, Theme } from '../lib/types';
+  import { CLOUD_STT_MODELS } from '../lib/types';
+  import type { CloudKeyInfo, CloudKeyStatus, CutLineStyle, PageFormat, Settings, SttEngine, Theme } from '../lib/types';
 
   let errors = $state<Record<string, string>>({});
   let confirmingReset = $state(false);
   let dataDir = $state('');
 
-  onMount(() => void api.appInfo().then((i) => (dataDir = i.data_dir)));
+  onMount(() => {
+    void api.appInfo().then((i) => (dataDir = i.data_dir));
+    void api.sttCloudKeyStatus().then((s) => (keyStatus = s)).catch(() => {});
+  });
+
+  // ── transcription: the OpenRouter key lives in the Windows Credential Manager ──
+  const ENGINES: { id: SttEngine; label: string }[] = [
+    { id: 'local', label: 'On this computer' },
+    { id: 'cloud', label: 'OpenRouter (cloud)' },
+  ];
+  let keyStatus = $state<CloudKeyStatus | null>(null);
+  let keyInput = $state('');
+  let keyBusy = $state(false);
+  let keyCheck = $state<{ ok: true; info: CloudKeyInfo } | { ok: false; message: string } | null>(null);
+
+  async function saveKey() {
+    if (!keyInput.trim()) return;
+    keyBusy = true;
+    try {
+      keyStatus = await api.sttCloudKeySet(keyInput);
+      keyInput = '';
+      keyCheck = null;
+      app.toast('success', 'API key saved');
+    } catch (e) {
+      app.error('Could not save the key', e);
+    } finally {
+      keyBusy = false;
+    }
+  }
+
+  async function clearKey() {
+    keyStatus = await api.sttCloudKeyClear().catch((e) => (app.error('Could not remove the key', e), keyStatus));
+    keyCheck = null;
+  }
+
+  async function testKey() {
+    keyBusy = true;
+    try {
+      keyCheck = { ok: true, info: await api.sttCloudKeyTest() };
+    } catch (e) {
+      keyCheck = { ok: false, message: (e as { message?: string })?.message ?? String(e) };
+    } finally {
+      keyBusy = false;
+    }
+  }
+
+  const usd = (v: number | null) => (v === null ? 'no limit' : `$${v.toFixed(2)}`);
 
   let mcp = $state<{ url: string; token: string } | null>(null);
   $effect(() => {
@@ -195,6 +242,88 @@
     </section>
 
     <section class="card">
+      <h2>Transcription</h2>
+      <div class="field">
+        <span class="label">Default engine</span>
+        <div class="segmented" role="group" aria-label="Transcription engine">
+          {#each ENGINES as e (e.id)}
+            <button aria-pressed={app.settings.stt_engine === e.id} onclick={() => save('stt_engine', e.id)}>{e.label}</button>
+          {/each}
+        </div>
+      </div>
+      <p class="muted hint">
+        On this computer, audio never leaves the machine but long files are slow. The cloud engine sends the audio
+        to OpenRouter: much faster, billed per minute of audio.
+      </p>
+
+      <div class="field">
+        <label for="openrouter-key">OpenRouter API key</label>
+        <p class="muted hint key-status" data-testid="key-status">
+          {#if keyStatus?.configured}
+            {keyStatus.source === 'env' ? 'From the OPENROUTER_API_KEY variable' : 'Saved'}: <code>{keyStatus.hint}</code>
+          {:else}
+            No key yet. Create one at openrouter.ai/keys.
+          {/if}
+        </p>
+        <div class="key-row">
+          <input
+            id="openrouter-key"
+            class="input"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder={keyStatus?.configured ? 'Paste a new key to replace it' : 'sk-or-v1-…'}
+            bind:value={keyInput}
+            onkeydown={(e) => e.key === 'Enter' && saveKey()}
+          />
+          <button class="btn" disabled={keyBusy || !keyInput.trim()} onclick={saveKey}>Save key</button>
+        </div>
+        <div class="key-row">
+          <button class="btn" disabled={keyBusy || !keyStatus?.configured} onclick={testKey}>Test key</button>
+          {#if keyStatus?.source === 'saved'}<button class="btn ghost" onclick={clearKey}>Remove key</button>{/if}
+        </div>
+        {#if keyCheck}
+          <p class="note {keyCheck.ok ? 'ok' : 'bad'}" data-testid="key-check" aria-live="polite">
+            {#if keyCheck.ok}
+              Key works{keyCheck.info.label ? ` (${keyCheck.info.label})` : ''}: used {usd(keyCheck.info.usage ?? 0)}, limit {usd(keyCheck.info.limit)}.
+            {:else}{keyCheck.message}{/if}
+          </p>
+        {/if}
+        <p class="muted hint">Stored in the Windows Credential Manager, never in the app's database or settings.</p>
+      </div>
+
+      <div class="field">
+        <label for="stt_cloud_model">Cloud model</label>
+        <input
+          id="stt_cloud_model"
+          class="input"
+          list="cloud-stt-models"
+          spellcheck="false"
+          value={app.settings.stt_cloud_model}
+          aria-invalid={errors.stt_cloud_model ? 'true' : undefined}
+          onchange={(e) => save('stt_cloud_model', e.currentTarget.value.trim())}
+        />
+        <datalist id="cloud-stt-models">
+          {#each CLOUD_STT_MODELS as m (m)}<option value={m}></option>{/each}
+        </datalist>
+        {#if errors.stt_cloud_model}<span class="error-text">{errors.stt_cloud_model}</span>{/if}
+      </div>
+      <div class="field">
+        <label for="stt_cloud_base_url">API address</label>
+        <input
+          id="stt_cloud_base_url"
+          class="input"
+          spellcheck="false"
+          value={app.settings.stt_cloud_base_url}
+          aria-invalid={errors.stt_cloud_base_url ? 'true' : undefined}
+          onchange={(e) => save('stt_cloud_base_url', e.currentTarget.value.trim())}
+        />
+        {#if errors.stt_cloud_base_url}<span class="error-text">{errors.stt_cloud_base_url}</span>{/if}
+        <p class="muted hint">OpenRouter by default. Any service that accepts the same request format works.</p>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Data</h2>
       <p class="muted hint">Stored in <code>{dataDir}</code></p>
       <div>
@@ -298,6 +427,18 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface);
+  }
+  .key-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .key-row .input {
+    flex: 1;
+    min-width: 0;
+  }
+  .key-status {
+    margin: 0;
   }
   .line-preview {
     width: 100%;

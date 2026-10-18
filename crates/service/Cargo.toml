@@ -28,6 +28,7 @@ base64.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = { version = "5", features = ["std"] }
+keyring = { version = "3", features = ["windows-native"] }
 
 [dev-dependencies]
 tempfile.workspace = true

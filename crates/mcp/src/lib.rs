@@ -17,6 +17,7 @@ use serde_json::{Map, Value};
 use sleuth_core::cards::Flip;
 use sleuth_core::cutout::CutoutParams;
 use sleuth_core::pack::shelf::SheetMode;
+use sleuth_core::settings::SttEngine;
 use sleuth_core::stt::{Correction, ExportFormat, Segment};
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
@@ -255,17 +256,19 @@ pub struct CorrectionParam {
 pub struct TranscribeFileParams {
     /// Audio file (absolute path): wav, mp3, flac, ogg, m4a, ...
     pub path: String,
-    /// Model id; default `large-v3-turbo-q5_0`. Must be installed (`stt_model_download`).
+    /// `local` (Whisper on this computer) or `cloud` (OpenRouter; needs a key saved in the app's Settings). Default: the `stt_engine` setting.
+    pub engine: Option<String>,
+    /// Local: a model id, default `large-v3-turbo-q5_0`, must be installed (`stt_model_download`). Cloud: an OpenRouter model id such as `openai/whisper-1`; default: the `stt_cloud_model` setting.
     pub model: Option<String>,
     /// `it` (default), `en`, ... or `auto`.
     pub language: Option<String>,
-    /// Terms whose spelling Whisper should favour, e.g. monster or NPC names.
+    /// Local only: terms whose spelling Whisper should favour, e.g. monster or NPC names.
     #[serde(default)]
     pub glossary: Vec<String>,
-    /// Find/replace rules applied to the result.
+    /// Find/replace rules applied to the result (either engine).
     #[serde(default)]
     pub corrections: Vec<CorrectionParam>,
-    /// Beam width; 1 is greedy (faster). Default 5.
+    /// Local only. Beam width; 1 is greedy (faster). Default 5.
     pub beam_size: Option<u32>,
 }
 
@@ -555,10 +558,35 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Transcribe an audio file locally with Whisper (Italian by default). Returns a job_id; the job result has model, language, duration_ms and segments [{start_ms, end_ms, text}]."
+        description = "Whether an OpenRouter API key is available for cloud transcription (never returns the key). Keys are added in the app's Settings, not over MCP."
+    )]
+    async fn stt_cloud_key_status(&self) -> ToolResult {
+        done(self.svc.stt_cloud_key_status().await)
+    }
+
+    #[tool(
+        description = "Check the saved OpenRouter key against the API: label, credit limit and usage."
+    )]
+    async fn stt_cloud_key_test(&self) -> ToolResult {
+        done(self.svc.stt_cloud_key_test().await)
+    }
+
+    #[tool(
+        description = "Transcribe an audio file (Italian by default), locally with Whisper or in the cloud via OpenRouter (engine). Returns a job_id; the job result has engine, model, language, duration_ms, cost (cloud) and segments [{start_ms, end_ms, text}]."
     )]
     async fn transcribe_file(&self, Parameters(p): Parameters<TranscribeFileParams>) -> ToolResult {
+        let engine = match p.engine.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some("local") => Some(SttEngine::Local),
+            Some("cloud") => Some(SttEngine::Cloud),
+            Some(other) => {
+                return fail(&ServiceError::InvalidInput(format!(
+                    "unknown engine {other:?} (local|cloud)"
+                )));
+            }
+        };
         let opts = TranscribeOptions {
+            engine,
             model: p.model,
             language: p.language,
             glossary: p.glossary,

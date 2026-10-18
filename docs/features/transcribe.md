@@ -4,6 +4,7 @@ You turn speech into text, either from an audio file or live from the microphone
 
 Status: in progress (phase 8, after parity). Done so far:
 - Step 1: `crates/stt`, file transcription and model management in the service and CLI.
+- The cloud engine for file transcription (OpenRouter format), with the key kept in the Windows Credential Manager and set from Settings → Transcription.
 - A first slice of the UI: the **File** tab (`transcribe.file`, `routes/transcribe/TranscribeFile.svelte`).
   - Pick or drop a file; choose model, language, Accurate/Fast, glossary and corrections. These are kept in the workspace store under `transcribe.file`.
   - Progress with cancel, timestamped segments, copy, export.
@@ -45,24 +46,36 @@ Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, a
   On this CPU only `base` runs faster than real time, so live mode with `small` needs the GPU (Vulkan) or a faster machine. Release vs RelWithDebInfo, OpenMP, AVX2 vs AVX-512 and clang-cl vs MSVC were all tried: none changed these numbers by more than about 20%.
 - **whisper-rs 0.16 bug:** `set_abort_callback_safe` casts its user data to the wrong type, so a plain closure reads garbage and aborts at random ("failed to encode", -6). `local.rs` passes a pre-boxed `Box<dyn FnMut() -> bool>`, which makes the types agree. Recheck this when upgrading whisper-rs.
 
-### Cloud: OpenRouter format
-- Calls `POST {base_url}/audio/transcriptions` with a JSON body. Fields:
-  - `model`
-  - `input_audio: { data: <base64>, format }`
-  - `language`
-  - optionally `provider.options`
-- The response carries `text` and `usage`. Usage covers seconds and cost; cost is saved on the transcript.
-- `base_url` defaults to `https://openrouter.ai/api/v1`. Any server that accepts the same format works.
-- Example models: `openai/whisper-large-v3`, `elevenlabs/scribe-v2`.
-- The API key lives in the Windows Credential Manager (`keyring` crate), never in SQLite or `settings.json`.
-- The response has no timestamps. To get them, audio is split at pauses by VAD into chunks of 30 s or less. Each chunk becomes one request, and the chunk's start and end times become the segment's times. Requests run with a small concurrency limit and are retried with backoff.
-- Audio leaves the machine, so the UI shows a "Cloud" badge, and the first use asks for confirmation.
+### Cloud: OpenRouter format (`sleuth_stt::cloud`)
+- **Request:** `POST {base_url}/audio/transcriptions`.
+  - Headers: `Authorization: Bearer <key>`, `X-Title: Kastanomata's Scroll of Sleuthing`.
+  - JSON body: `model`, `input_audio: { data: <base64 WAV>, format: "wav" }`, and `language` unless it is `auto`.
+- **Reply:** `text` is required. `usage.cost` is added up across the chunks and shown in the status bar and the Job result (USD).
+- **Settings:**
+  - `stt_cloud_base_url` defaults to `https://openrouter.ai/api/v1`. Any server that accepts the same format works.
+  - `stt_cloud_model` defaults to `openai/whisper-1`.
+  - The UI suggests `openai/whisper-1`, `openai/gpt-transcribe` and `mistralai/voxtral-mini-transcribe`, but any id works.
+- **API key:** stored in the Windows Credential Manager (`keyring` crate, entry `sleuth` / `openrouter_api_key`), never in SQLite or settings.
+  - With no saved key, the `OPENROUTER_API_KEY` environment variable is used, which is handy for the CLI and standalone MCP.
+  - The service never returns the key: only `configured`, the `source` (`saved`/`env`) and a hint such as `sk-or-…a1b2`.
+  - Tests use an in-memory store.
+- **Key test:** `GET {base_url}/key` returns the key's label, credit limit and usage.
+- **Chunks:** the reply has no timestamps, so the audio is cut into chunks (`core::stt::plan_chunks`).
+  - Each chunk lasts 8 to 28 s. It ends at the quietest 30 ms frame of that window, so cuts fall in pauses.
+  - Chunks quieter than -54 dBFS RMS are skipped, so silence is neither paid for nor hallucinated.
+  - Each chunk is 16 kHz mono PCM16 WAV, sent as one request, and becomes one segment with the chunk's start and end times.
+- **Requests:** 4 in parallel.
+  - 408, 429, 5xx and network errors are retried up to 4 times, with 1, 2 and 4 s waits.
+  - 401/403 ("the API key was rejected") and 402 ("not enough credits") stop at once, with the API's own message.
+  - Other 4xx stop with the API's message. Waiting between retries can be cancelled.
+- **Privacy:** the first cloud transcription asks for confirmation ("Send this audio to OpenRouter?"). "Don't ask again" is stored in the workspace as `transcribe.cloud_ok`. The status bar says when the cloud engine is selected.
+- **Not yet:** the glossary is not sent to the cloud, because the prompt field isn't confirmed for OpenRouter's endpoint. Corrections apply to cloud results as well.
 
 ## Language and vocabulary
 - Default language `it`. `auto` and `en` are also available, set per transcription.
 - **Glossary.** This is a list of terms that are often English words inside Italian speech: monster names, spells, "hit points", "Dungeon Master", campaign NPCs. It is stored in settings and is editable.
   - Local: the glossary is passed to Whisper as the `initial_prompt`, which pushes it toward the right spelling.
-  - Cloud: the glossary is passed as the prompt field where the provider supports one.
+  - Cloud: not sent yet (see above); use corrections.
 - **Corrections.** These are find/replace rules applied after transcription (`core::stt::apply_corrections`), whole-word and case-insensitive, for example `idpoint` → `hit points`. They fix misspellings the glossary doesn't catch. Rules can be re-applied to existing transcripts.
 
 ## Audio pipeline (`crates/stt`)
@@ -107,7 +120,9 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
 |---|---|
 | `stt_models_list` | Installed and available models, with size and hash |
 | `stt_model_download` / `stt_model_delete` | Download is a Job |
-| `transcribe_file` | Job. Arguments: blob or path, engine, model, language |
+| `stt_cloud_key_status` / `stt_cloud_key_test` | Whether a key is available (never the key itself) and a live check. MCP has only these two: keys are set in Settings or with `sleuth stt key set`, so a secret never passes through an LLM's context |
+| `stt_cloud_key_set` / `stt_cloud_key_clear` | UI and CLI only (see above) |
+| `transcribe_file` | Job. Arguments: path, engine, model, language, glossary, corrections, beam size |
 | `live_start` / `live_stop` / `live_status` | One live session at a time. A second start returns an error |
 | `transcripts_list` / `transcript_get` | Get includes segments |
 | `transcript_update` | Title, segment text |
@@ -136,7 +151,13 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
 sleuth stt models                      # catalog, with what is installed
 sleuth stt download large-v3-turbo-q5_0
 sleuth stt delete base
-sleuth transcribe session.mp3 --format srt --out session.srt     --glossary "Dungeon Master" --glossary beholder     --correct "beholdar=beholder" [--model small] [--language it|en|auto] [--beam 1] [--threads 4]
+sleuth transcribe session.mp3 --format srt --out session.srt `
+    --glossary "Dungeon Master" --glossary beholder `
+    --correct "beholdar=beholder" [--model small] [--language it|en|auto] [--beam 1] [--threads 4]
+
+sleuth stt key set                     # paste the OpenRouter key (read from stdin)
+sleuth stt key status | test | clear
+sleuth transcribe session.mp3 --engine cloud [--model openai/gpt-transcribe]   # prints the cost on stderr
 ```
 `--json` prints the full result: model, language, duration and segments.
 
@@ -154,7 +175,7 @@ sleuth transcribe session.mp3 --format srt --out session.srt     --glossary "Dun
 - [ ] Corrections applied and re-applicable
 - [ ] Export: TXT, MD, SRT, VTT (snapshot tests)
 - [ ] Live local: provisional and final text, keep-audio, re-run
-- [ ] Cloud engine: chunked timestamps, key in keyring, cost saved, confirmation on first use
+- [x] Cloud engine for files: chunked timestamps, key in keyring, cost reported, confirmation on first use (cost is not *saved* yet: transcripts aren't stored)
 - [ ] Live cloud
 - [ ] MCP tools documented and covered by e2e
 - [ ] UI: three tabs plus the Settings section, mock backend, axe pass in both themes

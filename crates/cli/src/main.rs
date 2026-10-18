@@ -7,10 +7,11 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::Serialize;
 use serde_json::{Map, Value};
+use sleuth_core::settings::SttEngine;
 use sleuth_core::stt::{Correction, ExportFormat};
 use sleuth_service::{
-    AssetPatch, AssetQuery, AssetSort, ExportWhat, ImportFile, JobState, LegacyImportOptions,
-    Service, TranscribeOptions, TranscribeResult,
+    AssetPatch, AssetQuery, AssetSort, CloudKeyStatus, ExportWhat, ImportFile, JobState,
+    LegacyImportOptions, Service, TranscribeOptions, TranscribeResult,
 };
 
 #[derive(Parser)]
@@ -54,7 +55,10 @@ enum Cmd {
     /// Transcribe an audio file with the local engine.
     Transcribe {
         file: PathBuf,
-        /// Model id (see `sleuth stt models`).
+        /// local | cloud (default: the `stt_engine` setting).
+        #[arg(long)]
+        engine: Option<String>,
+        /// Local: a model id (see `sleuth stt models`). Cloud: an OpenRouter model id.
         #[arg(long)]
         model: Option<String>,
         /// Language code, or `auto`.
@@ -91,6 +95,22 @@ enum SttCmd {
     Download { id: String },
     /// Delete a downloaded model.
     Delete { id: String },
+    /// The OpenRouter API key for cloud transcription.
+    #[command(subcommand)]
+    Key(KeyCmd),
+}
+
+#[derive(Subcommand)]
+enum KeyCmd {
+    /// Whether a key is available (the key itself is never printed).
+    Status,
+    /// Save a key in the Windows Credential Manager. Reads it from stdin, so it
+    /// stays out of the shell history.
+    Set,
+    /// Remove the saved key.
+    Clear,
+    /// Check the key against the API.
+    Test,
 }
 
 #[derive(Subcommand)]
@@ -262,9 +282,36 @@ async fn main() -> Result<()> {
                 svc.stt_model_delete(id).await?;
                 print(j, &Value::Null, |_| println!("Deleted"))?;
             }
+            SttCmd::Key(k) => {
+                let human = |s: &CloudKeyStatus| match (&s.hint, s.source) {
+                    (Some(h), Some(src)) => println!("Key {h} ({src})"),
+                    _ => println!("No key"),
+                };
+                match k {
+                    KeyCmd::Status => print(j, &svc.stt_cloud_key_status().await?, human)?,
+                    KeyCmd::Set => {
+                        eprint!("Paste the OpenRouter API key and press Enter: ");
+                        let mut key = String::new();
+                        std::io::stdin().read_line(&mut key)?;
+                        print(j, &svc.stt_cloud_key_set(key).await?, human)?;
+                    }
+                    KeyCmd::Clear => print(j, &svc.stt_cloud_key_clear().await?, human)?,
+                    KeyCmd::Test => print(j, &svc.stt_cloud_key_test().await?, |k| {
+                        let usd =
+                            |v: Option<f64>| v.map_or("unlimited".into(), |x| format!("${x:.2}"));
+                        println!(
+                            "OK: {} · used {} · limit {}",
+                            k.label.as_deref().unwrap_or("key"),
+                            usd(k.usage),
+                            usd(k.limit)
+                        );
+                    })?,
+                }
+            }
         },
         Cmd::Transcribe {
             file,
+            engine,
             model,
             language,
             format,
@@ -284,7 +331,14 @@ async fn main() -> Result<()> {
             let fmt: ExportFormat = serde_json::from_value(Value::String(format.clone()))
                 .with_context(|| format!("unknown format {format:?} (txt|md|srt|vtt)"))?;
             let title = file.file_stem().map(|s| s.to_string_lossy().into_owned());
+            let engine = match engine.as_deref() {
+                None => None,
+                Some("local") => Some(SttEngine::Local),
+                Some("cloud") => Some(SttEngine::Cloud),
+                Some(e) => anyhow::bail!("unknown engine {e:?} (local|cloud)"),
+            };
             let opts = TranscribeOptions {
+                engine,
                 model,
                 language: Some(language),
                 glossary,
@@ -294,6 +348,9 @@ async fn main() -> Result<()> {
             };
             let job = svc.transcribe_file(file, opts)?;
             let r: TranscribeResult = serde_json::from_value(wait_job(&svc, &job).await?)?;
+            if let Some(c) = r.cost {
+                eprintln!("Cost: ${c:.4}");
+            }
             if j {
                 println!("{}", serde_json::to_string_pretty(&r)?);
             } else {

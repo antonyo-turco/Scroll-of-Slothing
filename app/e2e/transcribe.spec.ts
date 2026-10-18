@@ -43,3 +43,49 @@ test('options are remembered across visits', async ({ page }) => {
   await expect(page.getByLabel('Glossary')).toHaveValue('Strahd\nBarovia');
   await expect(page.getByRole('group', { name: 'Search' }).getByRole('button', { name: 'Fast' })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('cloud: key in Settings, confirm once, cost in the status bar', async ({ page }) => {
+  // Without a key the cloud engine can't start.
+  await page.getByRole('group', { name: 'Engine' }).getByRole('button', { name: 'Cloud' }).click();
+  await page.getByRole('button', { name: 'Open audio…' }).click();
+  await expect(page.getByTestId('cloud-key')).toContainText('No OpenRouter key yet');
+  await expect(page.getByRole('button', { name: 'Transcribe file' })).toBeDisabled();
+
+  // Save and test a key in Settings (hash navigation keeps the in-memory mock).
+  await page.getByRole('button', { name: 'Add one in Settings' }).click();
+  await expect(page.getByTestId('key-status')).toContainText('No key yet');
+  await page.getByLabel('OpenRouter API key').fill('sk-or-v1-0123456789abcd');
+  await page.getByRole('button', { name: 'Save key' }).click();
+  await expect(page.getByTestId('key-status')).toContainText('Saved: sk-or-…abcd');
+  await expect(page.getByLabel('OpenRouter API key')).toHaveValue('');
+  await page.getByRole('button', { name: 'Test key' }).click();
+  await expect(page.getByTestId('key-check')).toContainText('Key works');
+
+  await page.evaluate(() => (location.hash = '#/transcribe.file'));
+  await expect(page.getByTestId('cloud-key')).toContainText('sk-or-…abcd');
+  await page.getByRole('button', { name: 'Transcribe file' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Send this audio to OpenRouter?' });
+  await expect(dialog).toContainText('openai/whisper-1');
+  await dialog.getByRole('button', { name: 'Send and transcribe' }).click();
+  await expect(page.getByTestId('segments')).toContainText('Benvenuti al tavolo.');
+  await expect(page.getByText(/openai\/whisper-1 · it · cloud · \$0\.0013/)).toBeVisible();
+
+  // Remembered: no second confirmation.
+  await page.getByRole('button', { name: 'Transcribe file' }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+test('settings: a rejected key is reported, bad URLs are refused', async ({ page }) => {
+  await page.evaluate(() => (location.hash = '#/settings'));
+  await page.getByLabel('OpenRouter API key').fill('sk-or-bad-key-0000');
+  await page.getByRole('button', { name: 'Save key' }).click();
+  await page.getByRole('button', { name: 'Test key' }).click();
+  await expect(page.getByTestId('key-check')).toContainText('rejected (401)');
+  await page.getByRole('button', { name: 'Remove key' }).click();
+  await expect(page.getByTestId('key-status')).toContainText('No key yet');
+
+  await page.getByLabel('API address').fill('ftp://nope');
+  await page.getByLabel('API address').press('Enter');
+  await page.getByLabel('API address').blur();
+  await expect(page.getByText('must be an http(s) URL')).toBeVisible();
+});

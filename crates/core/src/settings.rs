@@ -80,6 +80,20 @@ pub enum Theme {
     Dark,
 }
 
+/// Which engine transcribes speech (docs/features/transcribe.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SttEngine {
+    /// Whisper on this computer.
+    #[default]
+    Local,
+    /// An OpenRouter-format API.
+    Cloud,
+}
+
+pub const DEFAULT_STT_CLOUD_BASE_URL: &str = "https://openrouter.ai/api/v1";
+pub const DEFAULT_STT_CLOUD_MODEL: &str = "openai/whisper-1";
+
 /// An `#rrggbb` colour.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -136,6 +150,10 @@ pub struct Settings {
     pub map_overlap_in: f64,
     pub map_align_to_grid: bool,
     pub mcp_http_enabled: bool,
+    pub stt_engine: SttEngine,
+    /// Base URL of the OpenRouter-format API, without a trailing slash.
+    pub stt_cloud_base_url: String,
+    pub stt_cloud_model: String,
 }
 
 impl Default for Settings {
@@ -159,6 +177,9 @@ impl Default for Settings {
             map_overlap_in: 0.0,
             map_align_to_grid: false,
             mcp_http_enabled: false,
+            stt_engine: SttEngine::Local,
+            stt_cloud_base_url: DEFAULT_STT_CLOUD_BASE_URL.into(),
+            stt_cloud_model: DEFAULT_STT_CLOUD_MODEL.into(),
         }
     }
 }
@@ -255,6 +276,19 @@ impl Settings {
             "map_overlap_in" => set!(map_overlap_in, f64, non_negative, "must be ≥ 0"),
             "map_align_to_grid" => set!(map_align_to_grid, bool),
             "mcp_http_enabled" => set!(mcp_http_enabled, bool),
+            "stt_engine" => set!(stt_engine, SttEngine),
+            "stt_cloud_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
+                Some(u)
+                    if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>
+                {
+                    self.stt_cloud_base_url = u.to_string()
+                }
+                _ => err("must be an http(s) URL".into()),
+            },
+            "stt_cloud_model" => match v.as_str().map(str::trim) {
+                Some(m) if !m.is_empty() => self.stt_cloud_model = m.to_string(),
+                _ => err("must not be empty".into()),
+            },
             _ => err("unknown setting".into()),
         }
     }
@@ -408,6 +442,27 @@ mod tests {
         assert_eq!((s.token_page_format, s.card_page_format), (PageFormat::Letter, PageFormat::A4));
         let keys: Vec<_> = errors.keys().map(String::as_str).collect();
         assert_eq!(keys, ["card_page_format", "object_page_format", "token_page_format"]);
+    }
+
+    #[test]
+    fn stt_settings_validate() {
+        let mut s = Settings::default();
+        let errs = s.apply_patch(&obj(json!({
+            "stt_engine": "cloud",
+            "stt_cloud_base_url": " https://example.com/api/v1/ ",
+            "stt_cloud_model": " mistralai/voxtral-mini-transcribe ",
+        })));
+        assert!(errs.is_empty(), "{errs:?}");
+        assert_eq!(s.stt_engine, SttEngine::Cloud);
+        assert_eq!(s.stt_cloud_base_url, "https://example.com/api/v1");
+        assert_eq!(s.stt_cloud_model, "mistralai/voxtral-mini-transcribe");
+        let errs = s.apply_patch(&obj(json!({
+            "stt_engine": "gpu",
+            "stt_cloud_base_url": "ftp://x",
+            "stt_cloud_model": "  ",
+        })));
+        assert_eq!(errs.len(), 3, "{errs:?}");
+        assert_eq!(s.stt_cloud_model, "mistralai/voxtral-mini-transcribe");
     }
 
     #[test]

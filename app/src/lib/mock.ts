@@ -41,6 +41,9 @@ function validate(key: string, value: unknown): string | null {
   if (key === 'cut_line_style') return ['Dashed', 'Dotted', 'Solid'].includes(value as string) ? null : 'invalid style';
   if (key === 'theme') return ['system', 'light', 'dark'].includes(value as string) ? null : 'invalid theme';
   if (key === 'cut_line_color') return /^#[0-9a-fA-F]{6}$/.test(value as string) ? null : 'invalid colour';
+  if (key === 'stt_engine') return value === 'local' || value === 'cloud' ? null : 'expected local or cloud';
+  if (key === 'stt_cloud_base_url') return /^https?:\/\/.{3,}/.test(String(value).trim()) ? null : 'must be an http(s) URL';
+  if (key === 'stt_cloud_model') return String(value).trim() ? null : 'must not be empty';
   return null;
 }
 
@@ -665,7 +668,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
 
   Object.assign(handlers, createMapsMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
   Object.assign(handlers, createMusicMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
-  Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
+  Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
 
   return {
     async invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {

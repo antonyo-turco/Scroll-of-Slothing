@@ -3,6 +3,7 @@
 //! see `docs/features/transcribe.md`.
 
 pub mod audio;
+pub mod cloud;
 pub mod local;
 pub mod models;
 
@@ -23,6 +24,10 @@ pub enum SttError {
     Download(String),
     #[error("transcription: {0}")]
     Engine(String),
+    #[error("cloud: {0}")]
+    Cloud(String),
+    #[error("cloud: {0}")]
+    Auth(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }

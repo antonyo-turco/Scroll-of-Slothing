@@ -1,7 +1,7 @@
 // In-memory speech-to-text backend for browser dev and tests. Jobs report a few
 // progress steps on a timer, then finish with canned Italian segments.
 
-import type { Correction, Segment, SttModel, TranscribeOptions, TranscriptFormat } from './types';
+import type { CloudKeyStatus, Correction, Segment, Settings, SttModel, TranscribeOptions, TranscriptFormat } from './types';
 
 type Emit = (e: Record<string, unknown>) => void;
 type Handler = (args: Record<string, unknown>) => unknown;
@@ -44,8 +44,11 @@ const applyCorrections = (text: string, rules: Correction[]) =>
       return t.replace(new RegExp(`(?<![\\p{L}\\p{N}_])${esc}(?![\\p{L}\\p{N}_])`, 'giu'), r.to);
     }, text);
 
-export function createSttMockHandlers(emit: Emit): Record<string, Handler> {
+export function createSttMockHandlers(emit: Emit, settings: () => Settings): Record<string, Handler> {
   let seq = 0;
+  let key: string | null = null;
+  const keyStatus = (): CloudKeyStatus =>
+    key ? { configured: true, source: 'saved', hint: `${key.slice(0, 6)}…${key.slice(-4)}` } : { configured: false, source: null, hint: null };
   const models: SttModel[] = [
     { id: 'base', label: 'Base (fast, rough)', size: 141 * MB, installed: false },
     { id: 'small', label: 'Small (live default)', size: 465 * MB, installed: true },
@@ -91,16 +94,37 @@ export function createSttMockHandlers(emit: Emit): Record<string, Handler> {
       model(id).installed = false;
       return null;
     },
+    stt_cloud_key_status: () => keyStatus(),
+    stt_cloud_key_set: ({ key: k }) => {
+      const v = String(k ?? '').trim();
+      if (!v || /\s/.test(v)) throw { code: 'invalid_input', message: 'invalid input: the API key must be one word, without spaces' };
+      key = v;
+      return keyStatus();
+    },
+    stt_cloud_key_clear: () => {
+      key = null;
+      return keyStatus();
+    },
+    stt_cloud_key_test: () => {
+      if (!key) throw { code: 'invalid_input', message: 'invalid input: no OpenRouter API key: add one in Settings → Transcription' };
+      if (key.includes('bad')) throw { code: 'invalid_input', message: 'invalid input: cloud: the API key was rejected (401): No auth credentials found' };
+      return { label: `${key.slice(0, 10)}...`, limit: null, usage: 0.42 };
+    },
     transcribe_file: ({ path, opts }) => {
       const o = (opts ?? {}) as TranscribeOptions;
+      if (!String(path).trim()) throw { code: 'not_found', message: 'not found: file' };
+      const segments = () => SAMPLE.map((s) => ({ ...s, text: applyCorrections(s.text, o.corrections ?? []) }));
+      if ((o.engine ?? settings().stt_engine) === 'cloud') {
+        if (!key) throw { code: 'invalid_input', message: 'invalid input: no OpenRouter API key: add one in Settings → Transcription (or set OPENROUTER_API_KEY)' };
+        const cloudModel = o.model?.trim() || settings().stt_cloud_model;
+        return job('transcribe', ['decoding audio', 'sent 0 of 1 parts'], () => ({
+          engine: 'cloud', model: cloudModel, language: o.language ?? 'it', duration_ms: 12_600, segments: segments(), cost: 0.0013,
+        }));
+      }
       const m = model(o.model ?? 'large-v3-turbo-q5_0');
       if (!m.installed) throw { code: 'not_found', message: `not found: model ${m.id} is not installed; download it first` };
-      if (!String(path).trim()) throw { code: 'not_found', message: 'not found: file' };
       return job('transcribe', ['decoding audio', 'loading model', 'transcribing', 'transcribing'], () => ({
-        model: m.id,
-        language: o.language ?? 'it',
-        duration_ms: 12_600,
-        segments: SAMPLE.map((s) => ({ ...s, text: applyCorrections(s.text, o.corrections ?? []) })),
+        engine: 'local', model: m.id, language: o.language ?? 'it', duration_ms: 12_600, segments: segments(), cost: null,
       }));
     },
     transcript_export: ({ segments, format, title }) =>

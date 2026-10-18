@@ -5,6 +5,8 @@
 export type PageFormat = 'Letter' | 'A4' | 'A3';
 export type CutLineStyle = 'Dashed' | 'Dotted' | 'Solid';
 export type Theme = 'system' | 'light' | 'dark';
+/** Who transcribes speech: Whisper on this computer, or an OpenRouter-format API. */
+export type SttEngine = 'local' | 'cloud';
 
 export interface Settings {
   start_view: string;
@@ -25,6 +27,9 @@ export interface Settings {
   map_overlap_in: number;
   map_align_to_grid: boolean;
   mcp_http_enabled: boolean;
+  stt_engine: SttEngine;
+  stt_cloud_base_url: string;
+  stt_cloud_model: string;
 }
 
 export interface SettingsUpdate {
@@ -79,6 +84,9 @@ export const DEFAULT_SETTINGS: Settings = {
   map_overlap_in: 0.0,
   map_align_to_grid: false,
   mcp_http_enabled: false,
+  stt_engine: 'local',
+  stt_cloud_base_url: 'https://openrouter.ai/api/v1',
+  stt_cloud_model: 'openai/whisper-1',
 };
 
 // ── library (crates/store/src/assets.rs) ──
@@ -556,6 +564,9 @@ export interface Correction {
 }
 
 export interface TranscribeOptions {
+  /** default: the stt_engine setting */
+  engine?: SttEngine | null;
+  /** local: a catalog id; cloud: an OpenRouter model id (default: the stt_cloud_model setting) */
   model?: string | null;
   /** 'it' | 'en' | 'auto' | any ISO 639-1 code */
   language?: string | null;
@@ -572,11 +583,32 @@ export interface Segment {
 }
 
 export interface TranscribeResult {
+  engine: SttEngine;
   model: string;
   language: string;
   duration_ms: number;
   segments: Segment[];
+  /** cloud only: USD reported by the API */
+  cost: number | null;
 }
+
+/** Never contains the key itself. */
+export interface CloudKeyStatus {
+  configured: boolean;
+  source: 'saved' | 'env' | null;
+  /** e.g. sk-or-…a1b2 */
+  hint: string | null;
+}
+
+export interface CloudKeyInfo {
+  label: string | null;
+  /** USD; null = unlimited */
+  limit: number | null;
+  usage: number | null;
+}
+
+/** Suggested OpenRouter speech-to-text models (any id works). */
+export const CLOUD_STT_MODELS = ['openai/whisper-1', 'openai/gpt-transcribe', 'mistralai/voxtral-mini-transcribe'];
 
 export type TranscriptFormat = 'txt' | 'md' | 'srt' | 'vtt';
 

@@ -64,7 +64,8 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `music_soundboards_list` / `music_soundboard_press` | 7 | Soundboard buttons (one-shot, restart, toggle) |
 | `music_mix_export` / `music_mix_import` / `music_import_legacy` | 7 | Portable `.dmix` files; import of the legacy music data |
 | `stt_models_list` / `stt_model_download` / `stt_model_delete` | 8 | Whisper models: catalog with what is installed, hash-checked download (job), delete |
-| `transcribe_file` | 8 | Transcribe an audio file locally (job; result: model, language, duration, timed segments). Options: model, language, glossary, corrections, beam size |
+| `stt_cloud_key_status` / `stt_cloud_key_test` | 8 | Whether an OpenRouter key is available (never the key itself), and a live check of it. Keys are set in the app's Settings or `sleuth stt key set`, deliberately not over MCP |
+| `transcribe_file` | 8 | Transcribe an audio file, `engine` `local` (Whisper) or `cloud` (OpenRouter) (job; result: engine, model, language, duration, cost, timed segments). Options: model, language, glossary (local), corrections, beam size (local) |
 | `transcript_export` | 8 | Render segments as txt, md, srt or vtt; optionally write to a path |
 
 Music plays in the desktop app. When the standalone `sleuth-mcp` server changes music state, the change is stored, and the running app applies it to its audio engine.

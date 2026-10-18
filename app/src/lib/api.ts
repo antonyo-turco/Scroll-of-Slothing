@@ -9,7 +9,7 @@ import type {
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
-  Segment, SttModel, TranscribeOptions, TranscriptFormat,
+  CloudKeyInfo, CloudKeyStatus, Segment, SttModel, TranscribeOptions, TranscriptFormat,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -209,6 +209,11 @@ export const api = {
   /** Returns a job id. */
   sttModelDownload: (id: string) => call<string>('stt_model_download', { id }),
   sttModelDelete: (id: string) => call<void>('stt_model_delete', { id }),
+  sttCloudKeyStatus: () => call<CloudKeyStatus>('stt_cloud_key_status'),
+  /** Saved in the Windows Credential Manager; the key never comes back. */
+  sttCloudKeySet: (key: string) => call<CloudKeyStatus>('stt_cloud_key_set', { key }),
+  sttCloudKeyClear: () => call<CloudKeyStatus>('stt_cloud_key_clear'),
+  sttCloudKeyTest: () => call<CloudKeyInfo>('stt_cloud_key_test'),
   /** Returns a job id; the job result is a TranscribeResult. */
   transcribeFile: (path: string, opts: TranscribeOptions) => call<string>('transcribe_file', { path, opts }),
   transcriptExport: (segments: Segment[], format: TranscriptFormat, title: string | null, path: string | null) =>
