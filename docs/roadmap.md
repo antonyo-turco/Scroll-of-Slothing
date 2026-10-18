@@ -17,9 +17,13 @@ Phases are **not** promoted individually. `master` receives the rewrite only onc
 | 5 | Map Paginator + filters + AoE templates | in progress (sprint) |
 | 6 | Perf benchmarks, accessibility, packaging (MSI), in-app MCP HTTP, docs review | done (pending review) |
 | 7 | Music (requested by the user; spec in `features/music/`) | done (pending review; alpha testing pending) |
+| 8 | Transcribe: speech to text from files and live, local Whisper by default plus an OpenRouter-format cloud engine (requested 2026-10-18; spec in `features/transcribe.md`) | planned |
 
 ## Out of scope
 The features on the old repo's `feature/dnd-integration` and `dev-dnd-legacy` branches: LAN multiplayer, combat tracker, character sheets, encounters.
+
+## Parity status
+On 2026-10-18 the user declared that the rewrite has reached parity with Orb of Many Functions and is feature-complete. Phase 8 (Transcribe) is a new feature beyond parity and does not block the release. A few parity checklist items are still unticked (AoE templates 4, Map Paginator 7, Map filters 1, Music 1). They were left as they are and are covered by alpha testing.
 
 ## Next features
 In order. The parity sprint runs on `sprint/full-parity` and merges back into `dev`.

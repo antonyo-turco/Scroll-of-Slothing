@@ -17,3 +17,6 @@
 - [Cards](features/cards.md)
 - [Map Paginator](features/map-paginator.md) · [Map filters](features/map-filters.md) · [AoE templates](features/aoe-templates.md)
 - [Music](features/music/overview.md): [library](features/music/library-tracks.md) · [mixer](features/music/mixer-soundbites-ducking.md) · [soundscapes](features/music/soundscapes.md) · [playlists](features/music/playlists.md) · [soundboard](features/music/soundboard.md) · [engine](features/music/player-engine.md) · [schema](features/music/data-model.md) · [known issues](features/music/known-issues.md)
+
+## New features (beyond parity)
+- [Transcribe](features/transcribe.md): speech to text from files and live, local or cloud
