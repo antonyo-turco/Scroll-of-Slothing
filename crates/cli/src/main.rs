@@ -297,12 +297,9 @@ async fn main() -> Result<()> {
             if j {
                 println!("{}", serde_json::to_string_pretty(&r)?);
             } else {
-                let text = svc.transcript_format(&r.segments, fmt, title.as_deref());
+                let text = svc.transcript_export(r.segments, fmt, title, out.clone()).await?;
                 match out {
-                    Some(p) => {
-                        std::fs::write(&p, text)?;
-                        eprintln!("Wrote {}", p.display());
-                    }
+                    Some(p) => eprintln!("Wrote {}", p.display()),
                     None => print!("{text}"),
                 }
             }

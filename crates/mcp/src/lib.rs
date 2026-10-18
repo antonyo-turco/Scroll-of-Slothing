@@ -17,11 +17,12 @@ use serde_json::{Map, Value};
 use sleuth_core::cards::Flip;
 use sleuth_core::cutout::CutoutParams;
 use sleuth_core::pack::shelf::SheetMode;
+use sleuth_core::stt::{Correction, ExportFormat, Segment};
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
     AssetPatch, AssetQuery, AssetSort, CardOptions, ExportWhat, ImportFile, LegacyImportOptions,
-    ObjectItemPatch, Service, ServiceError, SheetItemPatch,
+    ObjectItemPatch, Service, ServiceError, SheetItemPatch, TranscribeOptions,
 };
 
 type ToolResult = Result<CallToolResult, ErrorData>;
@@ -235,6 +236,56 @@ pub struct SheetOptionsParams {
     /// Letter | A4
     pub format: Option<String>,
     pub cut_border: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SttModelParams {
+    /// Model id from `stt_models_list`, e.g. `small`, `medium-q5_0`, `large-v3-turbo-q5_0`.
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CorrectionParam {
+    /// Text to find (whole words, case-insensitive).
+    pub from: String,
+    pub to: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TranscribeFileParams {
+    /// Audio file (absolute path): wav, mp3, flac, ogg, m4a, ...
+    pub path: String,
+    /// Model id; default `large-v3-turbo-q5_0`. Must be installed (`stt_model_download`).
+    pub model: Option<String>,
+    /// `it` (default), `en`, ... or `auto`.
+    pub language: Option<String>,
+    /// Terms whose spelling Whisper should favour, e.g. monster or NPC names.
+    #[serde(default)]
+    pub glossary: Vec<String>,
+    /// Find/replace rules applied to the result.
+    #[serde(default)]
+    pub corrections: Vec<CorrectionParam>,
+    /// Beam width; 1 is greedy (faster). Default 5.
+    pub beam_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SegmentParam {
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TranscriptExportParams {
+    /// Segments, as in the `transcribe_file` job result.
+    pub segments: Vec<SegmentParam>,
+    /// `txt`, `md`, `srt` or `vtt`.
+    pub format: String,
+    /// Heading for Markdown.
+    pub title: Option<String>,
+    /// Also write the text to this absolute path.
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -481,6 +532,73 @@ impl SleuthServer {
     #[tool(description = "Request cancellation of a running job.")]
     async fn jobs_cancel(&self, Parameters(p): Parameters<JobParams>) -> ToolResult {
         done(self.svc.job_cancel(&p.job_id))
+    }
+
+    // ── speech to text ──
+    #[tool(
+        description = "Whisper models for local transcription: id, label, size in bytes, installed."
+    )]
+    async fn stt_models_list(&self) -> ToolResult {
+        done(self.svc.stt_models_list().await)
+    }
+
+    #[tool(description = "Download a Whisper model (hash-checked). Returns a job_id.")]
+    async fn stt_model_download(&self, Parameters(p): Parameters<SttModelParams>) -> ToolResult {
+        done(
+            self.svc.stt_model_download(p.id).map(|job_id| serde_json::json!({ "job_id": job_id })),
+        )
+    }
+
+    #[tool(description = "Delete a downloaded Whisper model.")]
+    async fn stt_model_delete(&self, Parameters(p): Parameters<SttModelParams>) -> ToolResult {
+        done(self.svc.stt_model_delete(p.id).await)
+    }
+
+    #[tool(
+        description = "Transcribe an audio file locally with Whisper (Italian by default). Returns a job_id; the job result has model, language, duration_ms and segments [{start_ms, end_ms, text}]."
+    )]
+    async fn transcribe_file(&self, Parameters(p): Parameters<TranscribeFileParams>) -> ToolResult {
+        let opts = TranscribeOptions {
+            model: p.model,
+            language: p.language,
+            glossary: p.glossary,
+            corrections: p
+                .corrections
+                .into_iter()
+                .map(|c| Correction { from: c.from, to: c.to })
+                .collect(),
+            beam_size: p.beam_size,
+            threads: None,
+        };
+        done(
+            self.svc
+                .transcribe_file(PathBuf::from(p.path), opts)
+                .map(|job_id| serde_json::json!({ "job_id": job_id })),
+        )
+    }
+
+    #[tool(
+        description = "Render transcript segments as txt, md, srt or vtt; optionally write to a path. Returns the text."
+    )]
+    async fn transcript_export(
+        &self,
+        Parameters(p): Parameters<TranscriptExportParams>,
+    ) -> ToolResult {
+        let format: ExportFormat = match serde_json::from_value(Value::String(p.format.clone())) {
+            Ok(f) => f,
+            Err(_) => {
+                return fail(&ServiceError::InvalidInput(format!(
+                    "unknown format {:?} (txt|md|srt|vtt)",
+                    p.format
+                )));
+            }
+        };
+        let segments = p
+            .segments
+            .into_iter()
+            .map(|s| Segment { start_ms: s.start_ms, end_ms: s.end_ms, text: s.text })
+            .collect();
+        done(self.svc.transcript_export(segments, format, p.title, p.path.map(PathBuf::from)).await)
     }
 
     #[tool(

@@ -2,7 +2,12 @@
 
 You turn speech into text, either from an audio file or live from the microphone. Transcripts are saved with timestamps and can be exported as TXT, Markdown, SRT or VTT. This is a new feature: Orb of Many Functions has no equivalent, so there is no parity checklist. The feature checklist at the end tracks it instead.
 
-Status: in progress (phase 8, after parity). Step 1 is done: `crates/stt`, file transcription and model management in the service and CLI.
+Status: in progress (phase 8, after parity). Done so far:
+- Step 1: `crates/stt`, file transcription and model management in the service and CLI.
+- A first slice of the UI: the **File** tab (`transcribe.file`, `routes/transcribe/TranscribeFile.svelte`).
+  - Pick or drop a file; choose model, language, Accurate/Fast, glossary and corrections. These are kept in the workspace store under `transcribe.file`.
+  - Progress with cancel, timestamped segments, copy, export.
+  - Matching Tauri commands and MCP tools. Transcripts are not saved yet: the last one is kept in memory for the session.
 
 ## Engines
 Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, and you can override it per transcription.

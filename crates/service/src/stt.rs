@@ -199,14 +199,23 @@ impl Service {
         Ok(TranscribeResult { model: model_id.into(), language, duration_ms, segments })
     }
 
-    /// Renders segments as TXT, Markdown, SRT or VTT.
-    pub fn transcript_format(
+    /// Renders segments as TXT, Markdown, SRT or VTT. With `path`, also writes
+    /// the text there. Returns the text.
+    pub async fn transcript_export(
         &self,
-        segments: &[Segment],
+        segments: Vec<Segment>,
         format: ExportFormat,
-        title: Option<&str>,
-    ) -> String {
-        export(segments, format, title)
+        title: Option<String>,
+        path: Option<PathBuf>,
+    ) -> Result<String> {
+        let text = export(&segments, format, title.as_deref());
+        if let Some(p) = path {
+            let t = text.clone();
+            tokio::task::spawn_blocking(move || std::fs::write(p, t))
+                .await
+                .map_err(|e| ServiceError::Internal(format!("worker panicked: {e}")))??;
+        }
+        Ok(text)
     }
 }
 
@@ -237,6 +246,24 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(err, ServiceError::InvalidInput(_)), "{err}");
+    }
+
+    #[tokio::test]
+    async fn export_returns_and_writes_the_text() {
+        let (d, svc) = temp_service();
+        let segs = vec![Segment { start_ms: 0, end_ms: 1500, text: "Ciao.".into() }];
+        let out = d.path().join("t.srt");
+        let text =
+            svc.transcript_export(segs, ExportFormat::Srt, None, Some(out.clone())).await.unwrap();
+        assert_eq!(
+            text,
+            "1
+00:00:00,000 --> 00:00:01,500
+Ciao.
+
+"
+        );
+        assert_eq!(std::fs::read_to_string(out).unwrap(), text);
     }
 
     #[tokio::test]

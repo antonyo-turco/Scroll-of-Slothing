@@ -540,6 +540,46 @@ export interface AoeSheetLayout {
   summary: string;
 }
 
+// ── speech to text (docs/features/transcribe.md) ──
+
+export interface SttModel {
+  id: string;
+  label: string;
+  /** bytes */
+  size: number;
+  installed: boolean;
+}
+
+export interface Correction {
+  from: string;
+  to: string;
+}
+
+export interface TranscribeOptions {
+  model?: string | null;
+  /** 'it' | 'en' | 'auto' | any ISO 639-1 code */
+  language?: string | null;
+  glossary?: string[];
+  corrections?: Correction[];
+  /** 1 = greedy (faster) */
+  beam_size?: number | null;
+}
+
+export interface Segment {
+  start_ms: number;
+  end_ms: number;
+  text: string;
+}
+
+export interface TranscribeResult {
+  model: string;
+  language: string;
+  duration_ms: number;
+  segments: Segment[];
+}
+
+export type TranscriptFormat = 'txt' | 'md' | 'srt' | 'vtt';
+
 /** What the save-to-library dialog returns (SaveAssetDialog.svelte). */
 export interface SaveDetails {
   name: string;

@@ -10,13 +10,15 @@ use sleuth_core::cards::DeckLayout;
 use sleuth_core::cutout::CutoutParams;
 use sleuth_core::pack::shelf::SheetMode;
 use sleuth_core::settings::Settings;
+use sleuth_core::stt::{ExportFormat, Segment};
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
     Asset, AssetPage, AssetPatch, AssetQuery, Border, CardOptions, CardSummary, CutoutDraft, Deck,
     DeckSummary, ExportWhat, ImportFile, ImportReport, JobId, JobStatus, LegacyImportOptions,
     ObjectItemPatch, ObjectSheet, RenameOutcome, Service, ServiceError, SettingsUpdate,
-    SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenSheet,
+    SheetItemPatch, SheetLayout, SourceImage, SttModel, TagCount, TokenDraft, TokenSheet,
+    TranscribeOptions,
 };
 use tauri::State;
 use tauri::ipc::Response;
@@ -900,4 +902,37 @@ pub async fn music_mix_import(svc: Svc<'_>, path: PathBuf, play: bool) -> Res<Mi
 #[tauri::command]
 pub async fn music_import_legacy(svc: Svc<'_>) -> Res<MusicImportReport> {
     svc.music_import_legacy().await
+}
+
+// ── speech to text ──
+
+#[tauri::command]
+pub async fn stt_models_list(svc: Svc<'_>) -> Res<Vec<SttModel>> {
+    svc.stt_models_list().await
+}
+
+#[tauri::command]
+pub fn stt_model_download(svc: Svc<'_>, id: String) -> Res<JobId> {
+    svc.stt_model_download(id)
+}
+
+#[tauri::command]
+pub async fn stt_model_delete(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.stt_model_delete(id).await
+}
+
+#[tauri::command]
+pub fn transcribe_file(svc: Svc<'_>, path: PathBuf, opts: TranscribeOptions) -> Res<JobId> {
+    svc.transcribe_file(path, opts)
+}
+
+#[tauri::command]
+pub async fn transcript_export(
+    svc: Svc<'_>,
+    segments: Vec<Segment>,
+    format: ExportFormat,
+    title: Option<String>,
+    path: Option<PathBuf>,
+) -> Res<String> {
+    svc.transcript_export(segments, format, title, path).await
 }

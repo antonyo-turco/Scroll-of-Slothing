@@ -13,6 +13,7 @@ import {
 import cardTemplates from '../../../assets/cards/templates.json';
 import { createMusicMockHandlers } from './mock-music';
 import { createMapsMockHandlers, MOCK_TOKEN_FILTER_CATALOG } from './mock-maps';
+import { createSttMockHandlers } from './mock-stt';
 
 export interface Backend {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -21,7 +22,7 @@ export interface Backend {
 
 const ROUTES = [
   'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
-  'cards', 'maps.paginator', 'maps.aoe', 'music', 'settings',
+  'cards', 'maps.paginator', 'maps.aoe', 'music', 'transcribe.file', 'settings',
 ];
 
 function validate(key: string, value: unknown): string | null {
@@ -664,6 +665,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
 
   Object.assign(handlers, createMapsMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
   Object.assign(handlers, createMusicMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
+  Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
 
   return {
     async invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {

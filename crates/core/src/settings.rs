@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 use crate::units::PageFormat;
 
 /// Navigable views. The string ids are stable and persisted (`start_view`).
-pub const ROUTES: [&str; 10] = [
+pub const ROUTES: [&str; 11] = [
     "library",
     "tokens.cutter",
     "tokens.sheet",
@@ -20,6 +20,7 @@ pub const ROUTES: [&str; 10] = [
     "maps.paginator",
     "maps.aoe",
     "music",
+    "transcribe.file",
     "settings",
 ];
 

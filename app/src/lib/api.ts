@@ -9,6 +9,7 @@ import type {
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
+  Segment, SttModel, TranscribeOptions, TranscriptFormat,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -203,6 +204,15 @@ export const api = {
     toBlob(await call<ArrayBuffer | string>('aoe_sheet_preview', { inch, format, page, maxPx })),
   aoeSheetExportPdf: (inch: number, format: PageFormat, path: string) =>
     call<string>('aoe_sheet_export_pdf', { inch, format, path }),
+
+  sttModelsList: () => call<SttModel[]>('stt_models_list'),
+  /** Returns a job id. */
+  sttModelDownload: (id: string) => call<string>('stt_model_download', { id }),
+  sttModelDelete: (id: string) => call<void>('stt_model_delete', { id }),
+  /** Returns a job id; the job result is a TranscribeResult. */
+  transcribeFile: (path: string, opts: TranscribeOptions) => call<string>('transcribe_file', { path, opts }),
+  transcriptExport: (segments: Segment[], format: TranscriptFormat, title: string | null, path: string | null) =>
+    call<string>('transcript_export', { segments, format, title, path }),
 };
 
 // ── native dialogs (no-ops returning null outside Tauri) ──
@@ -244,3 +254,5 @@ export async function onFileDrop(handler: (paths: string[]) => void): Promise<()
 }
 
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'];
+/** Matches sleuth_stt::audio::EXTENSIONS. */
+export const AUDIO_EXTENSIONS = ['wav', 'mp3', 'flac', 'ogg', 'oga', 'm4a', 'mp4', 'aac', 'mka', 'mkv', 'webm', 'caf', 'aiff'];
