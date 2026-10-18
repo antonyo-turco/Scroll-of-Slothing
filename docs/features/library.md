@@ -18,7 +18,7 @@ See the `assets` table in `../data-model.md`. Kinds: `token`, `cutout`, `map`.
 
 **View modes** (new, 2026-10-18): a segmented switch next to the sort picker, remembered in the workspace (`library.view`).
 - **Cards**: the grid described below (176 × 258 px).
-- **List**: one full-width row per asset (48 px) with a 40 px thumbnail, name and aliases, kind, size select, tags, updated date and the pin star, under a column header. The whole row is the click target, so selection (click, Ctrl/Shift+click) works as in the grid.
+- **List**: one full-width row per asset (48 px) with a 40 px thumbnail, name and aliases, kind, size select, tags, updated date and the pin star, under a column header. The rows share their look with the Music library (`.list-head`, `.list-row`, `.list-thumb`, `.list-pill`, `.list-star` in `app.css`). The whole row is the click target, so selection (click, Ctrl/Shift+click) works as in the grid.
 - **Pills**: compact tiles (112 × 142 px) with a smaller image and the name only; the pin star shows on hover.
 - All three are the same `AssetCard` component (`variant`), so the hover preview, pinning and selection behave identically; `VirtualGrid` has a `fill` mode for the single-column list.
 

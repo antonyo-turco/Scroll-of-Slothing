@@ -383,14 +383,7 @@
     padding-right: var(--space-2);
   }
   .list-head {
-    display: grid;
-    gap: var(--space-3);
-    padding: 0 calc(var(--space-2) + 1px) 6px;
     margin-right: var(--space-2);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
   }
   .views button {
     display: inline-flex;

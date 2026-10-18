@@ -92,19 +92,31 @@
 {/snippet}
 
 {#if variant === 'row'}
-  <div class="item row-item" class:selected class:active data-testid="asset-card" style:grid-template-columns={ROW_COLUMNS}>
+  <div class="list-row" class:selected class:active data-testid="asset-card" style:grid-template-columns={ROW_COLUMNS}>
     <!-- The whole row is the hit target; the controls sit above it. -->
     <button class="hit row-hit" aria-label="{asset.name} ({kind})" aria-pressed={selected || active} {onclick} onmouseenter={enter} onmouseleave={leave}></button>
-    {@render thumb()}
-    <div class="cell name-cell">
-      <span class="name" title={asset.name}>{asset.name}</span>
-      {#if asset.aliases}<span class="aka-inline">{asset.aliases.split('\n').join(', ')}</span>{/if}
+    <div class="list-thumb cell">
+      <img src={blobUrl(asset.thumb_blob ?? asset.rendered_blob)} alt="" loading="lazy" decoding="async" draggable="false" />
+      {#if selecting}<span class="check" aria-hidden="true">{selected ? '✓' : ''}</span>{/if}
     </div>
-    <div class="cell"><span class="kind kind-{asset.kind}">{kind}</span></div>
+    <div class="cell name-cell">
+      <span class="list-title" title={asset.name}>{asset.name}</span>
+      {#if asset.aliases}<span class="list-sub">{asset.aliases.split('\n').join(', ')}</span>{/if}
+    </div>
+    <div class="cell"><span class="list-pill">{kind}</span></div>
     <div class="cell control">{@render size()}</div>
-    <div class="cell tags" title={asset.tags.join(', ')}>{asset.tags.join(' · ')}</div>
-    <div class="cell date">{date}</div>
-    <div class="cell control">{@render pin()}</div>
+    <div class="cell list-muted" title={asset.tags.join(', ')}>{asset.tags.join(' · ')}</div>
+    <div class="cell list-muted date">{date}</div>
+    <div class="cell control">
+      <button
+        class="list-star"
+        class:on={asset.pinned}
+        aria-label={asset.pinned ? `Unpin ${asset.name}` : `Pin ${asset.name}`}
+        aria-pressed={asset.pinned}
+        title={asset.pinned ? 'Pinned' : 'Pin'}
+        onclick={onpin}>{asset.pinned ? '★' : '☆'}</button
+      >
+    </div>
   </div>
 {:else}
   <article class="card item asset" class:pill={variant === 'pill'} class:selected class:active data-testid="asset-card">
@@ -274,25 +286,7 @@
     left: 4px;
   }
 
-  /* ── row ── */
-  .row-item {
-    position: relative;
-    display: grid;
-    align-items: center;
-    gap: var(--space-3);
-    height: 100%;
-    padding: 0 var(--space-2);
-    border: 1px solid transparent;
-    border-bottom-color: var(--border);
-    border-radius: var(--radius-sm);
-  }
-  .row-item:hover {
-    background: var(--surface-2);
-  }
-  .row-item.active,
-  .row-item.selected {
-    background: var(--accent-soft);
-  }
+  /* ── row: the shared .list-row look (app.css), plus the full-row hit target ── */
   .row-hit {
     position: absolute;
     inset: 0;
@@ -302,13 +296,7 @@
   .row-hit:focus-visible {
     outline-offset: -2px;
   }
-  .row-item .thumb {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-sm);
-    pointer-events: none;
-  }
-  .row-item .check {
+  .list-row .check {
     top: 2px;
     left: 2px;
     width: 16px;
@@ -318,7 +306,6 @@
   .cell {
     min-width: 0;
     pointer-events: none;
-    font-size: 13px;
   }
   .cell.control {
     position: relative;
@@ -328,32 +315,11 @@
   .name-cell {
     display: grid;
   }
-  .aka-inline {
-    font-size: 11px;
-    color: var(--text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .row-item .size {
+  .list-row .size {
     margin-left: 0;
   }
-  .row-item .tags {
-    font-size: 12px;
-  }
   .date {
-    color: var(--text-muted);
-    font-size: 12px;
     font-variant-numeric: tabular-nums;
-  }
-  .row-item .pin {
-    position: static;
-    opacity: 1;
-    background: transparent;
-    color: var(--text-muted);
-  }
-  .row-item .pin.on {
-    color: #e0a400;
   }
 
   .preview {
