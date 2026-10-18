@@ -316,7 +316,7 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
     music_mix_import: ({ path, play: start }) => {
       const name = String(path).split(/[\\/]/).pop()?.replace(/\.dmix$/i, '') ?? 'Mix';
       const s: Soundscape = {
-        id: id('ss'), name, campaign_id: null, notes: '', created_at: now(), tags: [],
+        id: id('ss'), name, campaign_id: null, notes: '', created_at: now(), tags: [], pinned: false,
         channels: [{ track_id: 'mock-t1', title: 'Tavern Ambience', volume: 70, is_looping: true, role: 'ambient' }], soundbites: [],
       };
       soundscapes.push(s);
