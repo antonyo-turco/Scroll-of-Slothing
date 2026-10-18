@@ -241,6 +241,28 @@ impl Service {
     }
 
     async fn border_image(&self, id: &str) -> Result<(Arc<RgbaImage>, TokenShape)> {
+        // Bundled borders: decoded once per process, no store round-trip per render.
+        if let Some(&(_, _, shape, bytes)) = BUILTIN_BORDERS.iter().find(|b| b.0 == id) {
+            static CACHE: std::sync::OnceLock<
+                std::sync::Mutex<std::collections::HashMap<String, Arc<RgbaImage>>>,
+            > = std::sync::OnceLock::new();
+            let cache = CACHE.get_or_init(Default::default);
+            if let Some(img) = cache.lock().expect("border cache").get(id) {
+                return Ok((img.clone(), shape));
+            }
+            let id = id.to_string();
+            let img = tokio::task::spawn_blocking(move || {
+                let img = imaging::decode(bytes)
+                    .map_err(|e| ServiceError::Internal(e.to_string()))?
+                    .to_rgba8();
+                let img = Arc::new(img);
+                cache.lock().expect("border cache").insert(id, img.clone());
+                Ok::<_, ServiceError>(img)
+            })
+            .await
+            .map_err(|e| ServiceError::Internal(e.to_string()))??;
+            return Ok((img, shape));
+        }
         let border = self
             .token_borders_list()
             .await?

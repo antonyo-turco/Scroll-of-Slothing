@@ -215,26 +215,44 @@ pub fn shape_mask(w: u32, h: u32, shape: TokenShape, cx: f64, cy: f64, r: f64) -
         return ellipse_mask(w, h, cx - r, cy - r, cx + r - 1.0, cy + r - 1.0);
     }
     let mut out = vec![0u8; (w * h) as usize];
+    let Some(poly) = shape.polygon() else { return out };
     if r <= 0.0 {
         return out;
     }
+    // Side normals scaled to pixels: `p·n − apothem` is the signed distance (in
+    // pixels) to the nearest side line, so pixels more than a pixel inside or
+    // outside are decided at once and only the edge is supersampled.
+    let normals: Vec<(f64, f64)> = poly.normals().collect();
+    let apothem = poly.apothem() * r;
+    let dist = |px: f64, py: f64| {
+        normals.iter().map(|(nx, ny)| px * nx + py * ny).fold(f64::NEG_INFINITY, f64::max) - apothem
+    };
     let sub = 1.0 / f64::from(AA);
     for y in 0..h {
-        if ((f64::from(y) + 0.5 - cy) / r).abs() > 1.0 + 2.0 / r {
+        let py = f64::from(y) + 0.5 - cy;
+        if py.abs() > r + 2.0 {
             continue;
         }
         for x in 0..w {
-            let mut hits = 0u32;
-            for sy in 0..AA {
-                let py = (f64::from(y) + (f64::from(sy) + 0.5) * sub - cy) / r;
-                for sx in 0..AA {
-                    let px = (f64::from(x) + (f64::from(sx) + 0.5) * sub - cx) / r;
-                    if shape.contains(px, py) {
-                        hits += 1;
+            let d = dist(f64::from(x) + 0.5 - cx, py);
+            let v = if d <= -1.0 {
+                255
+            } else if d >= 1.0 {
+                0
+            } else {
+                let mut hits = 0u32;
+                for sy in 0..AA {
+                    let qy = f64::from(y) + (f64::from(sy) + 0.5) * sub - cy;
+                    for sx in 0..AA {
+                        let qx = f64::from(x) + (f64::from(sx) + 0.5) * sub - cx;
+                        if dist(qx, qy) <= 1e-12 {
+                            hits += 1;
+                        }
                     }
                 }
-            }
-            out[(y * w + x) as usize] = ((hits * 255 + (AA * AA) / 2) / (AA * AA)) as u8;
+                ((hits * 255 + (AA * AA) / 2) / (AA * AA)) as u8
+            };
+            out[(y * w + x) as usize] = v;
         }
     }
     out
@@ -734,6 +752,44 @@ mod tests {
         assert!(close(TokenShape::Hex.extents().0, 3f64.sqrt() / 2.0));
         assert!(TokenShape::Octagon.contains(0.0, 1.0) && TokenShape::Octagon.contains(1.0, 0.0));
         assert!(!TokenShape::Octagon.contains(0.8, 0.8), "the corners are cut");
+    }
+
+    #[test]
+    fn polygon_masks_match_point_tests() {
+        for shape in TokenShape::ALL.into_iter().skip(1) {
+            let (w, h, r) = (61u32, 61u32, 27.3);
+            let m = shape_mask(w, h, shape, 30.5, 30.5, r);
+            for y in 0..h {
+                for x in 0..w {
+                    let (px, py) =
+                        ((f64::from(x) + 0.5 - 30.5) / r, (f64::from(y) + 0.5 - 30.5) / r);
+                    let v = m[(y * w + x) as usize];
+                    // Pixel centres well inside are opaque, well outside are clear.
+                    let inside = |k: f64| shape.contains(px * k, py * k);
+                    if inside(1.0 + 1.5 / r) {
+                        assert_eq!(v, 255, "{shape:?} at {x},{y}");
+                    } else if !inside(1.0 - 1.5 / r) {
+                        assert_eq!(v, 0, "{shape:?} at {x},{y}");
+                    }
+                }
+            }
+            assert!(m.iter().any(|&v| v > 0 && v < 255), "{shape:?} edges are anti-aliased");
+        }
+    }
+
+    /// Timing check: `cargo test -p sleuth-core --release compose_speed -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn compose_speed() {
+        let img = solid(1600, 1200, [90, 60, 30, 255]);
+        for shape in TokenShape::ALL {
+            let border = frame(442, shape, 190.0, 221.0);
+            let t = std::time::Instant::now();
+            for _ in 0..5 {
+                std::hint::black_box(compose_shaped(&img, &border, shape, &TokenParams::default()));
+            }
+            println!("{shape:?}: {:?} per compose", t.elapsed() / 5);
+        }
     }
 
     #[test]
