@@ -446,6 +446,11 @@ impl Service {
         .await
     }
 
+    /// Marks a track as a favourite (or not). Returns the updated track.
+    pub async fn music_track_set_favorite(&self, id: String, favorite: bool) -> Result<MusicTrack> {
+        self.blocking(move |s| Ok(s.music_track_set_favorite(&id, favorite)?)).await
+    }
+
     pub async fn music_track_delete(&self, id: String) -> Result<()> {
         self.blocking(move |s| Ok(s.music_track_delete(&id)?)).await?;
         self.music_sync().await
@@ -1212,6 +1217,15 @@ impl Service {
             svc.state_of(s)
         })
         .await
+    }
+
+    /// Pins a soundscape to the top of the list (or unpins it).
+    pub async fn music_soundscape_set_pinned(
+        &self,
+        id: String,
+        pinned: bool,
+    ) -> Result<MusicSoundscape> {
+        self.blocking(move |s| Ok(s.music_soundscape_set_pinned(&id, pinned)?)).await
     }
 
     pub async fn music_soundscape_delete(&self, id: String) -> Result<()> {

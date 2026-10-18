@@ -692,6 +692,11 @@ pub async fn music_track_update(svc: Svc<'_>, id: String, input: TrackInput) -> 
 }
 
 #[tauri::command]
+pub async fn music_track_set_favorite(svc: Svc<'_>, id: String, favorite: bool) -> Res<MusicTrack> {
+    svc.music_track_set_favorite(id, favorite).await
+}
+
+#[tauri::command]
 pub async fn music_track_delete(svc: Svc<'_>, id: String) -> Res<()> {
     svc.music_track_delete(id).await
 }
@@ -830,6 +835,15 @@ pub async fn music_soundscape_update(svc: Svc<'_>, id: String) -> Res<MusicSound
 #[tauri::command]
 pub async fn music_soundscape_load(svc: Svc<'_>, id: String) -> Res<MixerState> {
     svc.music_soundscape_load(id).await
+}
+
+#[tauri::command]
+pub async fn music_soundscape_set_pinned(
+    svc: Svc<'_>,
+    id: String,
+    pinned: bool,
+) -> Res<MusicSoundscape> {
+    svc.music_soundscape_set_pinned(id, pinned).await
 }
 
 #[tauri::command]

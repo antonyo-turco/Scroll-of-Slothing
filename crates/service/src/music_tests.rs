@@ -887,3 +887,81 @@ async fn legacy_music_import_is_idempotent() {
     assert_eq!((again.tracks, again.soundscapes, again.playlists, again.soundboards), (0, 0, 0, 0));
     assert_eq!(svc.music_tracks_list(TrackQuery::default()).await.unwrap().len(), 2);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tracks_filter_by_favourite_loop_and_length() {
+    let (_d, svc) = temp_service();
+    let mk = |title: &str, looping: bool, duration: Option<f64>| TrackInput {
+        source: "youtube".into(),
+        url: Some(format!("https://youtu.be/{title}")),
+        file_path: None,
+        title: title.into(),
+        notes: None,
+        loop_by_default: Some(looping),
+        duration,
+        tags: vec![],
+    };
+    let rain = svc.music_track_create(mk("Rain", true, Some(600.0))).await.unwrap();
+    let door = svc.music_track_create(mk("Door", false, Some(3.0))).await.unwrap();
+    svc.music_track_create(mk("Unknown", true, None)).await.unwrap();
+    assert!(!rain.favorite);
+
+    let fav = svc.music_track_set_favorite(rain.id.clone(), true).await.unwrap();
+    assert!(fav.favorite);
+    let titles = |v: Vec<Track>| v.into_iter().map(|t| t.title).collect::<Vec<_>>();
+    let q = |f: fn(&mut TrackQuery)| {
+        let mut q = TrackQuery::default();
+        f(&mut q);
+        q
+    };
+    assert_eq!(
+        titles(svc.music_tracks_list(q(|q| q.favorites_only = true)).await.unwrap()),
+        ["Rain"]
+    );
+    assert_eq!(
+        titles(svc.music_tracks_list(q(|q| q.looping = Some(false))).await.unwrap()),
+        ["Door"]
+    );
+    // Length bounds leave out tracks of unknown length.
+    assert_eq!(
+        titles(svc.music_tracks_list(q(|q| q.max_duration = Some(60.0))).await.unwrap()),
+        ["Door"]
+    );
+    assert_eq!(
+        titles(svc.music_tracks_list(q(|q| q.min_duration = Some(300.0))).await.unwrap()),
+        ["Rain"]
+    );
+    assert_eq!(svc.music_tracks_list(TrackQuery::default()).await.unwrap().len(), 3);
+
+    // Editing a track keeps it a favourite.
+    let mut input = mk("Rain (edited)", true, Some(600.0));
+    input.tags = vec!["weather".into()];
+    let edited = svc.music_track_update(rain.id.clone(), input).await.unwrap();
+    assert!(edited.favorite);
+    assert!(svc.music_track_set_favorite("nope".into(), true).await.is_err());
+    let _ = door;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn pinned_soundscapes_come_first_and_survive_updates() {
+    let (_d, svc) = temp_service();
+    svc.music_attach_engine().await.unwrap();
+    let a = svc.music_track_create(yt_input("a", None)).await.unwrap();
+    svc.music_channel_add(a.id.clone(), None, None, None, false).await.unwrap();
+    let save = |name: &str| SoundscapeInput { name: name.into(), notes: None, tags: vec![] };
+    svc.music_soundscape_save(save("Alpha")).await.unwrap();
+    let zulu = svc.music_soundscape_save(save("Zulu")).await.unwrap();
+    assert!(!zulu.pinned);
+
+    let names = |v: Vec<MusicSoundscape>| v.into_iter().map(|s| s.name).collect::<Vec<_>>();
+    assert_eq!(names(svc.music_soundscapes_list().await.unwrap()), ["Alpha", "Zulu"]);
+    assert!(svc.music_soundscape_set_pinned(zulu.id.clone(), true).await.unwrap().pinned);
+    assert_eq!(names(svc.music_soundscapes_list().await.unwrap()), ["Zulu", "Alpha"]);
+
+    // Overwriting the mix keeps the pin.
+    let updated = svc.music_soundscape_update(zulu.id.clone()).await.unwrap();
+    assert!(updated.pinned);
+    svc.music_soundscape_set_pinned(zulu.id.clone(), false).await.unwrap();
+    assert_eq!(names(svc.music_soundscapes_list().await.unwrap()), ["Alpha", "Zulu"]);
+    assert!(svc.music_soundscape_set_pinned("nope".into(), true).await.is_err());
+}

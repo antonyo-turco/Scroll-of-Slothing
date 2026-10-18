@@ -1,6 +1,7 @@
 <script lang="ts">
   // Music library (Python ui/dm_music_library_panel.py).
   import { onDestroy, onMount } from 'svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { formatDuration, music, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
@@ -11,6 +12,23 @@
   let allTracks = $state<Track[]>([]);
   let selectedTags = $state<string[]>([]);
   let text = $state('');
+  let favoritesOnly = $state(false);
+  /** Length filter, in seconds: [min, max]. */
+  const LENGTHS: { id: string; label: string; min: number | null; max: number | null }[] = [
+    { id: 'any', label: 'Any length', min: null, max: null },
+    { id: 'short', label: 'Under 1 min', min: null, max: 59.999 },
+    { id: 'mid', label: '1–5 min', min: 60, max: 300 },
+    { id: 'long', label: '5–15 min', min: 300, max: 900 },
+    { id: 'xl', label: 'Over 15 min', min: 900.001, max: null },
+  ];
+  let length = $state('any');
+  /** 'any' | 'loop' | 'once' */
+  let looping = $state<'any' | 'loop' | 'once'>('any');
+  type SortKey = 'title' | 'duration' | 'loop' | 'added';
+  let sort = $state<{ key: SortKey; asc: boolean }>({ key: 'added', asc: false });
+  const filtersActive = $derived(
+    !!text.trim() || selectedTags.length > 0 || favoritesOnly || length !== 'any' || looping !== 'any',
+  );
   let selected = $state<string | null>(null);
   let dialogOpen = $state(false);
   let editing = $state<Track | null>(null);
@@ -22,12 +40,20 @@
   async function load() {
     const my = ++seq;
     try {
+      const len = LENGTHS.find((l) => l.id === length) ?? LENGTHS[0];
       const [list, all] = await Promise.all([
-        music.tracksList({ tags: selectedTags, text }),
+        music.tracksList({
+          tags: selectedTags,
+          text,
+          favorites_only: favoritesOnly,
+          looping: looping === 'any' ? null : looping === 'loop',
+          min_duration: len.min,
+          max_duration: len.max,
+        }),
         music.tracksList({}),
       ]);
       if (my !== seq) return;
-      tracks = [...list].sort((a, b) => b.added_at.localeCompare(a.added_at));
+      tracks = list;
       allTracks = all;
     } catch (e) {
       app.error('Could not load tracks', e);
@@ -85,6 +111,46 @@
     dialogOpen = true;
   }
 
+  // Sorted on the client: the list is already filtered and small.
+  const sorted = $derived.by(() => {
+    const dir = sort.asc ? 1 : -1;
+    const by: Record<SortKey, (a: Track, b: Track) => number> = {
+      title: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+      // Unknown lengths go last either way.
+      duration: (a, b) => (a.duration ?? Infinity) - (b.duration ?? Infinity),
+      loop: (a, b) => Number(a.loop_by_default) - Number(b.loop_by_default),
+      added: (a, b) => a.added_at.localeCompare(b.added_at),
+    };
+    const unknownLast = (a: Track, b: Track) =>
+      sort.key === 'duration' ? Number(a.duration == null) - Number(b.duration == null) : 0;
+    return [...tracks].sort((a, b) => unknownLast(a, b) || dir * by[sort.key](a, b) || b.added_at.localeCompare(a.added_at));
+  });
+
+  function sortBy(key: SortKey) {
+    sort = sort.key === key ? { key, asc: !sort.asc } : { key, asc: key === 'title' };
+  }
+  const ariaSort = (key: SortKey) => (sort.key === key ? (sort.asc ? 'ascending' : 'descending') : 'none');
+
+  async function toggleFavorite(t: Track) {
+    try {
+      const u = await music.trackSetFavorite(t.id, !t.favorite);
+      tracks = tracks.map((x) => (x.id === u.id ? u : x));
+      allTracks = allTracks.map((x) => (x.id === u.id ? u : x));
+      if (favoritesOnly && !u.favorite) void load();
+    } catch (e) {
+      app.error('Could not change the favourite', e);
+    }
+  }
+
+  function clearFilters() {
+    text = '';
+    selectedTags = [];
+    favoritesOnly = false;
+    length = 'any';
+    looping = 'any';
+    void load();
+  }
+
   const sel = $derived(tracks.find((t) => t.id === selected) ?? null);
 </script>
 
@@ -98,6 +164,22 @@
       <div class="spacer"></div>
       <button class="btn primary" onclick={() => openDialog(null)}>+ Add Track</button>
     </div>
+    <div class="filterbar" role="group" aria-label="Filters">
+      <button class="chip" aria-pressed={favoritesOnly} onclick={() => ((favoritesOnly = !favoritesOnly), void load())}>★ Favourites</button>
+      <select class="input compact" aria-label="Length" bind:value={length} onchange={() => void load()}>
+        {#each LENGTHS as l (l.id)}<option value={l.id}>{l.label}</option>{/each}
+      </select>
+      <select class="input compact" aria-label="Loop" bind:value={looping} onchange={() => void load()}>
+        <option value="any">Loop or once</option>
+        <option value="loop">Loops</option>
+        <option value="once">Plays once</option>
+      </select>
+      <InfoTip
+        label="About the filters"
+        text="Filters combine: tags must all match. Tracks whose length isn't known yet (YouTube links not played so far) are hidden while a length filter is on."
+      />
+      {#if filtersActive}<button class="btn ghost clear" onclick={clearFilters}>Clear filters</button>{/if}
+    </div>
     {#if allTags.length}
       <div class="tagbar" role="group" aria-label="Tag filter">
         {#each allTags as t (t)}
@@ -107,9 +189,6 @@
             onclick={() => ((selectedTags = selectedTags.includes(t) ? selectedTags.filter((x) => x !== t) : [...selectedTags, t]), void load())}
           >{t}</button>
         {/each}
-        {#if selectedTags.length}
-          <button class="btn ghost clear" onclick={() => ((selectedTags = []), void load())}>Clear filters</button>
-        {/if}
       </div>
     {/if}
   </div>
@@ -118,10 +197,18 @@
     {#if tracks.length}
       <table>
         <thead>
-          <tr><th>Title</th><th>Tags</th><th>Length</th><th>Loop</th><th class="actions"><span class="visually-hidden">Actions</span></th></tr>
+          <tr>
+            <th class="fav"><span class="visually-hidden">Favourite</span></th>
+            <th aria-sort={ariaSort('title')}><button class="sort" onclick={() => sortBy('title')}>Title{sort.key === 'title' ? (sort.asc ? ' ▲' : ' ▼') : ''}</button></th>
+            <th>Tags</th>
+            <th aria-sort={ariaSort('duration')}><button class="sort" onclick={() => sortBy('duration')}>Length{sort.key === 'duration' ? (sort.asc ? ' ▲' : ' ▼') : ''}</button></th>
+            <th aria-sort={ariaSort('loop')}><button class="sort" onclick={() => sortBy('loop')}>Loop{sort.key === 'loop' ? (sort.asc ? ' ▲' : ' ▼') : ''}</button></th>
+            <th aria-sort={ariaSort('added')}><button class="sort" onclick={() => sortBy('added')}>Added{sort.key === 'added' ? (sort.asc ? ' ▲' : ' ▼') : ''}</button></th>
+            <th class="actions"><span class="visually-hidden">Actions</span></th>
+          </tr>
         </thead>
         <tbody>
-          {#each tracks as t (t.id)}
+          {#each sorted as t (t.id)}
             <tr
               class:selected={selected === t.id}
               onclick={() => (selected = t.id)}
@@ -129,6 +216,16 @@
               tabindex="0"
               onkeydown={(e) => e.key === 'Enter' && preview(t)}
             >
+              <td class="fav">
+                <button
+                  class="star"
+                  class:on={t.favorite}
+                  aria-pressed={t.favorite}
+                  aria-label={t.favorite ? `Remove ${t.title} from favourites` : `Add ${t.title} to favourites`}
+                  title={t.favorite ? 'Favourite' : 'Add to favourites'}
+                  onclick={(e) => (e.stopPropagation(), void toggleFavorite(t))}
+                >{t.favorite ? '★' : '☆'}</button>
+              </td>
               <td>
                 {#if previewId === t.id && musicUi.state?.previewing}<PlayIndicator status={musicUi.previewStatus ?? 'loading'} />{/if}
                 {t.source === 'upload' ? '⬆ ' : ''}{t.title}
@@ -136,6 +233,7 @@
               <td class="muted">{t.tags.join(', ')}</td>
               <td>{formatDuration(t.duration)}</td>
               <td>{t.loop_by_default ? 'yes' : 'no'}</td>
+              <td class="muted">{t.added_at.slice(0, 10)}</td>
               <td class="actions">
                 <button class="btn ghost" title="Preview 10 s" aria-label="Preview {t.title}" onclick={(e) => (e.stopPropagation(), void preview(t))}>▶</button>
                 <button class="btn ghost" title="Add to mix" aria-label="Add {t.title} to mix" onclick={(e) => (e.stopPropagation(), void addToMix(t))}>{flash === t.id ? '✓' : '+'}</button>
@@ -148,9 +246,10 @@
       </table>
     {:else}
       <div class="empty-state">
-        {#if text || selectedTags.length}
+        {#if filtersActive}
           <strong>No tracks match</strong>
-          <span>Try another search, or clear the tag filters.</span>
+          <span>Try another search, or clear the filters.</span>
+          <button class="btn" onclick={clearFilters}>Clear filters</button>
         {:else}
           <strong>No tracks yet</strong>
           <span>Add a YouTube link or upload an audio file.</span>
@@ -163,7 +262,7 @@
     {#if musicUi.state?.previewing}
       <PlayIndicator status={musicUi.previewStatus ?? 'loading'} />
       {musicUi.previewStatus === 'playing' ? 'Previewing…' : 'Loading preview…'}
-    {:else}{tracks.length} track{tracks.length === 1 ? '' : 's'} · double-click a row to preview{/if}
+    {:else}{tracks.length} track{tracks.length === 1 ? '' : 's'}{filtersActive ? ` of ${allTracks.length}` : ''} · double-click a row to preview{/if}
   </div>
 </div>
 
@@ -190,6 +289,20 @@
     gap: var(--space-2);
     padding: 0 var(--space-4) var(--space-2);
   }
+  .filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-4) var(--space-2);
+  }
+  .compact {
+    width: auto;
+    min-height: 28px;
+    padding-block: 0;
+    font-size: 12px;
+  }
+  .chip,
   .tag {
     border: 1px solid var(--border);
     background: var(--surface);
@@ -198,6 +311,14 @@
     font-size: 12px;
     cursor: pointer;
   }
+  .chip {
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .chip[aria-pressed='true'],
   .tag[aria-pressed='true'] {
     background: var(--accent-soft);
     border-color: var(--accent);
@@ -248,6 +369,34 @@
   .actions {
     white-space: nowrap;
     text-align: right;
+  }
+  .sort {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .sort:hover {
+    color: var(--text);
+  }
+  th.fav,
+  td.fav {
+    width: 28px;
+    padding-inline: 4px;
+  }
+  .star {
+    border: 0;
+    background: none;
+    padding: 0 2px;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .star.on {
+    color: #e0a400;
   }
   .actions .btn {
     padding: 2px 6px;

@@ -2,6 +2,7 @@
   // Saved mixes (Python ui/dm_music_soundscape_panel.py) + .dmix export.
   import { onMount } from 'svelte';
   import { pickSavePath } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { DMIX_EXTENSION, music, type Soundscape } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
   import { app } from '../../lib/state.svelte';
@@ -29,6 +30,17 @@
     musicUi.tab = 'mixer';
   }
 
+  async function togglePin(s: Soundscape) {
+    try {
+      await music.soundscapeSetPinned(s.id, !s.pinned);
+      await load(); // the server orders pinned mixes first
+    } catch (e) {
+      app.error('Could not pin', e);
+    }
+  }
+
+  const pinnedCount = $derived(list.filter((s) => s.pinned).length);
+
   async function remove(s: Soundscape) {
     if (!confirm(`Delete soundscape “${s.name}”?`)) return;
     try {
@@ -53,14 +65,27 @@
 
 <div class="pane">
   <div class="view-toolbar">
-    <span class="label">Saved mixes. Load one into the Mixer, or build a mix there and 💾 Save as New.</span>
+    <span class="label">Saved mixes</span>
+    <InfoTip
+      label="About soundscapes"
+      text="A soundscape is a saved mix: its channels, volumes, loops and soundbites. Load one into the Mixer, or build a mix there and press 💾 Save as New. Pin (★) the ones you use most to keep them at the top."
+    />
     <div class="spacer"></div>
     <button class="btn" onclick={() => void load()}>⟳ Refresh</button>
   </div>
   <div class="pane-body">
-    {#each list as s (s.id)}
-      <div class="card sc" class:active={musicUi.state?.soundscape_id === s.id}>
+    {#each list as s, i (s.id)}
+      {#if pinnedCount > 0 && i === pinnedCount}<div class="divider" role="separator"></div>{/if}
+      <div class="card sc" class:active={musicUi.state?.soundscape_id === s.id} class:pinned={s.pinned}>
         <div class="head">
+          <button
+            class="star"
+            class:on={s.pinned}
+            aria-pressed={s.pinned}
+            aria-label={s.pinned ? `Unpin ${s.name}` : `Pin ${s.name}`}
+            title={s.pinned ? 'Pinned to the top' : 'Pin to the top'}
+            onclick={() => togglePin(s)}
+          >{s.pinned ? '★' : '☆'}</button>
           <div class="name">
             <strong>{s.name}</strong>
             <span class="muted small">{s.channels.length} channel(s){#if s.soundbites.length} · {s.soundbites.length} soundbite(s){/if}</span>
@@ -118,6 +143,26 @@
   }
   .sc.active {
     border-color: var(--accent);
+  }
+  .sc.pinned {
+    background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface));
+  }
+  .divider {
+    height: 1px;
+    margin: var(--space-1) 0;
+    background: var(--border);
+  }
+  .star {
+    border: 0;
+    background: none;
+    padding: 0 2px;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .star.on {
+    color: #e0a400;
   }
   .head {
     display: flex;

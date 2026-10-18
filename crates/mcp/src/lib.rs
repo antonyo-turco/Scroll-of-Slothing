@@ -148,6 +148,13 @@ pub struct StrIdParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct StrIdFlagParams {
+    pub id: String,
+    /// true to set, false to clear.
+    pub on: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct RenameParams {
     pub id: String,
     pub name: String,
@@ -1321,6 +1328,14 @@ impl SleuthServer {
         done(self.svc.music_track_create(p.input).await)
     }
 
+    #[tool(description = "Mark a music track as a favourite (on: true) or not. Returns the track.")]
+    async fn music_track_set_favorite(
+        &self,
+        Parameters(p): Parameters<StrIdFlagParams>,
+    ) -> ToolResult {
+        done(self.svc.music_track_set_favorite(p.id, p.on).await)
+    }
+
     #[tool(
         description = "Delete a music track by id (also removes it from mixes, playlists and boards)."
     )]
@@ -1437,6 +1452,14 @@ impl SleuthServer {
     )]
     async fn music_play_soundscape(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
         done(self.svc.music_soundscape_load(p.id).await)
+    }
+
+    #[tool(description = "Pin a soundscape to the top of the list (on: true) or unpin it.")]
+    async fn music_soundscape_set_pinned(
+        &self,
+        Parameters(p): Parameters<StrIdFlagParams>,
+    ) -> ToolResult {
+        done(self.svc.music_soundscape_set_pinned(p.id, p.on).await)
     }
 
     #[tool(description = "Delete a soundscape.")]

@@ -56,10 +56,10 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_set_gap` / `aoe_sheet_layout` / `aoe_sheet_export_pdf` | 5 | Multi-template sheet on Letter, A4 or A3 (MaxRects packing, skipped items reported; export is a job) |
 | `aoe_export_template_pdf` / `aoe_export_png` | 5 | One template as a tiled true-scale PDF (job) or PNG |
 | `ui_navigate` / `ui_open_asset` | 6 | In-app server only |
-| `music_tracks_list` / `music_track_add` / `music_track_delete` | 7 | Music library: YouTube links and uploaded audio, tagged |
+| `music_tracks_list` / `music_track_add` / `music_track_delete` / `music_track_set_favorite` | 7 | Music library: YouTube links and uploaded audio, tagged; favourites. The list filters by text, tags, `favorites_only`, `looping` and `min_duration`/`max_duration` (seconds) |
 | `music_state` / `music_channel_add` / `music_channel_update` / `music_channel_remove` / `music_set_all_playing` / `music_stop_all` | 7 | Live mixer channels; `music_stop_all` is the global stop |
 | `music_soundbite_add` / `music_soundbite_remove` / `music_soundbite_play` / `music_set_duck` / `music_set_master` | 7 | Randomly timed soundbites, ducking and master volume |
-| `music_soundscapes_list` / `music_soundscape_save` / `music_play_soundscape` / `music_soundscape_delete` | 7 | Saved mixes |
+| `music_soundscapes_list` / `music_soundscape_save` / `music_play_soundscape` / `music_soundscape_delete` / `music_soundscape_set_pinned` | 7 | Saved mixes; pinned ones are listed first |
 | `music_playlists_list` / `music_playlist_save` / `music_playlist_play` / `music_playlist_control` | 7 | Auto-advancing playlists |
 | `music_soundboards_list` / `music_soundboard_press` | 7 | Soundboard buttons (one-shot, restart, toggle) |
 | `music_mix_export` / `music_mix_import` / `music_import_legacy` | 7 | Portable `.dmix` files; import of the legacy music data |

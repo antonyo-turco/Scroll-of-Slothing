@@ -9,6 +9,7 @@ use crate::{Result, StoreError};
 const MIGRATIONS: &[(&str, &str)] = &[
     ("V1__init", include_str!("../migrations/V1__init.sql")),
     ("V2__music", include_str!("../migrations/V2__music.sql")),
+    ("V3__music_favorites", include_str!("../migrations/V3__music_favorites.sql")),
 ];
 
 pub const LATEST: i64 = MIGRATIONS.len() as i64;

@@ -55,6 +55,11 @@ CREATE TABLE music_soundboard_buttons (id TEXT PRIMARY KEY,       -- stable ids 
   hotkey TEXT);
 ```
 
+## Added later (`V3__music_favorites.sql`, 2026-10-18)
+- `music_tracks.favorite INTEGER NOT NULL DEFAULT 0`: the ★ favourite flag (`music_track_set_favorite`).
+- `music_soundscapes.pinned INTEGER NOT NULL DEFAULT 0`: pinned soundscapes are listed first (`music_soundscape_set_pinned`).
+- Both are kept when a track is edited or a soundscape's mix is overwritten, because the saves use `UPDATE` and never touch these columns. They are not part of `.dmix` files.
+
 ## Differences from the Python schema
 - The track's single `campaign_id NOT NULL ON DELETE CASCADE` column is removed. Campaigns are linked only through the many-to-many table, so **deleting a campaign never deletes tracks**.
 - Uploads are stored as blobs instead of absolute `local:` paths.

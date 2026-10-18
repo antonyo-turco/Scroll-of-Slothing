@@ -38,6 +38,7 @@ export interface Track {
   /** Seconds, if known (YouTube scrape, or reported by the engine). */
   duration: number | null;
   added_at: string;
+  favorite: boolean;
   campaign_ids: string[];
   session_ids: string[];
   tags: string[];
@@ -61,6 +62,12 @@ export interface TrackQuery {
   tags?: string[];
   /** Live title search. */
   text?: string;
+  favorites_only?: boolean;
+  /** true: only looping tracks; false: only one-shots. */
+  looping?: boolean | null;
+  /** Seconds, inclusive. Tracks of unknown length are left out when set. */
+  min_duration?: number | null;
+  max_duration?: number | null;
 }
 
 export interface TrackMeta {
@@ -177,6 +184,8 @@ export interface SoundscapeSoundbite {
 export interface Soundscape {
   id: string;
   name: string;
+  /** Pinned soundscapes are listed first. */
+  pinned: boolean;
   campaign_id: string | null;
   notes: string;
   created_at: string;
@@ -359,6 +368,7 @@ export const music = {
   trackGet: (id: string) => call<Track>('music_track_get', { id }),
   trackCreate: (input: TrackInput) => call<Track>('music_track_create', { input }),
   trackUpdate: (id: string, input: TrackInput) => call<Track>('music_track_update', { id, input }),
+  trackSetFavorite: (id: string, favorite: boolean) => call<Track>('music_track_set_favorite', { id, favorite }),
   trackDelete: (id: string) => call<void>('music_track_delete', { id }),
   /** YouTube title (oEmbed) + duration (watch page), best effort. */
   fetchYoutubeMeta: (url: string) => call<TrackMeta>('music_fetch_youtube_meta', { url }),
@@ -397,6 +407,7 @@ export const music = {
   /** Overwrites the soundscape with the current live mix. */
   soundscapeUpdate: (id: string) => call<Soundscape>('music_soundscape_update', { id }),
   soundscapeLoad: (id: string) => call<MixerState>('music_soundscape_load', { id }),
+  soundscapeSetPinned: (id: string, pinned: boolean) => call<Soundscape>('music_soundscape_set_pinned', { id, pinned }),
   soundscapeDelete: (id: string) => call<void>('music_soundscape_delete', { id }),
 
   // playlists

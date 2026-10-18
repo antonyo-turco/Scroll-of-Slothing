@@ -30,6 +30,7 @@ A soundscape is a saved mix: a set of channels plus a set of soundbites.
 - ⟳ Refresh.
 
 **Soundscape card**
+- ★ Pin toggle (new, 2026-10-18). Pinned soundscapes are highlighted and listed first, above a divider; the rest follow by name.
 - Name and channel count.
 - "▶ Load".
 - "▼ Preview" expands a summary:

@@ -43,13 +43,22 @@
 **Track table**
 | Column | Shows |
 |---|---|
+| ★ | Favourite toggle (new) |
 | Title | "⬆" prefix for uploads |
 | Tags | |
 | Length | M:SS or H:MM:SS |
 | Loop | yes / no |
-| Campaign(s) | |
+| Added | date (new) |
+| Campaign(s) | (removed with campaigns, 2026-10-11) |
 
-Rows are striped. The list is sorted by added_at, newest first.
+Rows are striped. The list is sorted by added_at, newest first. **New:** the Title, Length, Loop and Added headers sort the table; a second click reverses the direction, and tracks of unknown length always sort last.
+
+**Filters (new, 2026-10-18)**, in a bar under the search:
+- **★ Favourites**: only favourite tracks.
+- **Length**: any, under 1 min, 1–5 min, 5–15 min, over 15 min. Tracks whose length isn't known yet are hidden while a length filter is on.
+- **Loop**: loop or once, loops only, plays once only.
+- Tags (AND) and the title search as before. "Clear filters" resets all of them; the status bar shows "N tracks of M" while filtering.
+- Server side: `TrackQuery` gains `favorites_only`, `looping`, `min_duration` and `max_duration` (seconds, inclusive).
 
 **Actions**
 - Double-click a row: **preview** 10 s at volume 80.
