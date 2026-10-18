@@ -102,6 +102,8 @@ pub fn run() {
             commands::stt_models_list,
             commands::stt_model_download,
             commands::stt_model_delete,
+            commands::stt_cloud_models_list,
+            commands::transcribe_estimate,
             commands::stt_cloud_key_status,
             commands::stt_cloud_key_set,
             commands::stt_cloud_key_clear,

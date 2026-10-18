@@ -25,6 +25,33 @@ const CONCURRENCY: usize = 4;
 /// Attempts per chunk on rate limits, server errors and network failures.
 const ATTEMPTS: u32 = 4;
 
+/// A speech-to-text model on OpenRouter. Any id works; these are suggestions.
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct CloudModelSpec {
+    pub id: &'static str,
+    pub label: &'static str,
+    /// Price per minute of audio in USD, as listed on OpenRouter (2026-10).
+    pub usd_per_min: f64,
+}
+
+pub const MODELS: &[CloudModelSpec] = &[
+    CloudModelSpec { id: "openai/whisper-1", label: "OpenAI Whisper", usd_per_min: 0.006 },
+    CloudModelSpec {
+        id: "openai/gpt-transcribe",
+        label: "OpenAI GPT Transcribe",
+        usd_per_min: 0.0045,
+    },
+    CloudModelSpec {
+        id: "mistralai/voxtral-mini-transcribe",
+        label: "Mistral Voxtral Mini",
+        usd_per_min: 0.003,
+    },
+];
+
+/// Seconds of work per second of audio before any cloud run was measured:
+/// upload plus GPU time, 4 requests at a time (about 35 s for 10 minutes).
+pub const DEFAULT_SPEED: f64 = 0.06;
+
 #[derive(Debug, Clone)]
 pub struct CloudConfig {
     /// e.g. `https://openrouter.ai/api/v1`, no trailing slash.

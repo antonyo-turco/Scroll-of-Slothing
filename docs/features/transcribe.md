@@ -133,17 +133,32 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
 
 ## UI
 - New rail destination **Transcribe**, route ids `transcribe.file`, `transcribe.live` and `transcribe.list`, with a `mic` icon.
-- **File:** a drop zone; engine, model and language pickers; progress; segments as they arrive.
+- **File** (built):
+  - The work area holds the file name and duration, progress with Cancel, timestamped segments, Copy and the exports.
+  - The inspector, top to bottom:
+    - **Engine:** a full-width *This computer / Cloud* switch with icons.
+      - This computer: the model picker, a card with the model's hint and size, and Download when it's missing.
+      - Cloud: the model picker, a card with the model id and its price per minute, and the key status (or a link to Settings).
+    - **Speech:** language; *Search* (Accurate/Fast) on this computer only.
+    - **Glossary:** this computer only, hidden for the cloud because it isn't sent there.
+    - **Corrections:** both engines.
+    - **Time needed:** for the open file, one row per engine: the time (and for the cloud, the cost) and whether it is *measured here* or an *estimate*. Clicking a row switches engine.
+  - Explanations live in ⓘ tips (`components/InfoTip.svelte`): shown on hover and keyboard focus, closed with Escape, positioned `fixed` so the scrolling inspector doesn't clip them.
+  - Options are kept in the workspace (`transcribe.file`). The save is debounced and flushed when the view closes.
+- **Estimates** (`transcribe_estimate`):
+  - The duration is read from the file's header, or by walking its packets without decoding (`audio::probe_duration_ms`).
+  - Time = duration × speed + overhead (1 s local, 3 s cloud).
+  - Speeds start from the catalog (local, measured on the dev laptop) or `cloud::DEFAULT_SPEED` (0.06). After each finished run of 15 s or more, the real speed is blended in (50/50 moving average) and stored in the workspace as `transcribe.speeds`. Greedy runs are scaled to beam 5 with `GREEDY_FACTOR` (0.65).
+  - Cloud cost = minutes × the model's listed price (`cloud::MODELS`: Whisper $0.006, GPT Transcribe $0.0045, Voxtral Mini $0.003 per minute, as of 2026-10). Unknown models show "price unknown".
 - **Live:** device picker, level meter, a big Start/Stop button, and the text scrolling as it is spoken.
 - **Transcripts:** a virtualized list. The detail view has editable segments, search, export, re-run and copy.
-- Settings gains a **Transcribe** section with:
-  - engine;
-  - default models;
-  - language;
-  - glossary;
-  - corrections;
-  - cloud base URL and API key;
-  - model manager.
+- Settings has a **Transcription** card (built):
+  - the default engine (the same switch);
+  - the OpenRouter key: status, Save, Test (usage and credit limit) and Remove;
+  - the cloud model, with prices;
+  - under **Advanced**: a free model id and the API address.
+  - Explanations are in ⓘ tips here too.
+  - Still to come: default local models, a default glossary and corrections, and the model manager.
 - The mock backend (`src/lib/mock.ts`) gets canned models, a fake Job and a timed fake live session, so the UI runs in a plain browser.
 
 ## CLI

@@ -166,6 +166,29 @@ impl Corrections {
     }
 }
 
+/// Speed is "seconds of work per second of audio". Beam 1 (greedy) runs at
+/// about this fraction of beam 5 (measured: 11 s vs 17 s with `small`).
+pub const GREEDY_FACTOR: f64 = 0.65;
+
+/// Blends a new measurement into the stored speed (exponential moving average,
+/// so one odd run doesn't swing the estimate). Non-finite or non-positive
+/// measurements are ignored.
+pub fn blend_speed(stored: Option<f64>, measured: f64) -> Option<f64> {
+    if !measured.is_finite() || measured <= 0.0 {
+        return stored;
+    }
+    Some(match stored {
+        Some(s) if s.is_finite() && s > 0.0 => s * 0.5 + measured * 0.5,
+        _ => measured,
+    })
+}
+
+/// Estimated seconds of work for `duration_ms` of audio at `speed`, plus a
+/// fixed overhead (model load, connection set-up).
+pub fn estimate_secs(duration_ms: u64, speed: f64, overhead_s: f64) -> f64 {
+    duration_ms as f64 / 1000.0 * speed + overhead_s
+}
+
 /// Cloud requests carry at most this much audio (OpenRouter times out long requests).
 pub const CHUNK_MAX_MS: u64 = 28_000;
 /// Cuts are not made before this point, so chunks don't get uselessly short.
@@ -362,6 +385,16 @@ mod tests {
         audio.extend(speech(rate, 2, 0));
         assert_eq!(plan_chunks(&audio, rate, CHUNK_MIN_MS, CHUNK_MAX_MS), vec![(0, 7_000)]);
         assert!(plan_chunks(&[], rate, CHUNK_MIN_MS, CHUNK_MAX_MS).is_empty());
+    }
+
+    #[test]
+    fn speed_blends_and_ignores_garbage() {
+        assert_eq!(blend_speed(None, 2.0), Some(2.0));
+        assert_eq!(blend_speed(Some(2.0), 4.0), Some(3.0));
+        assert_eq!(blend_speed(Some(2.0), f64::NAN), Some(2.0));
+        assert_eq!(blend_speed(Some(2.0), 0.0), Some(2.0));
+        assert_eq!(blend_speed(Some(-1.0), 1.5), Some(1.5));
+        assert_eq!(estimate_secs(600_000, 0.06, 3.0), 39.0);
     }
 
     #[test]

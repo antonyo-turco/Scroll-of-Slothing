@@ -1,17 +1,31 @@
 //! Speech to text: Whisper models, the cloud API key, and file transcription
 //! with either engine. See `docs/features/transcribe.md`.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use sleuth_core::settings::SttEngine;
-use sleuth_core::stt::{Correction, Corrections, ExportFormat, Segment, export, glossary_prompt};
-use sleuth_stt::cloud::{self, CloudConfig, KeyInfo};
+use sleuth_core::stt::{
+    Correction, Corrections, ExportFormat, GREEDY_FACTOR, Segment, blend_speed, estimate_secs,
+    export, glossary_prompt,
+};
+use sleuth_stt::cloud::{self, CloudConfig, CloudModelSpec, KeyInfo};
 use sleuth_stt::local::{LocalModel, LocalOptions};
 use sleuth_stt::{SttError, audio, models};
 
 use crate::{JobCtx, JobId, Result, Service, ServiceError};
+
+/// Workspace entry with the speeds measured on this machine
+/// (`local:<model>` at beam 5, and `cloud`), in seconds of work per audio second.
+const SPEEDS_KEY: &str = "transcribe.speeds";
+/// Fixed costs added to estimates and removed from measurements.
+const LOCAL_OVERHEAD_S: f64 = 1.0;
+const CLOUD_OVERHEAD_S: f64 = 3.0;
+/// Shorter runs are dominated by the fixed costs, so they don't update speeds.
+const MIN_MEASURED_AUDIO_MS: u64 = 15_000;
 
 /// Glossary prompts longer than this are cut; Whisper only keeps ~224 prompt tokens.
 const PROMPT_MAX_CHARS: usize = 600;
@@ -45,8 +59,33 @@ pub(crate) struct SttRuntime {
 pub struct SttModel {
     pub id: String,
     pub label: String,
+    pub hint: String,
     pub size: u64,
     pub installed: bool,
+    /// Seconds of work per second of audio (beam 5) on this machine.
+    pub speed: f64,
+    /// Whether `speed` was measured here (else it's the built-in guess).
+    pub measured: bool,
+}
+
+/// Time (and for the cloud, cost) to transcribe one file.
+#[derive(Debug, Clone, Serialize)]
+pub struct EngineEstimate {
+    pub model: String,
+    /// `None` when the duration is unknown.
+    pub seconds: Option<f64>,
+    /// Whether the speed behind it was measured on this machine.
+    pub measured: bool,
+    /// Cloud only, when the model's price is known: USD.
+    pub cost: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TranscribeEstimate {
+    pub duration_ms: Option<u64>,
+    /// One per local model, in catalog order.
+    pub local: Vec<EngineEstimate>,
+    pub cloud: EngineEstimate,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -125,17 +164,102 @@ impl Service {
         self.data_dir().join("models")
     }
 
-    pub async fn stt_models_list(&self) -> Result<Vec<SttModel>> {
+    fn speeds(&self) -> BTreeMap<String, f64> {
+        self.store().workspace_get(SPEEDS_KEY).ok().flatten().unwrap_or_default()
+    }
+
+    /// Records how fast a finished transcription ran, for future estimates.
+    fn record_speed(&self, key: String, elapsed_s: f64, overhead_s: f64, audio_ms: u64) {
+        if audio_ms < MIN_MEASURED_AUDIO_MS {
+            return;
+        }
+        let measured = (elapsed_s - overhead_s).max(0.0) / (audio_ms as f64 / 1000.0);
+        let mut speeds = self.speeds();
+        if let Some(v) = blend_speed(speeds.get(&key).copied(), measured) {
+            speeds.insert(key, v);
+            if let Err(e) = self.store().workspace_set(SPEEDS_KEY, &speeds) {
+                tracing::warn!("could not record the transcription speed: {e}");
+            }
+        }
+    }
+
+    fn local_models(&self) -> Vec<SttModel> {
         let dir = self.models_dir();
-        Ok(models::CATALOG
+        let speeds = self.speeds();
+        models::CATALOG
             .iter()
-            .map(|m| SttModel {
-                id: m.id.into(),
-                label: m.label.into(),
-                size: m.size,
-                installed: models::is_installed(&dir, m),
+            .map(|m| {
+                let learned = speeds.get(&format!("local:{}", m.id)).copied();
+                SttModel {
+                    id: m.id.into(),
+                    label: m.label.into(),
+                    hint: m.hint.into(),
+                    size: m.size,
+                    installed: models::is_installed(&dir, m),
+                    speed: learned.unwrap_or(m.speed),
+                    measured: learned.is_some(),
+                }
             })
-            .collect())
+            .collect()
+    }
+
+    pub async fn stt_models_list(&self) -> Result<Vec<SttModel>> {
+        let svc = self.clone();
+        joined(tokio::task::spawn_blocking(move || Ok(svc.local_models())).await)
+    }
+
+    /// Suggested cloud models with their price per minute.
+    pub fn stt_cloud_models_list(&self) -> Vec<CloudModelSpec> {
+        cloud::MODELS.to_vec()
+    }
+
+    /// How long a file would take with each local model and with the cloud,
+    /// and what the cloud would cost. `beam_size` 1 means the faster greedy
+    /// search; `cloud_model` defaults to the `stt_cloud_model` setting.
+    pub async fn transcribe_estimate(
+        &self,
+        path: PathBuf,
+        beam_size: Option<u32>,
+        cloud_model: Option<String>,
+    ) -> Result<TranscribeEstimate> {
+        let settings = self.settings_get().await?;
+        let svc = self.clone();
+        joined(
+            tokio::task::spawn_blocking(move || {
+                if !path.is_file() {
+                    return Err(ServiceError::NotFound(format!("file {}", path.display())));
+                }
+                let duration_ms = audio::probe_duration_ms(&path)?;
+                let factor = if beam_size == Some(1) { GREEDY_FACTOR } else { 1.0 };
+                let local = svc
+                    .local_models()
+                    .into_iter()
+                    .map(|m| EngineEstimate {
+                        seconds: duration_ms
+                            .map(|d| estimate_secs(d, m.speed * factor, LOCAL_OVERHEAD_S)),
+                        measured: m.measured,
+                        model: m.id,
+                        cost: None,
+                    })
+                    .collect();
+                let model = cloud_model
+                    .map(|m| m.trim().to_string())
+                    .filter(|m| !m.is_empty())
+                    .unwrap_or(settings.stt_cloud_model);
+                let learned = svc.speeds().get("cloud").copied();
+                let price = cloud::MODELS.iter().find(|m| m.id == model).map(|m| m.usd_per_min);
+                let cloud = EngineEstimate {
+                    seconds: duration_ms.map(|d| {
+                        estimate_secs(d, learned.unwrap_or(cloud::DEFAULT_SPEED), CLOUD_OVERHEAD_S)
+                    }),
+                    measured: learned.is_some(),
+                    cost: duration_ms.zip(price).map(|(d, p)| d as f64 / 60_000.0 * p),
+                    model,
+                };
+                Ok(TranscribeEstimate { duration_ms, local, cloud })
+            })
+            .await,
+        )
     }
 
     /// Downloads a model in the background. Job result: `{ id, path }`.
@@ -297,7 +421,25 @@ impl Service {
         }
         let svc = self.clone();
         Ok(self.spawn_job("transcribe", move |ctx| {
+            let started = Instant::now();
             let result = svc.run_transcription(&ctx, &path, &plan, &opts)?;
+            let elapsed = started.elapsed().as_secs_f64();
+            match &plan {
+                Plan::Local { model } => {
+                    // Stored at beam 5; a greedy run is scaled back up.
+                    let beam = opts.beam_size.unwrap_or(5);
+                    let norm = if beam == 1 { elapsed / GREEDY_FACTOR } else { elapsed };
+                    svc.record_speed(
+                        format!("local:{model}"),
+                        norm,
+                        LOCAL_OVERHEAD_S,
+                        result.duration_ms,
+                    )
+                }
+                Plan::Cloud(_) => {
+                    svc.record_speed("cloud".into(), elapsed, CLOUD_OVERHEAD_S, result.duration_ms)
+                }
+            }
             serde_json::to_value(result).map_err(|e| ServiceError::Internal(e.to_string()))
         }))
     }
@@ -507,6 +649,35 @@ mod tests {
             svc.transcript_export(segs, ExportFormat::Srt, None, Some(out.clone())).await.unwrap();
         assert_eq!(text, "1\n00:00:00,000 --> 00:00:01,500\nCiao.\n\n");
         assert_eq!(std::fs::read_to_string(out).unwrap(), text);
+    }
+
+    #[tokio::test]
+    async fn estimates_use_measured_speeds_and_prices() {
+        let (d, svc) = temp_service();
+        let wav = d.path().join("ten-minutes.wav");
+        std::fs::write(&wav, sleuth_core::stt::wav_pcm16(&vec![0.0; 16_000 * 600], 16_000))
+            .unwrap();
+
+        let e = svc.transcribe_estimate(wav.clone(), None, None).await.unwrap();
+        assert_eq!(e.duration_ms, Some(600_000));
+        let small = e.local.iter().find(|m| m.model == "small").unwrap();
+        assert_eq!(small.seconds, Some(600.0 * 1.35 + LOCAL_OVERHEAD_S));
+        assert!(!small.measured);
+        assert_eq!(e.cloud.model, "openai/whisper-1");
+        assert_eq!(e.cloud.seconds, Some(600.0 * cloud::DEFAULT_SPEED + CLOUD_OVERHEAD_S));
+        assert!((e.cloud.cost.unwrap() - 0.06).abs() < 1e-9);
+
+        // A measured run replaces the guess; greedy runs are scaled to beam 5.
+        svc.record_speed("local:small".into(), 61.0, LOCAL_OVERHEAD_S, 60_000);
+        svc.record_speed("cloud".into(), 3.0, CLOUD_OVERHEAD_S, 5_000); // too short: ignored
+        let e = svc.transcribe_estimate(wav, Some(1), Some("unknown/model".into())).await.unwrap();
+        let small = e.local.iter().find(|m| m.model == "small").unwrap();
+        assert!(small.measured);
+        assert_eq!(small.seconds, Some(600.0 * GREEDY_FACTOR + LOCAL_OVERHEAD_S));
+        assert!(!e.cloud.measured);
+        assert_eq!(e.cloud.cost, None);
+        let listed = svc.stt_models_list().await.unwrap();
+        assert_eq!(listed.iter().find(|m| m.id == "small").unwrap().speed, 1.0);
     }
 
     #[tokio::test]

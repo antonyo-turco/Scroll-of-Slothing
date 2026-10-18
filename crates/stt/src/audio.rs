@@ -18,6 +18,49 @@ use crate::{CancelFn, Result, SAMPLE_RATE, SttError};
 pub const EXTENSIONS: &[&str] =
     &["wav", "mp3", "flac", "ogg", "oga", "m4a", "mp4", "aac", "mka", "mkv", "webm", "caf", "aiff"];
 
+/// The duration of an audio file, read from its header or by walking its
+/// packets (no decoding, so it's quick even for hours of audio).
+pub fn probe_duration_ms(path: &Path) -> Result<Option<u64>> {
+    let audio_err = |e: SymError| SttError::Audio(e.to_string());
+    let file = std::fs::File::open(path)?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .map_err(audio_err)?;
+    let mut format = probed.format;
+    let Some(track) = format.tracks().iter().find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+    else {
+        return Err(SttError::Audio("no audio track".into()));
+    };
+    let (id, params) = (track.id, track.codec_params.clone());
+    let to_ms = |ts: u64| -> Option<u64> {
+        if let Some(tb) = params.time_base {
+            let t = tb.calc_time(ts);
+            Some(t.seconds * 1000 + (t.frac * 1000.0) as u64)
+        } else {
+            params.sample_rate.map(|r| ts * 1000 / r as u64)
+        }
+    };
+    if let Some(n) = params.n_frames {
+        return Ok(to_ms(n));
+    }
+    let mut end = 0u64;
+    loop {
+        match format.next_packet() {
+            Ok(p) if p.track_id() == id => end = end.max(p.ts() + p.dur()),
+            Ok(_) => {}
+            Err(SymError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(SymError::ResetRequired) => break,
+            Err(e) => return Err(audio_err(e)),
+        }
+    }
+    Ok(to_ms(end))
+}
+
 /// Decodes `path` to mono 16 kHz samples.
 pub fn decode_file(path: &Path, cancel: CancelFn) -> Result<Vec<f32>> {
     let file = std::fs::File::open(path)?;
@@ -192,6 +235,15 @@ mod tests {
         let want = sine(16_000, 440.0, 1.0);
         let err: f32 = (2000..14000).map(|i| (out[i] - want[i] * 0.5).abs()).fold(0.0, f32::max);
         assert!(err < 0.02, "max error {err}");
+    }
+
+    #[test]
+    fn probes_duration_without_decoding() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("a.wav");
+        let frames: Vec<Vec<i16>> = vec![vec![0, 0]; 44_100 * 3 / 2];
+        std::fs::write(&p, wav(44_100, 2, &frames)).unwrap();
+        assert_eq!(probe_duration_ms(&p).unwrap(), Some(1500));
     }
 
     #[test]

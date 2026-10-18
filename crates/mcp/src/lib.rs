@@ -273,6 +273,16 @@ pub struct TranscribeFileParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TranscribeEstimateParams {
+    /// Audio file (absolute path).
+    pub path: String,
+    /// Local beam width the estimate is for; 1 is the faster greedy search. Default 5.
+    pub beam_size: Option<u32>,
+    /// Cloud model to price; default: the `stt_cloud_model` setting.
+    pub cloud_model: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SegmentParam {
     pub start_ms: u64,
     pub end_ms: u64,
@@ -555,6 +565,23 @@ impl SleuthServer {
     #[tool(description = "Delete a downloaded Whisper model.")]
     async fn stt_model_delete(&self, Parameters(p): Parameters<SttModelParams>) -> ToolResult {
         done(self.svc.stt_model_delete(p.id).await)
+    }
+
+    #[tool(
+        description = "Suggested OpenRouter speech-to-text models with their price per minute of audio (USD)."
+    )]
+    async fn stt_cloud_models_list(&self) -> ToolResult {
+        ok(&self.svc.stt_cloud_models_list())
+    }
+
+    #[tool(
+        description = "Estimate how long transcribing a file takes with each local model and with the cloud (learned from past runs on this machine), and what the cloud costs. Also returns the file's duration."
+    )]
+    async fn transcribe_estimate(
+        &self,
+        Parameters(p): Parameters<TranscribeEstimateParams>,
+    ) -> ToolResult {
+        done(self.svc.transcribe_estimate(PathBuf::from(p.path), p.beam_size, p.cloud_model).await)
     }
 
     #[tool(

@@ -56,8 +56,11 @@ pub use sleuth_store::{
     MusicChannel, MusicPlaylist, MusicSoundbite, MusicSoundboard, MusicSoundboardButton,
     MusicSoundscape, MusicTrack, MusicTrackQuery,
 };
-pub use sleuth_stt::cloud::KeyInfo as CloudKeyInfo;
-pub use stt::{CloudKeyStatus, SttModel, TranscribeOptions, TranscribeResult};
+pub use sleuth_stt::cloud::{CloudModelSpec, KeyInfo as CloudKeyInfo};
+pub use stt::{
+    CloudKeyStatus, EngineEstimate, SttModel, TranscribeEstimate, TranscribeOptions,
+    TranscribeResult,
+};
 pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
 pub use tokens::{Border, SourceImage, TokenDraft};
 pub use ui::editor_route;

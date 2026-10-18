@@ -553,9 +553,35 @@ export interface AoeSheetLayout {
 export interface SttModel {
   id: string;
   label: string;
+  hint: string;
   /** bytes */
   size: number;
   installed: boolean;
+  /** seconds of work per second of audio (beam 5) on this machine */
+  speed: number;
+  /** measured here, else the built-in guess */
+  measured: boolean;
+}
+
+export interface CloudModelSpec {
+  id: string;
+  label: string;
+  usd_per_min: number;
+}
+
+export interface EngineEstimate {
+  model: string;
+  /** null when the duration is unknown */
+  seconds: number | null;
+  measured: boolean;
+  /** cloud, when the price is known: USD */
+  cost: number | null;
+}
+
+export interface TranscribeEstimate {
+  duration_ms: number | null;
+  local: EngineEstimate[];
+  cloud: EngineEstimate;
 }
 
 export interface Correction {
@@ -607,8 +633,6 @@ export interface CloudKeyInfo {
   usage: number | null;
 }
 
-/** Suggested OpenRouter speech-to-text models (any id works). */
-export const CLOUD_STT_MODELS = ['openai/whisper-1', 'openai/gpt-transcribe', 'mistralai/voxtral-mini-transcribe'];
 
 export type TranscriptFormat = 'txt' | 'md' | 'srt' | 'vtt';
 

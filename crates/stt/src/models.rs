@@ -20,6 +20,12 @@ pub struct ModelSpec {
     pub file: &'static str,
     pub size: u64,
     pub sha256: &'static str,
+    /// One-line description for pickers.
+    pub hint: &'static str,
+    /// Seconds of work per second of audio with beam search, measured on the
+    /// dev machine (i7-1185G7, power-throttled to ~1.5 GHz). A starting point:
+    /// the service replaces it with what it measures on the user's machine.
+    pub speed: f64,
 }
 
 /// Multilingual models only: the main language is Italian, so the `.en` models
@@ -28,35 +34,46 @@ pub struct ModelSpec {
 pub const CATALOG: &[ModelSpec] = &[
     ModelSpec {
         id: "base",
-        label: "Base (fast, rough)",
+        label: "Base",
+        hint: "Fast, rough",
+        speed: 0.45,
         file: "ggml-base.bin",
         size: 147_951_465,
         sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
     },
     ModelSpec {
         id: "small",
-        label: "Small (live default)",
+        label: "Small",
+        hint: "Quick, decent",
+        speed: 1.35,
         file: "ggml-small.bin",
         size: 487_601_967,
         sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
     },
     ModelSpec {
         id: "medium-q5_0",
-        label: "Medium, quantized",
+        label: "Medium (quantized)",
+        hint: "Accurate, slow",
+        speed: 4.8,
         file: "ggml-medium-q5_0.bin",
         size: 539_212_467,
         sha256: "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
     },
     ModelSpec {
         id: "large-v3-turbo-q5_0",
-        label: "Large v3 Turbo, quantized (file default)",
+        label: "Large v3 Turbo (quantized)",
+        hint: "Most accurate per minute of work",
+        speed: 6.5,
         file: "ggml-large-v3-turbo-q5_0.bin",
         size: 574_041_195,
         sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
     },
     ModelSpec {
         id: "large-v3-turbo",
-        label: "Large v3 Turbo (best, slow on CPU)",
+        label: "Large v3 Turbo",
+        hint: "Best, slowest on a CPU",
+        // Not measured: the quantized model's speed, scaled for full precision.
+        speed: 9.0,
         file: "ggml-large-v3-turbo.bin",
         size: 1_624_555_275,
         sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",

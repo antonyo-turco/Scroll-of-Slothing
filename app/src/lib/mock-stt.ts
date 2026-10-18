@@ -1,7 +1,10 @@
 // In-memory speech-to-text backend for browser dev and tests. Jobs report a few
 // progress steps on a timer, then finish with canned Italian segments.
 
-import type { CloudKeyStatus, Correction, Segment, Settings, SttModel, TranscribeOptions, TranscriptFormat } from './types';
+import type {
+  CloudKeyStatus, CloudModelSpec, Correction, Segment, Settings, SttModel, TranscribeEstimate, TranscribeOptions,
+  TranscriptFormat,
+} from './types';
 
 type Emit = (e: Record<string, unknown>) => void;
 type Handler = (args: Record<string, unknown>) => unknown;
@@ -50,11 +53,16 @@ export function createSttMockHandlers(emit: Emit, settings: () => Settings): Rec
   const keyStatus = (): CloudKeyStatus =>
     key ? { configured: true, source: 'saved', hint: `${key.slice(0, 6)}…${key.slice(-4)}` } : { configured: false, source: null, hint: null };
   const models: SttModel[] = [
-    { id: 'base', label: 'Base (fast, rough)', size: 141 * MB, installed: false },
-    { id: 'small', label: 'Small (live default)', size: 465 * MB, installed: true },
-    { id: 'medium-q5_0', label: 'Medium, quantized', size: 514 * MB, installed: false },
-    { id: 'large-v3-turbo-q5_0', label: 'Large v3 Turbo, quantized (file default)', size: 547 * MB, installed: true },
-    { id: 'large-v3-turbo', label: 'Large v3 Turbo (best, slow on CPU)', size: 1549 * MB, installed: false },
+    { id: 'base', label: 'Base', hint: 'Fast, rough', size: 141 * MB, installed: false, speed: 0.45, measured: false },
+    { id: 'small', label: 'Small', hint: 'Quick, decent', size: 465 * MB, installed: true, speed: 1.35, measured: false },
+    { id: 'medium-q5_0', label: 'Medium (quantized)', hint: 'Accurate, slow', size: 514 * MB, installed: false, speed: 4.8, measured: false },
+    { id: 'large-v3-turbo-q5_0', label: 'Large v3 Turbo (quantized)', hint: 'Most accurate per minute of work', size: 547 * MB, installed: true, speed: 6.5, measured: true },
+    { id: 'large-v3-turbo', label: 'Large v3 Turbo', hint: 'Best, slowest on a CPU', size: 1549 * MB, installed: false, speed: 9, measured: false },
+  ];
+  const cloudModels: CloudModelSpec[] = [
+    { id: 'openai/whisper-1', label: 'OpenAI Whisper', usd_per_min: 0.006 },
+    { id: 'openai/gpt-transcribe', label: 'OpenAI GPT Transcribe', usd_per_min: 0.0045 },
+    { id: 'mistralai/voxtral-mini-transcribe', label: 'Mistral Voxtral Mini', usd_per_min: 0.003 },
   ];
   const cancelled = new Set<string>();
 
@@ -93,6 +101,18 @@ export function createSttMockHandlers(emit: Emit, settings: () => Settings): Rec
     stt_model_delete: ({ id }) => {
       model(id).installed = false;
       return null;
+    },
+    stt_cloud_models_list: () => cloudModels,
+    // The mock "file" is always 12.6 s long.
+    transcribe_estimate: ({ beamSize, cloudModel }): TranscribeEstimate => {
+      const d = 12_600, f = beamSize === 1 ? 0.65 : 1;
+      const model = String(cloudModel ?? '').trim() || settings().stt_cloud_model;
+      const price = cloudModels.find((m) => m.id === model)?.usd_per_min ?? null;
+      return {
+        duration_ms: d,
+        local: models.map((m) => ({ model: m.id, seconds: (d / 1000) * m.speed * f + 1, measured: m.measured, cost: null })),
+        cloud: { model, seconds: (d / 1000) * 0.06 + 3, measured: false, cost: price === null ? null : (d / 60_000) * price },
+      };
     },
     stt_cloud_key_status: () => keyStatus(),
     stt_cloud_key_set: ({ key: k }) => {

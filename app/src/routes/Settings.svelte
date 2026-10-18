@@ -5,8 +5,9 @@
   import { api, isTauri, pickFile } from '../lib/api';
   import { ALL_VIEWS, findView } from '../lib/nav';
   import { app } from '../lib/state.svelte';
-  import { CLOUD_STT_MODELS } from '../lib/types';
-  import type { CloudKeyInfo, CloudKeyStatus, CutLineStyle, PageFormat, Settings, SttEngine, Theme } from '../lib/types';
+  import Icon from '../lib/components/Icon.svelte';
+  import InfoTip from '../lib/components/InfoTip.svelte';
+  import type { CloudKeyInfo, CloudKeyStatus, CloudModelSpec, CutLineStyle, PageFormat, Settings, SttEngine, Theme } from '../lib/types';
 
   let errors = $state<Record<string, string>>({});
   let confirmingReset = $state(false);
@@ -15,14 +16,16 @@
   onMount(() => {
     void api.appInfo().then((i) => (dataDir = i.data_dir));
     void api.sttCloudKeyStatus().then((s) => (keyStatus = s)).catch(() => {});
+    void api.sttCloudModelsList().then((m) => (cloudModels = m)).catch(() => {});
   });
 
   // ── transcription: the OpenRouter key lives in the Windows Credential Manager ──
   const ENGINES: { id: SttEngine; label: string }[] = [
-    { id: 'local', label: 'On this computer' },
-    { id: 'cloud', label: 'OpenRouter (cloud)' },
+    { id: 'local', label: 'This computer' },
+    { id: 'cloud', label: 'Cloud (OpenRouter)' },
   ];
   let keyStatus = $state<CloudKeyStatus | null>(null);
+  let cloudModels = $state<CloudModelSpec[]>([]);
   let keyInput = $state('');
   let keyBusy = $state(false);
   let keyCheck = $state<{ ok: true; info: CloudKeyInfo } | { ok: false; message: string } | null>(null);
@@ -58,7 +61,7 @@
     }
   }
 
-  const usd = (v: number | null) => (v === null ? 'no limit' : `$${v.toFixed(2)}`);
+  const usd = (v: number) => `$${v.toFixed(2)}`;
 
   let mcp = $state<{ url: string; token: string } | null>(null);
   $effect(() => {
@@ -244,27 +247,36 @@
     <section class="card">
       <h2>Transcription</h2>
       <div class="field">
-        <span class="label">Default engine</span>
-        <div class="segmented" role="group" aria-label="Transcription engine">
+        <div class="label-row">
+          <span class="label">Default engine</span>
+          <InfoTip
+            label="About engines"
+            text="This computer runs Whisper locally: free and private, but long files can take longer than the recording. Cloud sends the audio to OpenRouter: much faster, billed per minute of audio. You can switch for each file in Transcribe."
+          />
+        </div>
+        <div class="segmented fill" role="group" aria-label="Transcription engine">
           {#each ENGINES as e (e.id)}
-            <button aria-pressed={app.settings.stt_engine === e.id} onclick={() => save('stt_engine', e.id)}>{e.label}</button>
+            <button aria-pressed={app.settings.stt_engine === e.id} onclick={() => save('stt_engine', e.id)}>
+              <Icon name={e.id === 'local' ? 'cpu' : 'cloud'} size={16} /> {e.label}
+            </button>
           {/each}
         </div>
       </div>
-      <p class="muted hint">
-        On this computer, audio never leaves the machine but long files are slow. The cloud engine sends the audio
-        to OpenRouter: much faster, billed per minute of audio.
-      </p>
 
       <div class="field">
-        <label for="openrouter-key">OpenRouter API key</label>
-        <p class="muted hint key-status" data-testid="key-status">
-          {#if keyStatus?.configured}
-            {keyStatus.source === 'env' ? 'From the OPENROUTER_API_KEY variable' : 'Saved'}: <code>{keyStatus.hint}</code>
-          {:else}
-            No key yet. Create one at openrouter.ai/keys.
-          {/if}
-        </p>
+        <div class="label-row">
+          <label for="openrouter-key">OpenRouter API key</label>
+          <InfoTip
+            label="About the API key"
+            text="Create a key at openrouter.ai/keys. It is stored in the Windows Credential Manager, never in the app's database or settings, and is only ever shown shortened."
+          />
+          <span class="spacer"></span>
+          <span class="key-status {keyStatus?.configured ? 'on' : ''}" data-testid="key-status">
+            {#if keyStatus?.configured}
+              {keyStatus.source === 'env' ? 'From OPENROUTER_API_KEY' : 'Saved'}: <code>{keyStatus.hint}</code>
+            {:else}No key yet{/if}
+          </span>
+        </div>
         <div class="key-row">
           <input
             id="openrouter-key"
@@ -276,7 +288,7 @@
             bind:value={keyInput}
             onkeydown={(e) => e.key === 'Enter' && saveKey()}
           />
-          <button class="btn" disabled={keyBusy || !keyInput.trim()} onclick={saveKey}>Save key</button>
+          <button class="btn primary" disabled={keyBusy || !keyInput.trim()} onclick={saveKey}>Save key</button>
         </div>
         <div class="key-row">
           <button class="btn" disabled={keyBusy || !keyStatus?.configured} onclick={testKey}>Test key</button>
@@ -285,42 +297,60 @@
         {#if keyCheck}
           <p class="note {keyCheck.ok ? 'ok' : 'bad'}" data-testid="key-check" aria-live="polite">
             {#if keyCheck.ok}
-              Key works{keyCheck.info.label ? ` (${keyCheck.info.label})` : ''}: used {usd(keyCheck.info.usage ?? 0)}, limit {usd(keyCheck.info.limit)}.
+              Key works{keyCheck.info.label ? ` (${keyCheck.info.label})` : ''}: {usd(keyCheck.info.usage ?? 0)} used, {keyCheck.info.limit === null ? 'no credit limit' : `limit ${usd(keyCheck.info.limit)}`}.
             {:else}{keyCheck.message}{/if}
           </p>
         {/if}
-        <p class="muted hint">Stored in the Windows Credential Manager, never in the app's database or settings.</p>
       </div>
 
       <div class="field">
-        <label for="stt_cloud_model">Cloud model</label>
-        <input
+        <div class="label-row">
+          <label for="stt_cloud_model">Cloud model</label>
+          <InfoTip label="About cloud models" text="Prices are per minute of audio, as listed on OpenRouter in October 2026. Any OpenRouter speech-to-text model id works: set it under Advanced." />
+        </div>
+        <select
           id="stt_cloud_model"
           class="input"
-          list="cloud-stt-models"
-          spellcheck="false"
           value={app.settings.stt_cloud_model}
-          aria-invalid={errors.stt_cloud_model ? 'true' : undefined}
-          onchange={(e) => save('stt_cloud_model', e.currentTarget.value.trim())}
-        />
-        <datalist id="cloud-stt-models">
-          {#each CLOUD_STT_MODELS as m (m)}<option value={m}></option>{/each}
-        </datalist>
-        {#if errors.stt_cloud_model}<span class="error-text">{errors.stt_cloud_model}</span>{/if}
+          onchange={(e) => save('stt_cloud_model', e.currentTarget.value)}
+        >
+          {#each cloudModels as m (m.id)}<option value={m.id}>{m.label} · ${m.usd_per_min} / min</option>{/each}
+          {#if !cloudModels.some((m) => m.id === app.settings.stt_cloud_model)}
+            <option value={app.settings.stt_cloud_model}>{app.settings.stt_cloud_model}</option>
+          {/if}
+        </select>
       </div>
-      <div class="field">
-        <label for="stt_cloud_base_url">API address</label>
-        <input
-          id="stt_cloud_base_url"
-          class="input"
-          spellcheck="false"
-          value={app.settings.stt_cloud_base_url}
-          aria-invalid={errors.stt_cloud_base_url ? 'true' : undefined}
-          onchange={(e) => save('stt_cloud_base_url', e.currentTarget.value.trim())}
-        />
-        {#if errors.stt_cloud_base_url}<span class="error-text">{errors.stt_cloud_base_url}</span>{/if}
-        <p class="muted hint">OpenRouter by default. Any service that accepts the same request format works.</p>
-      </div>
+
+      <details class="sub">
+        <summary>Advanced</summary>
+        <div class="field">
+          <label for="stt_cloud_model_id">Model id</label>
+          <input
+            id="stt_cloud_model_id"
+            class="input mono"
+            spellcheck="false"
+            value={app.settings.stt_cloud_model}
+            aria-invalid={errors.stt_cloud_model ? 'true' : undefined}
+            onchange={(e) => save('stt_cloud_model', e.currentTarget.value.trim())}
+          />
+          {#if errors.stt_cloud_model}<span class="error-text">{errors.stt_cloud_model}</span>{/if}
+        </div>
+        <div class="field">
+          <div class="label-row">
+            <label for="stt_cloud_base_url">API address</label>
+            <InfoTip label="About the API address" text="OpenRouter by default. Any service that accepts the same request format works." />
+          </div>
+          <input
+            id="stt_cloud_base_url"
+            class="input mono"
+            spellcheck="false"
+            value={app.settings.stt_cloud_base_url}
+            aria-invalid={errors.stt_cloud_base_url ? 'true' : undefined}
+            onchange={(e) => save('stt_cloud_base_url', e.currentTarget.value.trim())}
+          />
+          {#if errors.stt_cloud_base_url}<span class="error-text">{errors.stt_cloud_base_url}</span>{/if}
+        </div>
+      </details>
     </section>
 
     <section class="card">
@@ -437,8 +467,46 @@
     flex: 1;
     min-width: 0;
   }
+  .label-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .label-row .spacer {
+    flex: 1;
+  }
   .key-status {
-    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .key-status.on {
+    color: var(--success, var(--text));
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  details.sub {
+    padding: 0;
+  }
+  details.sub summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  details.sub summary::before {
+    content: '▸';
+    display: inline-block;
+    width: 1em;
+    transition: transform 0.15s;
+  }
+  details.sub[open] summary::before {
+    transform: rotate(90deg);
+  }
+  details.sub[open] {
+    display: grid;
+    gap: var(--space-3);
   }
   .line-preview {
     width: 100%;

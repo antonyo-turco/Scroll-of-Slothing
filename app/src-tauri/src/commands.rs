@@ -483,6 +483,7 @@ use sleuth_core::aoe::AoeConfig;
 use sleuth_service::{
     AoeInfo, AoePreset, AoeSheet, AoeSheetLayout, FilterCatalog, MapDoc, MapLayout,
 };
+use sleuth_service::{CloudModelSpec, TranscribeEstimate};
 
 #[tauri::command]
 pub async fn map_get(svc: Svc<'_>) -> Res<Option<MapDoc>> {
@@ -919,6 +920,21 @@ pub fn stt_model_download(svc: Svc<'_>, id: String) -> Res<JobId> {
 #[tauri::command]
 pub async fn stt_model_delete(svc: Svc<'_>, id: String) -> Res<()> {
     svc.stt_model_delete(id).await
+}
+
+#[tauri::command]
+pub fn stt_cloud_models_list(svc: Svc<'_>) -> Vec<CloudModelSpec> {
+    svc.stt_cloud_models_list()
+}
+
+#[tauri::command]
+pub async fn transcribe_estimate(
+    svc: Svc<'_>,
+    path: PathBuf,
+    beam_size: Option<u32>,
+    cloud_model: Option<String>,
+) -> Res<TranscribeEstimate> {
+    svc.transcribe_estimate(path, beam_size, cloud_model).await
 }
 
 #[tauri::command]

@@ -194,6 +194,18 @@ select.input {
 .segmented button + button {
   border-left: 1px solid var(--border);
 }
+.segmented.fill {
+  display: flex;
+  width: 100%;
+}
+.segmented.fill button {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 32px;
+}
 .segmented button[aria-pressed="true"],
 .segmented button[aria-selected="true"] {
   background: var(--accent-soft);

@@ -12,11 +12,14 @@
   // Spec: docs/features/transcribe.md
   import { onMount } from 'svelte';
   import { api, AUDIO_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
+  import Icon from '../../lib/components/Icon.svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import Modal from '../../lib/components/Modal.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import { app } from '../../lib/state.svelte';
-  import { CLOUD_STT_MODELS } from '../../lib/types';
-  import type { CloudKeyStatus, Correction, SttEngine, SttModel, TranscriptFormat } from '../../lib/types';
+  import type {
+    CloudKeyStatus, CloudModelSpec, Correction, SttEngine, SttModel, TranscribeEstimate, TranscriptFormat,
+  } from '../../lib/types';
 
   const PREFS_KEY = 'transcribe.file';
   /** Set once the user agreed to send audio to the cloud. */
@@ -44,7 +47,9 @@
   // Reactive, so a change made while the saved options load is saved once they arrive.
   let prefsLoaded = $state(false);
   let models = $state<SttModel[]>([]);
+  let cloudModels = $state<CloudModelSpec[]>([]);
   let keyStatus = $state<CloudKeyStatus | null>(null);
+  let estimate = $state<TranscribeEstimate | null>(null);
   let cloudOk = false;
   let confirmOpen = $state(false);
   let confirmRemember = $state(true);
@@ -57,6 +62,8 @@
 
   const engine = $derived<SttEngine>(prefs.engine ?? app.settings.stt_engine);
   const cloud = $derived(engine === 'cloud');
+  const cloudModel = $derived(prefs.cloudModel.trim() || app.settings.stt_cloud_model);
+  const cloudSpec = $derived(cloudModels.find((m) => m.id === cloudModel));
   const job = $derived(jobId ? app.jobs.find((j) => j.id === jobId) : undefined);
   const dlJob = $derived(dlJobId ? app.jobs.find((j) => j.id === dlJobId) : undefined);
   const running = $derived(job?.state === 'running');
@@ -65,6 +72,7 @@
   const result = $derived(last && last.path === path ? last.result : null);
   const fileName = $derived(path ? path.split(/[\\/]/).pop()! : '');
   const title = $derived(fileName.replace(/\.[^.]+$/, '') || 'Transcript');
+  const localEstimate = $derived(estimate?.local.find((e) => e.model === prefs.model));
 
   const glossaryTerms = () => prefs.glossary.split('\n').map((t) => t.trim()).filter(Boolean);
   function correctionRules(): Correction[] {
@@ -81,6 +89,15 @@
     const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = s % 60;
     return `${h ? `${h}:` : ''}${String(m).padStart(h ? 2 : 1, '0')}:${String(ss).padStart(2, '0')}`;
   };
+  /** "≈ 40 s", "≈ 14 min", "≈ 2 h 05 min" */
+  function about(seconds: number | null): string {
+    if (seconds === null) return 'unknown';
+    if (seconds < 60) return `≈ ${Math.max(1, Math.round(seconds))} s`;
+    const min = Math.round(seconds / 60);
+    return min < 60 ? `≈ ${min} min` : `≈ ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`;
+  }
+  const usd = (v: number) => (v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`);
+  const perMin = (v: number) => `$${v.toFixed(4).replace(/0+$/, '')} / min`;
 
   function summary(r: TranscribeResult): string {
     const n = r.segments.length;
@@ -90,7 +107,7 @@
       r.model,
       r.language,
       ...(r.engine === 'cloud' ? ['cloud'] : []),
-      ...(r.cost != null ? [`$${r.cost.toFixed(4)}`] : []),
+      ...(r.cost != null ? [usd(r.cost)] : []),
     ].join(' · ');
   }
 
@@ -110,6 +127,7 @@
       prefsLoaded = true;
       cloudOk = (await api.workspaceGet<boolean>(CLOUD_OK_KEY).catch(() => null)) === true;
       keyStatus = await api.sttCloudKeyStatus().catch(() => null);
+      cloudModels = await api.sttCloudModelsList().catch(() => []);
       await refreshModels();
       unlisten = await onFileDrop((paths) => {
         const p = paths.find((x) => AUDIO_EXTENSIONS.includes(x.split('.').pop()?.toLowerCase() ?? ''));
@@ -117,24 +135,54 @@
         else app.toast('info', 'Drop an audio file', AUDIO_EXTENSIONS.join(', '));
       });
     })();
-    return () => unlisten();
+    return () => {
+      unlisten();
+      flushSave();
+    };
   });
 
-  // Remember the options between sessions.
+  // Remember the options between sessions (debounced; flushed when the view closes,
+  // so a choice made just before switching views isn't lost).
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let pendingSave: Prefs | null = null;
+  const flushSave = () => {
+    clearTimeout(saveTimer);
+    if (pendingSave) void api.workspaceSet(PREFS_KEY, pendingSave).catch(() => {});
+    pendingSave = null;
+  };
   $effect(() => {
     const snapshot = $state.snapshot(prefs);
     if (!prefsLoaded) return;
+    pendingSave = snapshot;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => void api.workspaceSet(PREFS_KEY, snapshot).catch(() => {}), 400);
+    saveTimer = setTimeout(flushSave, 400);
   });
 
-  // Transcription finished: keep the result. Failures already show a toast.
+  // Time and cost for the open file; refreshed when the options change.
+  let estimateSeq = 0;
+  async function refreshEstimate() {
+    const p = path;
+    const seq = ++estimateSeq;
+    if (!p) return void (estimate = null);
+    const e = await api.transcribeEstimate(p, prefs.beam, cloudModel).catch(() => null);
+    if (seq === estimateSeq) estimate = e;
+  }
+  $effect(() => {
+    void path;
+    void prefs.beam;
+    void cloudModel;
+    void refreshEstimate();
+  });
+
+  // Transcription finished: keep the result (failures already show a toast),
+  // and re-estimate, since the speed was just measured.
   $effect(() => {
     const j = job;
     if (!j || j.state === 'running') return;
     if (j.state === 'done' && path) last = { path, result: j.result as TranscribeResult };
     jobId = null;
+    void refreshModels();
+    void refreshEstimate();
   });
 
   // Download finished: the model is now installed.
@@ -159,10 +207,10 @@
     try {
       jobId = await api.transcribeFile(path, {
         engine,
-        model: cloud ? prefs.cloudModel.trim() || null : prefs.model,
+        model: cloud ? cloudModel : prefs.model,
         language: prefs.language,
         beam_size: prefs.beam,
-        glossary: glossaryTerms(),
+        glossary: cloud ? [] : glossaryTerms(),
         corrections: correctionRules(),
       });
     } catch (e) {
@@ -236,6 +284,7 @@
     <div class="view-toolbar">
       {#if path}
         <span class="file" title={path}>{fileName}</span>
+        {#if estimate?.duration_ms != null}<span class="label">{clock(estimate.duration_ms)}</span>{/if}
       {:else}
         <span class="label">No file</span>
       {/if}
@@ -284,34 +333,35 @@
     <div class="statusbar" aria-live="polite">
       {#if result}
         <span>{summary(result)}</span>
-      {:else if cloud}
-        <span>Cloud: the audio is sent to OpenRouter.</span>
       {:else}
-        <span>Runs on this computer; the audio never leaves it.</span>
+        <span>{cloud ? 'Cloud: the audio is sent to OpenRouter.' : 'This computer: the audio never leaves it.'}</span>
       {/if}
     </div>
   </section>
 
   <aside class="inspector" aria-label="Transcription options">
     <section class="section">
-      <h3 class="section-title">Engine</h3>
-      <div class="segmented" role="group" aria-label="Engine">
-        <button aria-pressed={!cloud} onclick={() => (prefs.engine = 'local')}>This computer</button>
-        <button aria-pressed={cloud} onclick={() => (prefs.engine = 'cloud')}>Cloud</button>
+      <h3 class="section-title">
+        Engine
+        <InfoTip
+          label="About engines"
+          text="This computer runs Whisper locally: free and private, but long files can take longer than the recording. Cloud sends the audio to OpenRouter: much faster, billed per minute of audio."
+        />
+      </h3>
+      <div class="segmented fill" role="group" aria-label="Engine">
+        <button aria-pressed={!cloud} onclick={() => (prefs.engine = 'local')}><Icon name="cpu" size={16} /> This computer</button>
+        <button aria-pressed={cloud} onclick={() => (prefs.engine = 'cloud')}><Icon name="cloud" size={16} /> Cloud</button>
       </div>
+
       {#if cloud}
-        <label class="prop"><span>Model</span>
-          <input
-            class="input"
-            list="transcribe-cloud-models"
-            spellcheck="false"
-            placeholder={app.settings.stt_cloud_model}
-            bind:value={prefs.cloudModel}
-          />
-        </label>
-        <datalist id="transcribe-cloud-models">
-          {#each CLOUD_STT_MODELS as m (m)}<option value={m}></option>{/each}
-        </datalist>
+        <select class="input" aria-label="Cloud model" value={cloudModel} onchange={(e) => (prefs.cloudModel = e.currentTarget.value)}>
+          {#each cloudModels as m (m.id)}<option value={m.id}>{m.label}</option>{/each}
+          {#if !cloudSpec}<option value={cloudModel}>{cloudModel}</option>{/if}
+        </select>
+        <div class="model-card" data-testid="cloud-model">
+          <span class="mono">{cloudModel}</span>
+          <span class="price">{cloudSpec ? perMin(cloudSpec.usd_per_min) : 'price: see openrouter.ai'}</span>
+        </div>
         {#if keyStatus?.configured}
           <p class="note ok" data-testid="cloud-key">OpenRouter key {keyStatus.hint}</p>
         {:else}
@@ -320,13 +370,18 @@
             <button class="btn ghost link" onclick={() => app.navigate('settings')}>Add one in Settings</button>
           </p>
         {/if}
-        <p class="note">Much faster than on this computer; billed by OpenRouter per minute of audio.</p>
       {:else}
         <select class="input" aria-label="Model" bind:value={prefs.model}>
           {#each models as m (m.id)}
-            <option value={m.id}>{m.label}{m.installed ? '' : ` (${mb(m.size)}, not downloaded)`}</option>
+            <option value={m.id}>{m.label}{m.installed ? '' : ` · ${mb(m.size)} to download`}</option>
           {/each}
         </select>
+        {#if selected}
+          <div class="model-card">
+            <span>{selected.hint}</span>
+            <span class="price">{mb(selected.size)}</span>
+          </div>
+        {/if}
         {#if selected && !selected.installed}
           {#if dlJob?.state === 'running'}
             <progress max="1" value={dlJob.progress} aria-label="Download progress"></progress>
@@ -338,7 +393,6 @@
             <button class="btn block" onclick={download}>Download ({mb(selected.size)})</button>
           {/if}
         {/if}
-        <p class="note">Bigger models are more accurate and slower. On a laptop CPU, “Large” can take several times the length of the recording.</p>
       {/if}
     </section>
 
@@ -350,27 +404,66 @@
         </select>
       </label>
       {#if !cloud}
-        <div class="prop"><span>Search</span>
+        <div class="prop">
+          <span>Search <InfoTip label="About search" text="Accurate (beam search) tries several readings and keeps the best; Fast (greedy) takes the first, about a third quicker." /></span>
           <div class="segmented" role="group" aria-label="Search">
-            <button aria-pressed={prefs.beam > 1} onclick={() => (prefs.beam = 5)} title="Beam search: a little more accurate">Accurate</button>
-            <button aria-pressed={prefs.beam === 1} onclick={() => (prefs.beam = 1)} title="Greedy: faster">Fast</button>
+            <button aria-pressed={prefs.beam > 1} onclick={() => (prefs.beam = 5)}>Accurate</button>
+            <button aria-pressed={prefs.beam === 1} onclick={() => (prefs.beam = 1)}>Fast</button>
           </div>
         </div>
       {/if}
     </section>
 
-    <section class="section">
-      <h3 class="section-title">Glossary</h3>
-      <textarea class="input terms" aria-label="Glossary" rows="5" spellcheck="false" bind:value={prefs.glossary} placeholder={'Dungeon Master\nbeholder\nhit points'}></textarea>
-      <p class="note">
-        One term per line. Names and English words to spell right.{#if cloud} Used by the local engine only: for the cloud, add corrections below.{/if}
-      </p>
-    </section>
+    {#if !cloud}
+      <section class="section">
+        <h3 class="section-title">
+          Glossary
+          <InfoTip label="About the glossary" text="One term per line: names and English words that Whisper should spell right, such as monsters, spells and NPCs. Used by this computer's engine only." />
+        </h3>
+        <textarea class="input terms" aria-label="Glossary" rows="4" spellcheck="false" bind:value={prefs.glossary} placeholder={'Dungeon Master\nbeholder\nhit points'}></textarea>
+      </section>
+    {/if}
 
     <section class="section">
-      <h3 class="section-title">Corrections</h3>
-      <textarea class="input terms" aria-label="Corrections" rows="4" spellcheck="false" bind:value={prefs.corrections} placeholder={'beholdar = beholder'}></textarea>
-      <p class="note">One <code>wrong = right</code> per line, applied afterwards to whole words.</p>
+      <h3 class="section-title">
+        Corrections
+        <InfoTip label="About corrections" text="One “wrong = right” per line. Applied to whole words after transcription, with either engine, e.g. beholdar = beholder." />
+      </h3>
+      <textarea class="input terms" aria-label="Corrections" rows="3" spellcheck="false" bind:value={prefs.corrections} placeholder={'beholdar = beholder'}></textarea>
+    </section>
+
+    <section class="section" aria-label="Time needed">
+      <h3 class="section-title">
+        Time needed
+        <InfoTip
+          label="About the estimates"
+          text="Estimates start from speeds measured on a laptop CPU and learn from every transcription you run here. Cloud time depends on your upload speed."
+        />
+      </h3>
+      {#if !path}
+        <p class="note">Open a file to see how long each engine takes.</p>
+      {:else if estimate && estimate.duration_ms === null}
+        <p class="note">Couldn't read this file's length.</p>
+      {:else if estimate}
+        <div class="estimates" data-testid="estimates">
+          <button class="est" aria-pressed={!cloud} onclick={() => (prefs.engine = 'local')}>
+            <Icon name="cpu" size={16} />
+            <span class="est-name">This computer<small>{selected?.label ?? prefs.model}</small></span>
+            <span class="est-val">
+              {about(localEstimate?.seconds ?? null)}
+              <small>{localEstimate?.measured ? 'measured here' : 'estimate'}</small>
+            </span>
+          </button>
+          <button class="est" aria-pressed={cloud} onclick={() => (prefs.engine = 'cloud')}>
+            <Icon name="cloud" size={16} />
+            <span class="est-name">Cloud<small>{cloudSpec?.label ?? cloudModel}</small></span>
+            <span class="est-val">
+              {about(estimate.cloud.seconds)}
+              <small>{estimate.cloud.cost != null ? usd(estimate.cloud.cost) : 'price unknown'}</small>
+            </span>
+          </button>
+        </div>
+      {/if}
     </section>
   </aside>
 </div>
@@ -378,7 +471,7 @@
 <Modal title="Send this audio to OpenRouter?" bind:open={confirmOpen} width={460}>
   <p>
     The cloud engine uploads <strong>{fileName}</strong> to OpenRouter, which passes it to the provider of
-    <code>{prefs.cloudModel.trim() || app.settings.stt_cloud_model}</code>. OpenRouter bills your account per minute of audio.
+    <code>{cloudModel}</code>.{#if estimate?.cloud.cost != null} Expected cost: about {usd(estimate.cloud.cost)}.{/if}
   </p>
   <label class="check"><input type="checkbox" bind:checked={confirmRemember} /> Don't ask again</label>
   {#snippet footer()}
@@ -425,6 +518,20 @@
     line-height: 1.55;
     user-select: text;
   }
+  /* Grid items default to min-width: auto, so a long model id or the engine
+     buttons would widen the column past the panel. Let it shrink instead. */
+  .inspector .section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .segmented.fill button {
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
   .terms {
     resize: vertical;
     font-family: var(--font-mono);
@@ -432,6 +539,75 @@
   }
   .inspector progress {
     width: 100%;
+  }
+  .model-card {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .model-card .mono {
+    min-width: 0;
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .model-card .price {
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .estimates {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .est {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-muted);
+    text-align: left;
+    cursor: pointer;
+  }
+  .est[aria-pressed='true'] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  .est-name,
+  .est-val {
+    display: grid;
+    line-height: 1.3;
+  }
+  .est-name {
+    min-width: 0;
+  }
+  .est-name small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .est-val {
+    text-align: right;
+    font-weight: 650;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .est small {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
   }
   .link {
     padding: 0 2px;

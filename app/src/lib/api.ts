@@ -9,7 +9,8 @@ import type {
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
-  CloudKeyInfo, CloudKeyStatus, Segment, SttModel, TranscribeOptions, TranscriptFormat,
+  CloudKeyInfo, CloudKeyStatus, CloudModelSpec, Segment, SttModel, TranscribeEstimate, TranscribeOptions,
+  TranscriptFormat,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -209,6 +210,9 @@ export const api = {
   /** Returns a job id. */
   sttModelDownload: (id: string) => call<string>('stt_model_download', { id }),
   sttModelDelete: (id: string) => call<void>('stt_model_delete', { id }),
+  sttCloudModelsList: () => call<CloudModelSpec[]>('stt_cloud_models_list'),
+  transcribeEstimate: (path: string, beamSize: number | null, cloudModel: string | null) =>
+    call<TranscribeEstimate>('transcribe_estimate', { path, beamSize, cloudModel }),
   sttCloudKeyStatus: () => call<CloudKeyStatus>('stt_cloud_key_status'),
   /** Saved in the Windows Credential Manager; the key never comes back. */
   sttCloudKeySet: (key: string) => call<CloudKeyStatus>('stt_cloud_key_set', { key }),
