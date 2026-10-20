@@ -46,6 +46,16 @@ pub const MODELS: &[CloudModelSpec] = &[
         label: "Mistral Voxtral Mini",
         usd_per_min: 0.003,
     },
+    CloudModelSpec {
+        id: "mistralai/voxtral-mini-transcribe-3-0",
+        label: "Mistral Voxtral Mini Transcribe 3",
+        usd_per_min: 0.0035,
+    },
+    CloudModelSpec {
+        id: "mistralai/voxtral-small-transcribe-3-0",
+        label: "Mistral Voxtral Small Transcribe 3",
+        usd_per_min: 0.004,
+    },
 ];
 
 /// Seconds of work per second of audio before any cloud run was measured:

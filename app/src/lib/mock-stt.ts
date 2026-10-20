@@ -63,6 +63,8 @@ export function createSttMockHandlers(emit: Emit, settings: () => Settings): Rec
     { id: 'openai/whisper-1', label: 'OpenAI Whisper', usd_per_min: 0.006 },
     { id: 'openai/gpt-transcribe', label: 'OpenAI GPT Transcribe', usd_per_min: 0.0045 },
     { id: 'mistralai/voxtral-mini-transcribe', label: 'Mistral Voxtral Mini', usd_per_min: 0.003 },
+    { id: 'mistralai/voxtral-mini-transcribe-3-0', label: 'Mistral Voxtral Mini Transcribe 3', usd_per_min: 0.0035 },
+    { id: 'mistralai/voxtral-small-transcribe-3-0', label: 'Mistral Voxtral Small Transcribe 3', usd_per_min: 0.004 },
   ];
   const cancelled = new Set<string>();
 

@@ -54,7 +54,7 @@ Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, a
 - **Settings:**
   - `stt_cloud_base_url` defaults to `https://openrouter.ai/api/v1`. Any server that accepts the same format works.
   - `stt_cloud_model` defaults to `openai/whisper-1`.
-  - The UI suggests `openai/whisper-1`, `openai/gpt-transcribe` and `mistralai/voxtral-mini-transcribe`, but any id works.
+  - The UI suggests `openai/whisper-1`, `openai/gpt-transcribe`, `mistralai/voxtral-mini-transcribe`, `mistralai/voxtral-mini-transcribe-3-0` and `mistralai/voxtral-small-transcribe-3-0`, but any id works.
 - **API key:** stored in the Windows Credential Manager (`keyring` crate, entry `sleuth` / `openrouter_api_key`), never in SQLite or settings.
   - With no saved key, the `OPENROUTER_API_KEY` environment variable is used, which is handy for the CLI and standalone MCP.
   - The service never returns the key: only `configured`, the `source` (`saved`/`env`) and a hint such as `sk-or-…a1b2`.
@@ -149,7 +149,7 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
   - The duration is read from the file's header, or by walking its packets without decoding (`audio::probe_duration_ms`).
   - Time = duration × speed + overhead (1 s local, 3 s cloud).
   - Speeds start from the catalog (local, measured on the dev laptop) or `cloud::DEFAULT_SPEED` (0.06). After each finished run of 15 s or more, the real speed is blended in (50/50 moving average) and stored in the workspace as `transcribe.speeds`. Greedy runs are scaled to beam 5 with `GREEDY_FACTOR` (0.65).
-  - Cloud cost = minutes × the model's listed price (`cloud::MODELS`: Whisper $0.006, GPT Transcribe $0.0045, Voxtral Mini $0.003 per minute, as of 2026-10). Unknown models show "price unknown".
+  - Cloud cost = minutes × the model's listed price (`cloud::MODELS`: Whisper $0.006, GPT Transcribe $0.0045, Voxtral Mini $0.003, Voxtral Mini Transcribe 3 $0.0035, Voxtral Small Transcribe 3 $0.004 per minute, as of 2026-10). Unknown models show "price unknown".
 - **Live:** device picker, level meter, a big Start/Stop button, and the text scrolling as it is spoken.
 - **Transcripts:** a virtualized list. The detail view has editable segments, search, export, re-run and copy.
 - Settings has a **Transcription** card (built):
