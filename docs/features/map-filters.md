@@ -74,5 +74,5 @@ The filters are ports of PIL's `libImaging` maths (3-pass box Gaussian with 24-b
 - [x] All 13 Python filters, plus canny
 - [x] Defaults and ranges as listed
 - [x] All 18 presets (15 verbatim, 3 retuned: see "Intentional changes")
-- [ ] Order is user-controllable
+- [x] Order is user-controllable
 - [x] Golden image tests within tolerance (bit-exact)

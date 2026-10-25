@@ -263,5 +263,9 @@ export async function onFileDrop(handler: (paths: string[]) => void): Promise<()
 }
 
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'];
+
+/** The first dropped path with an image extension (any case). */
+export const firstImagePath = (paths: string[]): string | undefined =>
+  paths.find((p) => IMAGE_EXTENSIONS.includes(p.split('.').pop()?.toLowerCase() ?? ''));
 /** Matches sleuth_stt::audio::EXTENSIONS. */
 export const AUDIO_EXTENSIONS = ['wav', 'mp3', 'flac', 'ogg', 'oga', 'm4a', 'mp4', 'aac', 'mka', 'mkv', 'webm', 'caf', 'aiff'];

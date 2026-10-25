@@ -209,14 +209,14 @@ Defaults come from Settings.
 - The margin moved from Advanced into Paper, next to the cut lines (user request, 2026-10-15): the hint's "Set margin to 0.2 in" changed a field hidden in a collapsed section, so turning cut lines off left the white margin in place with no visible way back. Turning cut lines off now also restores the margin the hint replaced.
 
 ## Parity checklist (Python `ui/map_paginator_panel.py`, `map_grid.py`, `map_pdf_generator.py`)
-- [ ] Load via file, paste, drop or library; 2000 px proxy; DPI detection
-- [ ] View zoom and pan
+- [x] Load via file, paste, drop or library; 2000 px proxy; DPI detection
+- [x] View zoom and pan
 - [x] 4 sizing modes, square cells, manual offset, nudge-align (golden `grid_modes.json`)
-- [ ] Grid styles and appearance
+- [x] Grid styles and appearance
 - [x] FFT removal: synthetic test plus golden comparison (99.99 % identical pixels; f32 FFT)
 - [x] De-warp with an 8000 px cap, undo (golden `homography.json`; bicubic warp bit-exact)
-- [ ] Print settings including calibration; fit check
-- [ ] Region snapping and handles; tile include/exclude; layout drag with ¼ snapping
+- [x] Print settings including calibration; fit check
+- [x] Region snapping and handles; tile include/exclude; layout drag with ¼ snapping
 - [x] Tiling math: free and grid-aligned (golden `tiling.json`)
-- [ ] Sub-pixel tile resampling, cut border, include set
-- [ ] Export PDF; Save as Asset with Update/New
+- [x] Sub-pixel tile resampling, cut border, include set
+- [x] Export PDF; Save as Asset with Update/New

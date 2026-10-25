@@ -126,8 +126,8 @@ Units: `px_per_ft = px_per_square / feet_per_square`. Coordinates start at the t
 ## Parity checklist (Python `aoe_templates.py`, `ui/aoe_template_panel.py`)
 - [x] 4 shapes; geometry matches the golden fixture `aoe_geometry.json`
 - [x] Render defaults, supersampling, the 6000 px cap (golden renders within MAE 0.45)
-- [ ] Labels, halo, auto-fill
-- [ ] 11 built-in presets; user presets with save, overwrite confirm, delete
+- [x] Labels, halo, auto-fill
+- [x] 11 built-in presets; user presets with save, overwrite confirm, delete
 - [x] MaxRects packing (golden `maxrects.json`); skipped items reported
-- [ ] Sheet preview and current-template preview
-- [ ] Sheet PDF, template PDF, PNG
+- [x] Sheet preview and current-template preview
+- [x] Sheet PDF, template PDF, PNG

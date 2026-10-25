@@ -891,6 +891,20 @@ mod tests {
     }
 
     #[test]
+    fn steps_apply_in_list_order() {
+        let img =
+            RgbImage::from_fn(16, 16, |x, y| image::Rgb([(x * 16) as u8, (y * 16) as u8, 90]));
+        let step =
+            |kind: &str| FilterStep { kind: kind.into(), enabled: true, params: BTreeMap::new() };
+        let sepia_then_gray = apply_pipeline(&img, &[step("sepia"), step("grayscale")]);
+        let gray_then_sepia = apply_pipeline(&img, &[step("grayscale"), step("sepia")]);
+        assert_ne!(sepia_then_gray, gray_then_sepia, "reordering changes the result");
+        // the last step wins: grayscale last leaves neutral pixels, sepia last tints them
+        assert!(sepia_then_gray.pixels().all(|p| p[0] == p[1] && p[1] == p[2]));
+        assert!(gray_then_sepia.pixels().any(|p| p[0] != p[2]));
+    }
+
+    #[test]
     fn unknown_filters_are_skipped() {
         let img = RgbImage::from_pixel(4, 4, image::Rgb([10, 20, 30]));
         let out = apply_pipeline(

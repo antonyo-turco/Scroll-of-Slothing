@@ -281,6 +281,15 @@ pub fn fit_check(
 mod tests {
     use super::*;
 
+    #[test]
+    fn calibration_scales_by_measured_inch() {
+        assert_eq!(calibration_factor(25.4), 1.0);
+        // a printed inch measuring 24 mm is too small: scale up by 25.4/24
+        assert!((calibration_factor(24.0) - 25.4 / 24.0).abs() < 1e-12);
+        assert_eq!(calibration_factor(0.0), 1.0, "unset calibration is a no-op");
+        assert_eq!(calibration_factor(-3.0), 1.0);
+    }
+
     fn base() -> TileParams {
         TileParams {
             image_w: 1000,

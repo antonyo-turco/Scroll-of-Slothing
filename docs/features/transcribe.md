@@ -188,7 +188,7 @@ sleuth transcribe session.mp3 --engine cloud [--model openai/gpt-transcribe]   #
 - [ ] Local file transcription (Italian, with the glossary), Job progress and cancel
 - [ ] Model download, hash check and delete
 - [ ] Corrections applied and re-applicable
-- [ ] Export: TXT, MD, SRT, VTT (snapshot tests)
+- [x] Export: TXT, MD, SRT, VTT (snapshot tests)
 - [ ] Live local: provisional and final text, keep-audio, re-run
 - [x] Cloud engine for files: chunked timestamps, key in keyring, cost reported, confirmation on first use (cost is not *saved* yet: transcripts aren't stored)
 - [ ] Live cloud

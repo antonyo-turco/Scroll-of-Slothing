@@ -10,7 +10,7 @@
   // The whole state is a MapDoc (full-res image px). Zoom/pan, the grid, tiles
   // and tools are client-side vectors over the Rust-processed proxy image.
   import { onDestroy, onMount } from 'svelte';
-  import { api, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
+  import { api, firstImagePath, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
@@ -313,7 +313,7 @@
       if (doc) void refreshLayout();
     }
     unlisten = await onFileDrop((paths) => {
-      const img = paths.find((p) => IMAGE_EXTENSIONS.includes(p.split('.').pop()?.toLowerCase() ?? ''));
+      const img = firstImagePath(paths);
       if (img) void loadPath(img);
     });
   });

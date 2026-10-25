@@ -991,6 +991,24 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn big_maps_edit_on_a_2000_px_proxy_and_calibrate() {
+        let (d, svc) = temp_service();
+        let p = d.path().join("Big.png");
+        RgbImage::from_fn(5000, 2500, |x, y| image::Rgb([(x % 251) as u8, (y % 241) as u8, 90]))
+            .save(&p)
+            .unwrap();
+        let doc = svc.map_open_file(p).await.unwrap();
+        let png = svc.map_preview(doc.clone()).await.unwrap();
+        // longest side capped at WORK_MAX, aspect kept (truncated like Python)
+        assert_eq!(imaging::dimensions(&png), Some((WORK_MAX, 1000)));
+
+        assert_eq!(MapDoc { calibration_mm: 25.4, ..doc.clone() }.printed_square_in(), 1.0);
+        let short = MapDoc { calibration_mm: 24.0, ..doc.clone() };
+        assert!((short.printed_square_in() - 25.4 / 24.0).abs() < 1e-12);
+        assert_eq!(MapDoc { calibration_mm: 0.0, ..doc }.printed_square_in(), 1.0);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn detect_grid_and_fit_region_to_the_content() {
         let (d, svc) = temp_service();
         // 40.31 px squares (lines from x = 5.94), grey bars 45 px wide each side
