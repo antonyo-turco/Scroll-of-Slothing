@@ -68,9 +68,9 @@ so state and links stay compatible with 5etools. Route `combat`, in the rail's *
 - Notes are plain text (no inline rolls or tag rendering yet).
 
 ## Checklist
-- [ ] Core: serial round-trip, sort, turns and rounds, condition countdown, column hooks, wound levels, ordinals
-- [ ] Core: creature stats (init bonus, HP, AC, PP, speed, spell DC, CR, XP, LA, saves, skills), dice
-- [ ] Core: combat and encounter links (encode/decode, encounter → rows)
-- [ ] Service: mirror sync Job, offline search, add creature/player, import/export link, autosave
-- [ ] Tauri commands and MCP tools (documented, e2e)
-- [ ] UI: tracker under During, add creature dialog, conditions, columns, settings, mock backend, axe in both themes
+- [x] Core: serial round-trip, sort, turns and rounds, condition countdown, column hooks, wound levels, ordinals
+- [x] Core: creature stats (init bonus, HP, AC, PP, speed, spell DC, CR, XP, LA, saves, skills), dice
+- [x] Core: combat and encounter links (encode/decode, encounter → rows)
+- [x] Service: mirror sync Job, offline search, add creature/player, import/export link, autosave
+- [ ] Tauri commands and MCP tools (documented; not yet covered by `mcp_e2e.rs`)
+- [x] UI: tracker under During, add creature dialog, conditions, columns, settings, mock backend, axe in both themes
