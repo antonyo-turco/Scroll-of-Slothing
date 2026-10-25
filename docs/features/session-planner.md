@@ -2,7 +2,7 @@
 
 One place for everything the next session needs: music, saved encounters, tokens and cut-outs, maps, handouts, notes and a prep checklist. Requested 2026-10-25 (from `docs/future-features.md`). New in this app: Orb of Many Functions had no planner, so there is no parity checklist.
 
-Route `planner`, first destination of the rail's **Before** group.
+Route `planner`, in the rail right under Library (above the **Before** group), since a session plan spans before, during and after.
 
 ## Sessions
 - A planner holds any number of sessions. Each has a name (default `Session N`), an optional date (`YYYY-MM-DD` from a date picker), notes (free text), a checklist (to-dos you tick off) and its items.

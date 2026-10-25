@@ -32,10 +32,10 @@ const placeholder = () => import('../routes/Placeholder.svelte');
 export const DESTINATIONS: Destination[] = [
   { id: 'library', label: 'Library', icon: 'library',
     views: [{ id: 'library', label: 'Library', phase: 1, load: () => import('../routes/library/Library.svelte') }] },
-  { id: 'planner', label: 'Planner', icon: 'calendar', group: 'Before',
+  { id: 'planner', label: 'Planner', icon: 'calendar',
     views: [{ id: 'planner', label: 'Planner', phase: 10, load: () => import('../routes/planner/Planner.svelte') }] },
   // Tokens and cut-outs print on one sheet; the cut-out cutter keeps its old id.
-  { id: 'tokens', label: 'Tokens', icon: 'token', views: [
+  { id: 'tokens', label: 'Tokens', icon: 'token', group: 'Before', views: [
     { id: 'tokens.cutter', label: 'Token cutter', phase: 2, load: () => import('../routes/tokens/TokenCutter.svelte') },
     { id: 'cutouts.cutter', label: 'Cut-out cutter', phase: 3, load: () => import('../routes/cutouts/ObjectCutter.svelte') },
     { id: 'tokens.sheet', label: 'Sheet', phase: 2, load: () => import('../routes/tokens/TokenSheet.svelte') },
