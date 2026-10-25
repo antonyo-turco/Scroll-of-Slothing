@@ -37,6 +37,17 @@ In order. The parity sprint runs on `sprint/full-parity` and merges back into `d
    - Install the MSI once and double-click a `.dmix` file (the association only exists in the installed app).
 2. **Release.** Once every checklist is ticked, music included, propose a single descriptive `master` merge and wait for the user's approval.
 
+### Combat tracker: possible future features (out of bounds for now)
+Saved at the user's request on 2026-10-25; not to be built until asked:
+- **Music cues:** switch the Music mixer to a chosen soundscape when combat starts or a "boss" row's turn begins.
+- **Quick NPC generator:** make a homebrew creature from a template ("CR 2 brute") with the 2024 DMG statistics by CR, saved through the homebrew bestiary.
+
+### Combat tracker: decided against
+- **Combat log** (a per-round timeline of damage, conditions and turns).
+- **Maps integration** (starting encounters from a map, AoE templates sized from stat blocks).
+- **Player view** and the per-row "visible to players" toggle: the tracker is for the DM only.
+- **Custom conditions** (removed 2026-10-25).
+
 ### Removed
 - Campaigns and sessions (2026-10-11, at the user's request): UI, filters, links, commands and MCP/CLI tools are gone; the tables stay, unused. See `features/campaigns-sessions.md`.
 

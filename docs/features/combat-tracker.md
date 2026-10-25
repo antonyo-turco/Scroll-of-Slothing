@@ -127,17 +127,29 @@ Tracker, Encounters and Parties.
   skull; damage while dying adds a failure, healing clears them, three successes read
   "Stable", three failures bring back the skull. Their turn reminds you to roll.
 - **Undo / redo.** Ctrl+Z / Ctrl+Y (or the toolbar arrows) step through the last 30 saved
-  states of the tracker; changes from elsewhere (MCP) are not undo steps.
+  states of the tracker; changes from elsewhere (MCP) are not undo steps. The history lives
+  outside the view (`combat-history.svelte.ts`), so it survives switching tabs or pages; it
+  is not kept across app restarts.
 - **CR scaling.** *Scale to CR* in the creature editor, a CR choice in *Add creature*, and a CR
   per line in the encounter editor scale a creature with the DMG's monster statistics by CR
   (`app/src/lib/scale.ts`): AC, to-hit, save DCs, saves and skills shift by the table's
   difference; HP and damage scale by the table's midpoint ratios (dice counts and printed
   averages adjusted). The result is stored as the creature's stat changes (and `n_scr`), so it
   can be edited or reset. It approximates, rather than ports, 5etools ScaleCreature.
+- **Keyboard.** Tabbing into a row's HP or temp box opens its ± strip (Esc closes it), ↑/↓
+  step the value, Shift+Enter (or Shift+Space) on a name selects the row, the ⓘ and condition
+  tips open on focus, and the side panel's edge resizes with ←/→.
 - **Group actions.** Shift+click rows to select them; a bar offers an amount with Damage, Heal
   and Temp HP, a group saving throw (ability and DC; each creature rolls its own save bonus or
   ability modifier, heroes roll their own), *Half on save* for damage, and a condition for
   everyone. Esc clears the selection.
+
+## Code layout
+`app/src/routes/combat/`: `Combat.svelte` holds the tracker state, the table and the side
+panel; `HpCell`, `GroupBar`, `CombatDock` (Defeated + difficulty), `RollsWindow`,
+`CombatNotices` (concentration, recharge, legendary, turn card, round splash),
+`AddCreatureDialog` and `CreatureEditor` are its parts (shared types in `combat-ui.ts`);
+`StatBlock`, `Encounters`, `Parties` and `CombatSettings` are the other views.
 
 ## Encounters
 Saved encounters (workspace `combat.encounters`), pinned first. An encounter is either a

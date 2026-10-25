@@ -11,11 +11,20 @@
   import Modal from '../../lib/components/Modal.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import Encounters from './Encounters.svelte';
+  import { history } from './combat-history.svelte';
   import StatBlock, { type RollRequest } from './StatBlock.svelte';
+  import AddCreatureDialog, { type AddRequest } from './AddCreatureDialog.svelte';
+  import CombatDock from './CombatDock.svelte';
+  import CombatNotices from './CombatNotices.svelte';
+  import CreatureEditor from './CreatureEditor.svelte';
+  import GroupBar from './GroupBar.svelte';
+  import HpCell from './HpCell.svelte';
+  import RollsWindow from './RollsWindow.svelte';
+  import type { ConcAlert, EditorPatch, Fight, LegendItem, RechargeNote, RollLine, TurnCard, Who } from './combat-ui';
   import { rollAttack, rollFormula } from '../../lib/dice';
-  import { CRS, crOfMon, scaleCreature } from '../../lib/scale';
+  import { crOfMon, scaleCreature } from '../../lib/scale';
   import Icon from '../../lib/components/Icon.svelte';
-  import { difficulty, RATING_LABEL, xpOf } from '../../lib/difficulty';
+  import { difficulty, xpOf } from '../../lib/difficulty';
   import { concentrationDc, conditionTip } from '../../lib/conditions';
   import Parties from './Parties.svelte';
 
@@ -90,40 +99,38 @@
 
   /** Every row gets a cell per column, so inputs can bind to them (the
    *  service fills new columns' cells; this only covers old data). */
-  function setTracker(x: Tracker, history = true) {
+  function setTracker(x: Tracker, record = true) {
     for (const r of x.rows) {
       for (const c of x.stats_cols) if (!r.cells.some((cell) => cell.id === c.id)) r.cells.push({ id: c.id, value: null });
     }
     t = x;
-    remember(history);
+    remember(record);
   }
 
-  // ── undo / redo (the last 30 saved states; other windows' changes don't count) ──
-  let undoStack = $state<string[]>([]);
-  let redoStack = $state<string[]>([]);
-  let savedJson = '';
+  // ── undo / redo (the last 30 saved states; other windows' changes don't count).
+  //    The history lives in combat-history, so it survives switching views. ──
   /** Called after each change lands: the previous state becomes an undo step. */
-  function remember(history: boolean) {
+  function remember(record: boolean) {
     if (!t) return;
     const now = JSON.stringify({ ...$state.snapshot(t), is_locked: false });
-    if (now === savedJson) return;
-    if (history && savedJson && !restoring) {
-      undoStack = [...undoStack.slice(-29), savedJson];
-      redoStack = [];
+    if (now === history.saved) return;
+    if (record && history.saved && !restoring) {
+      history.undo = [...history.undo.slice(-29), history.saved];
+      history.redo = [];
     }
-    savedJson = now;
+    history.saved = now;
   }
   let restoring = false;
   async function travel(from: 'undo' | 'redo') {
-    const stack = from === 'undo' ? undoStack : redoStack;
+    const stack = from === 'undo' ? history.undo : history.redo;
     const target = stack[stack.length - 1];
     if (!target || !t) return;
     if (from === 'undo') {
-      undoStack = undoStack.slice(0, -1);
-      redoStack = [...redoStack, savedJson];
+      history.undo = history.undo.slice(0, -1);
+      history.redo = [...history.redo, history.saved];
     } else {
-      redoStack = redoStack.slice(0, -1);
-      undoStack = [...undoStack, savedJson];
+      history.redo = history.redo.slice(0, -1);
+      history.undo = [...history.undo, history.saved];
     }
     restoring = true;
     try {
@@ -197,7 +204,7 @@
   }
 
   // ── concentration reminder ──
-  let concAlerts = $state<{ id: number; who: string; damage: number; dc: number }[]>([]);
+  let concAlerts = $state<ConcAlert[]>([]);
   let concSeq = 0;
   /** Damage taken in quick steps (−10, −10, −3) is one hit: it is added up and the
    *  reminder comes once, when the steps stop (a pause, the strip closing, the
@@ -233,22 +240,7 @@
   });
 
   // ── rolls from the stat block ──
-  type RollLine = { id: number; who: string; entry: string; kind: 'hit' | 'damage'; total: number; detail: string; tag: string };
   let rolls = $state<RollLine[]>([]);
-  let rollsOpen = $state(true);
-  try {
-    rollsOpen = localStorage.getItem('combat.rollsOpen') !== '0';
-  } catch {
-    /* storage unavailable */
-  }
-  function setRollsOpen(v: boolean) {
-    rollsOpen = v;
-    try {
-      localStorage.setItem('combat.rollsOpen', v ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
-  }
   let rollSeq = 0;
   /** Abilities whose last attack was a natural 20: their next damage roll is a crit. */
   const critNext = new Set<string>();
@@ -334,7 +326,6 @@
     if (notes.length) showRecharge(notes);
   }
   // ── recharge notice: a reminder to roll for spent recharge abilities at turn start ──
-  type RechargeNote = { rowId: string; who: string; ability: string; need: number };
   let rechargeNotice = $state<{ id: number; items: RechargeNote[] } | null>(null);
   let rechargeSeq = 0;
   function showRecharge(items: RechargeNote[]) {
@@ -361,7 +352,7 @@
   }
 
   // ── legendary actions notice: just above the turn card, on the same timing ──
-  let legendNotice = $state<{ id: number; items: { who: string; left: number }[] } | null>(null);
+  let legendNotice = $state<{ id: number; items: LegendItem[] } | null>(null);
   let legendSeq = 0;
   let legendDelay = 0;
   function showLegend(items: { who: string; left: number }[]) {
@@ -395,7 +386,7 @@
     for (const r of t?.rows ?? []) if (r.source) fetchMon(r);
   });
   const levelOf = (r: CombatRow) => heroOf(r)?.level ?? null;
-  const fight = $derived.by(() => {
+  const fight = $derived.by((): Fight | null => {
     if (!t) return null;
     const enemies = t.rows.filter((r) => r.source && !r.side);
     const heroes = t.rows.filter((r) => isHero(r));
@@ -436,10 +427,10 @@
   });
 
   // ── defeated creatures ──
-  let defeatedOpen = $state(false);
   let notesOpen = $state(false);
   /** At 0 HP or below (or, tracking damage, at least the max). */
   const isDown = (r: CombatRow) =>
+    r.side !== 'lair' &&
     r.hp_current !== null && r.hp_max !== null && (t?.is_invert_wound_direction ? r.hp_current >= r.hp_max : r.hp_current <= 0);
   /** Sets a row aside; if it was its turn, the turn moves on first. */
   async function defeat(r: CombatRow) {
@@ -465,8 +456,6 @@
   }
 
   // ── HP steps: clicking the HP (or temp) opens its strip of ± buttons ──
-  const HP_STEPS = [-10, -5, -1, 1, 5, 10];
-  const TMP_STEPS = [-5, -1, 1, 5, 10];
   let steps = $state<{ id: string; kind: 'hp' | 'tmp' } | null>(null);
   const openSteps = (r: CombatRow, kind: 'hp' | 'tmp') => {
     if (!locked) steps = { id: r.id, kind };
@@ -560,15 +549,6 @@
     setUsage(r, '__ds', null);
   }
 
-  /** Share of HP left, 0–100 (as damage: of HP not yet lost). */
-  function hpPct(r: CombatRow): number {
-    if (r.hp_current === null || !r.hp_max) return 0;
-    const cur = t?.is_invert_wound_direction ? r.hp_max - r.hp_current : r.hp_current;
-    return Math.min(100, Math.max(0, (cur / r.hp_max) * 100));
-  }
-  /** Green when full, yellow above 50%, orange above 25%, red below. */
-  const hpColor = (pct: number) => (pct >= 100 ? '#2fb344' : pct > 50 ? '#d6c21a' : pct > 25 ? '#f08c00' : '#d9381e');
-
   function setTemp(r: CombatRow, raw: string) {
     const v = Math.round(Number(raw));
     r.hp_temp = raw.trim() && v > 0 ? v : null;
@@ -590,72 +570,15 @@
     editing = s;
   }
 
-  // ── add creature ──
+  // ── add creature (the dialog owns its search; adding and scaling happen here) ──
   let addOpen = $state(false);
-  let query = $state('');
-  let hits = $state<BestiaryEntry[]>([]);
-  let pick = $state<BestiaryEntry | null>(null);
-  let count = $state(1);
-  let rollHp = $state(false);
-  let customName = $state('');
-  let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  function openAdd() {
-    addOpen = true;
-    rollHp = !!app.settings.combat_roll_hp;
-    void search();
-  }
-  function search() {
-    if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(async () => {
-      try {
-        hits = await api.bestiarySearch(query, 200);
-        if (pick && !hits.some((h) => h.hash === pick!.hash)) pick = null;
-      } catch (e) {
-        app.error('Search failed', e);
-      }
-    }, 120);
-  }
-  type Side = 'enemy' | 'ally' | 'neutral';
-  const SIDES: [Side, string][] = [['enemy', 'Enemies'], ['ally', 'Allies'], ['neutral', 'Neutral']];
-  let side = $state<Side>('enemy');
-  const CR_BANDS: [string, string][] = [['low', 'CR 0–1'], ['mid', 'CR 2–5'], ['high', 'CR 6–10'], ['epic', 'CR 11+']];
-  let crFilter = $state('');
-  let srcFilter = $state('');
-  const crNum = (cr: string | null) => {
-    if (!cr) return NaN;
-    const [a, b] = cr.split('/').map(Number);
-    return b ? a / b : a;
-  };
-  const sources = $derived([...new Set(hits.map((h) => h.source))].sort());
-  const shownHits = $derived(
-    hits.filter((h) => {
-      if (srcFilter && h.source !== srcFilter) return false;
-      const n = crNum(h.cr);
-      if (crFilter === 'low') return n <= 1;
-      if (crFilter === 'mid') return n >= 2 && n <= 5;
-      if (crFilter === 'high') return n >= 6 && n <= 10;
-      if (crFilter === 'epic') return n >= 11;
-      return true;
-    }),
-  );
-  let pickMon = $state<Record<string, unknown> | null>(null);
-  function choose(h: BestiaryEntry) {
-    pick = h;
-    pickMon = null;
-    void api.bestiaryGet(h.hash).then((m) => {
-      if (pick?.hash === h.hash) pickMon = m;
-    });
-  }
-  async function addCreature() {
-    if (!pick) return;
+  async function addCreature(q: AddRequest) {
     const before = new Set(t?.rows.map((r) => r.id) ?? []);
-    await op(api.combatAddCreature(pick.hash, Math.max(1, Math.min(100, count || 1)), rollHp, customName.trim() || null, side), 'Could not add the creature');
-    if (t && addCr && pickMon && addCr !== crOfMon(pickMon)) {
-      for (const r of t.rows.filter((x) => !before.has(x.id))) applyScale(r, pickMon, addCr);
+    await op(api.combatAddCreature(q.entry.hash, q.count, q.rollHp, q.customName, q.side), 'Could not add the creature');
+    if (t && q.cr && q.mon && q.cr !== crOfMon(q.mon)) {
+      for (const r of t.rows.filter((x) => !before.has(x.id))) applyScale(r, q.mon, q.cr);
       commit();
     }
-    addOpen = false;
-    [pick, count, customName, addCr] = [null, 1, '', ''];
   }
   /** Scale to CR: the stat changes become this row's overrides; HP follows. */
   function applyScale(r: CombatRow, base: Record<string, unknown>, cr: string) {
@@ -671,8 +594,6 @@
     }
     syncRow(r, { ...base, ...o });
   }
-  let addCr = $state('');
-  let scaleTo = $state('');
 
   // ── conditions ──
   let condRow = $state<CombatRow | null>(null);
@@ -896,74 +817,13 @@
     else if (e.key === 'ArrowRight') panelW = Math.max(300, panelW - 20);
   }
 
-  // ── edit one creature: a stats form, or its 5etools JSON ──
-  const ABIL = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
-  const SPEEDS = ['walk', 'fly', 'swim', 'climb', 'burrow'] as const;
-  const LISTS: [string, string][] = [
-    ['resist', 'Damage resistances'], ['immune', 'Damage immunities'], ['vulnerable', 'Vulnerabilities'],
-    ['conditionImmune', 'Condition immunities'], ['senses', 'Senses'], ['languages', 'Languages'],
-  ];
-  type StatForm = {
-    id: string; name: string; ac: string; hp_current: string; hp_max: string; initiative: string; cr: string;
-    passive: string; size: string; type: string; speed: Record<string, string>; abil: Record<string, string>;
-    save: string; skill: string; lists: Record<string, string>;
-  };
-  let statEdit = $state<StatForm | null>(null);
-  let statTab = $state<'stats' | 'json'>('stats');
-  let jsonText = $state('');
-  let jsonError = $state('');
-  const statOpen = {
-    get value() {
-      return statEdit !== null;
-    },
-    set value(v: boolean) {
-      if (!v) statEdit = null;
-    },
-  };
+  // ── edit one creature (CreatureEditor owns the form; its patch lands here) ──
   /** The creature's stat block with this row's own changes on top. */
   function merged(r: CombatRow): Record<string, unknown> | null {
     const m = monOf(r);
     return m || r.overrides ? { ...(m ?? {}), ...(r.overrides ?? {}) } : null;
   }
-  const numStr = (v: unknown) => (v === null || v === undefined ? '' : String(v));
-  /** 5etools lists (strings or {special}/{resist: [...]} objects) as plain comma text. */
-  const listText = (v: unknown): string =>
-    Array.isArray(v)
-      ? v.map((x) => (typeof x === 'string' ? x : typeof x === 'object' && x ? Object.values(x as object).flat().filter((y) => typeof y === 'string').join(' ') : '')).filter(Boolean).join(', ')
-      : '';
-  const kvText = (v: unknown) => (v && typeof v === 'object' ? Object.entries(v as Record<string, unknown>).map(([k, x]) => `${k} ${x}`).join(', ') : '');
-  function openStatEdit(r: CombatRow) {
-    const m = merged(r) ?? {};
-    const ac = Array.isArray(m.ac) ? (typeof m.ac[0] === 'object' ? (m.ac[0] as { ac?: number }).ac : m.ac[0]) : m.ac;
-    const sp = (m.speed ?? {}) as Record<string, unknown>;
-    const spd = (k: string) => numStr(typeof sp[k] === 'object' && sp[k] ? (sp[k] as { number?: number }).number : sp[k]);
-    const cr = m.cr && typeof m.cr === 'object' ? (m.cr as { cr?: string }).cr : m.cr;
-    statEdit = {
-      id: r.id, name: r.custom_name ?? '', ac: numStr(ac), hp_current: numStr(r.hp_current), hp_max: numStr(r.hp_max),
-      initiative: numStr(r.initiative), cr: numStr(cr), passive: numStr(m.passive),
-      size: Array.isArray(m.size) ? (m.size as string[]).join('/') : numStr(m.size),
-      type: typeof m.type === 'string' ? m.type : numStr((m.type as { type?: string } | undefined)?.type),
-      speed: Object.fromEntries(SPEEDS.map((k) => [k, spd(k)])),
-      abil: Object.fromEntries(ABIL.map((a) => [a, numStr(m[a])])),
-      save: kvText(m.save), skill: kvText(m.skill),
-      lists: Object.fromEntries(LISTS.map(([k]) => [k, listText(m[k])])),
-    };
-    statTab = 'stats';
-    jsonText = JSON.stringify(m, null, 2);
-    jsonError = '';
-  }
-  /** "dex +4, wis +2" → {dex: "+4", wis: "+2"} (5etools save/skill objects). */
-  function kvParse(text: string): Record<string, string> | null {
-    const out: Record<string, string> = {};
-    for (const part of text.split(',')) {
-      const m = part.trim().match(/^(.*?)\s*([+-]\d+)$/);
-      if (m && m[1]) out[m[1].trim().toLowerCase()] = m[2];
-    }
-    return Object.keys(out).length ? out : null;
-  }
-  const listParse = (text: string) => text.split(',').map((x) => x.trim()).filter(Boolean);
-
-  /** Keeps the tracker row (name, HP, AC and speed columns) in step with the stats. */
+  /** Keeps the tracker row (AC, speed and passive Perception columns) in step with the stats. */
   function syncRow(r: CombatRow, stats: Record<string, unknown>) {
     if (!t) return;
     const ac = Array.isArray(stats.ac) ? (typeof stats.ac[0] === 'object' ? (stats.ac[0] as { ac?: number }).ac : stats.ac[0]) : null;
@@ -976,95 +836,41 @@
       if (c.populate_with === 'passivePerception' && typeof stats.passive === 'number') cell.value = stats.passive;
     }
   }
-
-  function saveStatEdit() {
-    const e = statEdit;
-    const r = t?.rows.find((x) => x.id === e?.id);
-    if (!e || !r || !t) return;
-    if (statTab === 'json') return saveJson(r);
-    const n = (v: string) => (v.trim() === '' ? null : Math.round(Number(v)));
-    const o: Record<string, unknown> = { ...(r.overrides ?? {}) };
-    const ac = n(e.ac);
-    if (ac !== null) o.ac = [ac];
-    const speed: Record<string, number> = {};
-    for (const k of SPEEDS) {
-      const v = n(e.speed[k]);
-      if (v !== null && v > 0) speed[k] = v;
-    }
-    if (Object.keys(speed).length) o.speed = speed;
-    if (e.cr.trim()) o.cr = e.cr.trim();
-    const pp = n(e.passive);
-    if (pp !== null) o.passive = pp;
-    if (e.size.trim()) o.size = e.size.split('/').map((x) => x.trim().toUpperCase()).filter(Boolean);
-    if (e.type.trim()) o.type = e.type.trim();
-    for (const a of ABIL) {
-      const v = n(e.abil[a]);
-      if (v !== null) o[a] = v;
-    }
-    const save = kvParse(e.save);
-    if (save) o.save = save;
-    else if (!e.save.trim()) delete o.save;
-    const skill = kvParse(e.skill);
-    if (skill) o.skill = skill;
-    else if (!e.skill.trim()) delete o.skill;
-    for (const [k] of LISTS) {
-      const v = listParse(e.lists[k]);
-      if (v.length) o[k] = v;
-      else delete o[k];
-    }
-    r.overrides = o;
-    r.custom_name = e.name.trim() || null;
-    r.hp_max = n(e.hp_max);
-    r.hp_current = n(e.hp_current);
-    r.initiative = n(e.initiative);
-    syncRow(r, { ...(monOf(r) ?? {}), ...o });
-    statEdit = null;
+  let statEditId = $state<string | null>(null);
+  const statRow = $derived(statEditId ? t?.rows.find((x) => x.id === statEditId) ?? null : null);
+  function openStatEdit(r: CombatRow) {
+    statEditId = r.id;
+  }
+  function applyEdit(p: EditorPatch) {
+    const r = statRow;
+    if (!r) return;
+    r.overrides = p.overrides;
+    if (p.custom_name !== undefined) r.custom_name = p.custom_name;
+    if (p.hp_max !== undefined) r.hp_max = p.hp_max;
+    if (p.hp_current !== undefined) r.hp_current = p.hp_current;
+    if (p.initiative !== undefined) r.initiative = p.initiative;
+    syncRow(r, { ...(monOf(r) ?? {}), ...(r.overrides ?? {}) });
+    statEditId = null;
     commit();
   }
-
-  /** JSON tab: the edited stat block is stored as the fields that differ from the bestiary. */
-  function saveJson(r: CombatRow) {
-    let v: Record<string, unknown>;
-    try {
-      v = JSON.parse(jsonText);
-      if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('expected a JSON object');
-    } catch (err) {
-      jsonError = (err as Error).message;
-      return;
-    }
-    const base = monOf(r) ?? {};
-    const o: Record<string, unknown> = {};
-    for (const [k, x] of Object.entries(v)) if (JSON.stringify(base[k]) !== JSON.stringify(x)) o[k] = x;
-    r.overrides = Object.keys(o).length ? o : null;
-    if (typeof v.name === 'string' && v.name !== base.name) r.custom_name = v.name;
-    const hp = (v.hp as { average?: number } | undefined)?.average;
-    if (typeof hp === 'number' && JSON.stringify(v.hp) !== JSON.stringify(base.hp)) {
-      r.hp_max = hp;
-      if (r.hp_current === null || r.hp_current > hp) r.hp_current = hp;
-    }
-    syncRow(r, v);
-    statEdit = null;
+  function scaleEdited(cr: string) {
+    const r = statRow;
+    const base = r ? monOf(r) : null;
+    if (!r || !base) return;
+    applyScale(r, base, cr);
+    statEditId = null;
     commit();
+    app.toast('success', 'Scaled');
   }
-  function checkJson() {
-    try {
-      JSON.parse(jsonText);
-      jsonError = '';
-      app.toast('success', 'Valid JSON');
-    } catch (err) {
-      jsonError = (err as Error).message;
-    }
-  }
-  function resetToBestiary() {
-    const r = t?.rows.find((x) => x.id === statEdit?.id);
+  function resetEdited() {
+    const r = statRow;
     if (!r) return;
     r.overrides = null;
     syncRow(r, monOf(r) ?? {});
-    statEdit = null;
+    statEditId = null;
     commit();
     app.toast('success', 'Back to the bestiary stats');
   }
-  const statRow = $derived(statEdit ? t?.rows.find((x) => x.id === statEdit!.id) ?? null : null);
 
   // ── new-round splash ──
   let splash = $state<number | null>(null);
@@ -1087,8 +893,7 @@
   }
 
   // ── turn card: whose turn it is and who comes next ──
-  type Who = { name: string; count: number; hero: boolean; side: CombatRow['side'] };
-  let turnCard = $state<{ id: number; now: Who; next: Who | null; round: number } | null>(null);
+  let turnCard = $state<TurnCard | null>(null);
   let turnSeq = 0;
   /** A turn group: copies acting together show once, with a count. */
   function who(rows: CombatRow[]): Who {
@@ -1167,9 +972,9 @@
       </div>
       <span class="sep"></span>
       <button class="btn" onclick={() => op(api.combatAddPlayer())} disabled={locked}>+ Player</button>
-      <button class="btn" onclick={openAdd} disabled={locked}>+ Creature…</button>
-      <button class="btn ghost icon" onclick={() => travel('undo')} disabled={!undoStack.length} aria-label="Undo" title="Undo (Ctrl+Z)"><Icon name="undo" size={17} /></button>
-      <button class="btn ghost icon redo" onclick={() => travel('redo')} disabled={!redoStack.length} aria-label="Redo" title="Redo (Ctrl+Y)"><Icon name="undo" size={17} /></button>
+      <button class="btn" onclick={() => (addOpen = true)} disabled={locked}>+ Creature…</button>
+      <button class="btn ghost icon" onclick={() => travel('undo')} disabled={!history.undo.length} aria-label="Undo" title="Undo (Ctrl+Z)"><Icon name="undo" size={17} /></button>
+      <button class="btn ghost icon redo" onclick={() => travel('redo')} disabled={!history.redo.length} aria-label="Redo" title="Redo (Ctrl+Y)"><Icon name="undo" size={17} /></button>
       {#if t}
         <button class="btn" class:danger={locked} aria-pressed={locked} onclick={() => { t!.is_locked = !t!.is_locked; commit(); }}
           title="While locked, rows can't be added, removed or edited">{locked ? '🔒 Locked' : '🔓 Lock'}</button>
@@ -1191,25 +996,8 @@
         </div>
       {:else}
         {#if selRows.length}
-          <div class="group-bar" role="toolbar" aria-label="Group actions">
-            <span class="gb-count">{selRows.length} selected</span>
-            <input class="input num gb-amount" type="number" min="1" placeholder="Amount" aria-label="Amount" bind:value={groupAmount}
-              onkeydown={(e) => e.key === 'Enter' && groupHp('damage')} />
-            <button class="btn gb-dmg" disabled={!groupAmount || locked} onclick={() => groupHp('damage')}>Damage</button>
-            <button class="btn gb-heal" disabled={!groupAmount || locked} onclick={() => groupHp('heal')}>Heal</button>
-            <button class="btn gb-temp" disabled={!groupAmount || locked} onclick={() => groupHp('temp')}>Temp HP</button>
-            <span class="gb-sep"></span>
-            <select class="input compact" aria-label="Save ability" bind:value={saveAbility}>
-              {#each ['str', 'dex', 'con', 'int', 'wis', 'cha'] as a (a)}<option value={a}>{a.toUpperCase()}</option>{/each}
-            </select>
-            <input class="input num" type="number" min="1" placeholder="DC" aria-label="Save DC" bind:value={saveDc} />
-            <button class="btn" onclick={groupSaves}>Roll saves</button>
-            <label class="check gb-half" title="With save results, creatures that saved take half"><input type="checkbox" bind:checked={halfOnSave} /> Half on save</label>
-            <span class="gb-sep"></span>
-            <button class="btn" disabled={locked} onclick={groupCondition}>Condition…</button>
-            <span class="grow"></span>
-            <button class="btn ghost" onclick={clearSelection} title="Esc">Clear</button>
-          </div>
+          <GroupBar count={selRows.length} {locked} bind:amount={groupAmount} bind:ability={saveAbility} bind:dc={saveDc} bind:half={halfOnSave}
+            onHp={groupHp} onSaves={groupSaves} onCondition={groupCondition} onClear={clearSelection} />
         {/if}
         <table class="tracker" data-testid="combat-table">
           <thead>
@@ -1238,7 +1026,8 @@
                     {/if}
                   {:else}
                     <button class="cname" class:inspected={inspectId === r.id} onclick={(e) => { if (!e.shiftKey) inspectId = inspectId === r.id ? null : r.id; }}
-                      title="Show in the side panel">{label(r)}</button>
+                      onkeydown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.shiftKey) { e.preventDefault(); toggleSelect(r); } }}
+                      aria-pressed={selected.has(r.id)} title="Show in the side panel · Shift+click or Shift+Enter: select for group actions">{label(r)}</button>
                     {#if r.source}<span class="src">{r.source}</span>{/if}
                     <button type="button" class="info" aria-label="Details of {label(r)}" onmouseenter={() => fetchMon(r)} onfocus={() => fetchMon(r)}>
                       i
@@ -1283,60 +1072,11 @@
                   </td>
                 {/each}
                 <td class="hp">
-                  <div class="hp-cell">
-                    {#if isDying(r) && deathSaves(r).f < 3}
-                      {@const ds = deathSaves(r)}
-                      <div class="death" role="group" aria-label="Death saves of {label(r)}">
-                        <span class="ds-row ok" title={ds.s >= 3 ? 'Stable' : 'Successes'}>
-                          {#each [0, 1, 2] as i (i)}<button class="ds" class:on={ds.s > i} aria-label="Success {i + 1}" disabled={locked}
-                            onclick={() => setDeathSaves(r, ds.s > i ? i : i + 1, ds.f)}></button>{/each}
-                        </span>
-                        <span class="ds-row bad" title="Failures">
-                          {#each [0, 1, 2] as i (i)}<button class="ds" class:on={ds.f > i} aria-label="Failure {i + 1}" disabled={locked}
-                            onclick={() => setDeathSaves(r, ds.s, ds.f > i ? i : i + 1)}></button>{/each}
-                        </span>
-                        {#if ds.s >= 3}<span class="stable">Stable</span>{/if}
-                      </div>
-                    {:else if isDown(r)}
-                      <button class="skull" aria-label="Set {label(r)} aside as defeated" title="Defeated: move to the list below the tracker"
-                        onclick={() => defeat(r)} disabled={locked}><Icon name="skull" size={18} /></button>
-                    {:else}
-                      <span class="skull-slot" aria-hidden="true"></span>
-                    {/if}
-                    <div class="hp-part" title={w.text} role="presentation" onclick={() => openSteps(r, 'hp')}>
-                      <div class="hp-inputs">
-                        <input class="input num" aria-label="Current HP of {label(r)}" value={r.hp_current ?? ''} onchange={(e) => setHp(r, 'hp_current', e.currentTarget.value)}
-                          onkeydown={(e) => arrowHp(r, e)} title="↑/↓ ±1 · Shift ±5 · Ctrl ±10" disabled={locked} />
-                        <span class="slash">/</span>
-                        <input class="input num" aria-label="Max HP of {label(r)}" value={r.hp_max ?? ''} onchange={(e) => setHp(r, 'hp_max', e.currentTarget.value)}
-                          disabled={locked || !editing.has(r.id)} title={editing.has(r.id) ? 'Max HP' : 'Click ✎ to change the max HP'} />
-                      </div>
-                      <span class="hpbar" aria-hidden="true"><span style:width="{hpPct(r)}%" style:background={hpColor(hpPct(r))}></span></span>
-                      {#if stepsOpen(r, 'hp')}
-                        <div class="pop" class:below={t.rows[0]?.id === r.id}>
-                          <span class="steps" role="group" aria-label="Change the HP of {label(r)}">
-                            {#each HP_STEPS as d (d)}
-                              <button class="btn ghost step" class:minus={d < 0} aria-label="{d > 0 ? '+' : ''}{d} HP to {label(r)}" onclick={() => stepHp(r, d)}>{d > 0 ? '+' : ''}{d}</button>
-                            {/each}
-                          </span>
-                        </div>
-                      {/if}
-                    </div>
-                    <div class="tmp-part" role="presentation" onclick={() => openSteps(r, 'tmp')}>
-                      <input class="input num temp" class:has={!!r.hp_temp} aria-label="Temporary HP of {label(r)}" placeholder="+tmp" title="Temporary hit points (lost first)"
-                        value={r.hp_temp ?? ''} onchange={(e) => setTemp(r, e.currentTarget.value)} onkeydown={(e) => arrowTemp(r, e)} disabled={locked} />
-                      <span class="hpbar tmpbar" aria-hidden="true"><span style:width="{r.hp_temp && r.hp_max ? Math.min(100, (r.hp_temp / r.hp_max) * 100) : r.hp_temp ? 100 : 0}%"></span></span>
-                      {#if stepsOpen(r, 'tmp')}
-                        <div class="pop" class:below={t.rows[0]?.id === r.id}>
-                          <span class="steps tmp-steps" role="group" aria-label="Change the temporary HP of {label(r)}">
-                            {#each TMP_STEPS as d (d)}
-                              <button class="btn ghost step" aria-label="{d > 0 ? '+' : ''}{d} temporary HP to {label(r)}" onclick={() => stepTemp(r, d)}>{d > 0 ? '+' : ''}{d}</button>
-                            {/each}
-                          </span>
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
+                  <HpCell {r} name={label(r)} {locked} editing={editing.has(r.id)} invert={!!t.is_invert_wound_direction} first={t.rows[0]?.id === r.id}
+                    open={steps?.id === r.id ? steps.kind : null} wound={w.text} down={isDown(r)} deathSaves={isDying(r) ? deathSaves(r) : null}
+                    onOpen={(k) => openSteps(r, k)} onSetHp={(f, raw) => setHp(r, f, raw)} onArrowHp={(e) => arrowHp(r, e)}
+                    onSetTemp={(raw) => setTemp(r, raw)} onArrowTemp={(e) => arrowTemp(r, e)} onStepHp={(d) => stepHp(r, d)} onStepTemp={(d) => stepTemp(r, d)}
+                    onDeathSaves={(s2, f) => setDeathSaves(r, s2, f)} onDefeat={() => defeat(r)} />
                 </td>
                 <td class="acts">
                   <button class="btn ghost icon" class:on={!!r.notes} aria-pressed={editing.has(r.id)} aria-label="Edit {label(r)}" title="Edit name and max HP" onclick={() => toggleEdit(r.id)} disabled={locked}><Icon name="pencil" size={17} /></button>
@@ -1355,40 +1095,7 @@
         </table>
       {/if}
       {#if (t && t.defeated.length) || fight}
-      <div class="dock">
-      {#if t && t.defeated.length}
-        <details class="defeated" bind:open={defeatedOpen}>
-          <summary><Icon name="skull" size={18} /> Defeated ({t.defeated.length})</summary>
-          <ul>
-            {#each t.defeated as r (r.id)}
-              <li>
-                <span class="d-name">{label(r)}</span>
-                {#if r.source}<span class="src">{r.source}</span>{/if}
-                <span class="muted d-hp">HP {r.hp_current ?? '—'} / {r.hp_max ?? '—'}</span>
-                <span class="grow"></span>
-                <button class="btn ghost" onclick={() => restore(r)} disabled={locked} title="Back into the turn order"><Icon name="undo" size={16} /> Restore</button>
-                <button class="btn ghost icon danger" aria-label="Remove {label(r)} for good" onclick={() => removeDefeated(r)} disabled={locked}>✕</button>
-              </li>
-            {/each}
-          </ul>
-        </details>
-      {/if}
-      {#if fight}
-        <div class="diffbar" data-testid="combat-difficulty">
-          <span class="db-title">Difficulty</span>
-          <span class="db-rating rating-{fight.d.rating}">{RATING_LABEL[fight.d.rating]}</span>
-          <div class="db-track" role="img"
-            aria-label="{RATING_LABEL[fight.d.rating]}: {fight.d.adjusted} XP against Low {fight.d.budget.low}, Moderate {fight.d.budget.moderate}, High {fight.d.budget.high}"
-            title="Low ≤ {fight.d.budget.low.toLocaleString()} · Moderate ≤ {fight.d.budget.moderate.toLocaleString()} · High ≤ {fight.d.budget.high.toLocaleString()} · Deadly ≤ {(2 * fight.d.budget.high).toLocaleString()} · TPK above">
-            {#each fight.zones as z (z.cls)}<span class="db-zone {z.cls}" style:width="{z.w}%"></span>{/each}
-            <span class="db-marker" style:left="{fight.pos}%"></span>
-          </div>
-          <span class="db-xp" title="{fight.enemies} enemies vs {fight.levels.length} heroes (levels {fight.levels.join(', ')}){fight.unknown ? `; ${fight.unknown} without CR` : ''}">
-            {fight.d.adjusted.toLocaleString()} XP{fight.d.multiplier !== 1 ? ` ×${fight.d.multiplier}` : ''}
-          </span>
-        </div>
-      {/if}
-      </div>
+        <CombatDock defeated={t?.defeated ?? []} {fight} {locked} {label} onRestore={restore} onRemove={removeDefeated} />
       {/if}
     </div>
     <div class="statusbar" data-testid="combat-status">
@@ -1433,28 +1140,7 @@
         <p class="note">The stat block of whoever's turn it is shows here. Press <b>Next turn</b> to start.</p>
       {/if}
       {#if rolls.length}
-        <section class="roll-win" class:open={rollsOpen} aria-label="Rolls">
-          <header>
-            <button class="rw-toggle" onclick={() => setRollsOpen(!rollsOpen)} aria-expanded={rollsOpen}>
-              <span class="rw-caret" aria-hidden="true">{rollsOpen ? '▾' : '▸'}</span> Rolls
-              {#if !rollsOpen}
-                {@const l = rolls[0]}
-                <span class="rw-last" class:crit={l.tag === 'CRIT' || l.tag === 'SAVED'} class:miss={l.tag === 'MISS' || l.tag === 'FAILED'}>{l.total} · {l.entry}</span>
-              {/if}
-            </button>
-            <button class="btn ghost rw-clear" onclick={() => (rolls = [])} title="Clear the rolls">Clear</button>
-          </header>
-          {#if rollsOpen}
-            <ol class="roll-log" aria-live="polite">
-              {#each rolls as l, i (l.id)}
-                <li class:latest={i === 0} class:crit={l.tag === 'CRIT' || l.tag === 'SAVED'} class:miss={l.tag === 'MISS' || l.tag === 'FAILED'}>
-                  <span class="rl-total">{l.total}</span>
-                  <span class="rl-what">{l.entry} {l.kind === 'hit' ? (l.entry.endsWith('save') ? '' : 'to hit') : 'damage'}{l.tag ? ` · ${l.tag}` : ''}<small>{l.who} · {l.detail}</small></span>
-                </li>
-              {/each}
-            </ol>
-          {/if}
-        </section>
+        <RollsWindow {rolls} onClear={() => (rolls = [])} />
       {/if}
       </div>
     {/if}
@@ -1482,196 +1168,13 @@
   {/snippet}
 </Modal>
 
-{#if concAlerts.length}
-  <div class="conc-stack" role="alert" aria-live="assertive">
-    {#each concAlerts as a (a.id)}
-      <div class="conc" data-testid="concentration-alert">
-        <span class="conc-text"><b>{a.who}</b> is concentrating and took {a.damage} damage.<br />Constitution save, <b>DC {a.dc}</b>.</span>
-        <button class="btn ghost icon" aria-label="Dismiss" onclick={() => (concAlerts = concAlerts.filter((x) => x.id !== a.id))}>✕</button>
-      </div>
-    {/each}
-  </div>
-{/if}
+<CombatNotices {concAlerts} recharge={rechargeNotice?.items ?? null} legend={legendNotice?.items ?? null} {turnCard} {splash}
+  onDismissConc={(id) => (concAlerts = concAlerts.filter((x) => x.id !== id))} onRecharged={markRecharged} />
 
-<div class="notices">
-  <div class="notice-row">
-  {#if rechargeNotice}
-    <div class="note-card recharge-notice" role="status" aria-live="polite" data-testid="recharge-notice">
-      <span class="ln-label">Recharge</span>
-      {#each rechargeNotice.items as it (it.who + it.ability)}
-        <span class="ln-item"><b>{it.who}</b> {it.ability}
-          <span class="rc-res">{it.need}{it.need < 6 ? '–6' : ''}</span>
-          <button class="rc-ok" onclick={() => markRecharged(it)} aria-label="{it.ability} recharged" title="It recharged">✓</button>
-        </span>
-      {/each}
-    </div>
-  {/if}
-{#if legendNotice}
-  <div class="note-card legend-notice" role="status" aria-live="polite" data-testid="legendary-notice">
-    <span class="ln-label">Legendary actions</span>
-    {#each legendNotice.items as it (it.who)}
-      <span class="ln-item"><b>{it.who}</b>
-        <span class="ln-pips" aria-label="{it.left} left">{#each Array(it.left) as _, i (i)}<span class="ln-pip"></span>{/each}</span>
-      </span>
-    {/each}
-  </div>
-{/if}
-  </div>
+<AddCreatureDialog bind:open={addOpen} {status} onAdd={addCreature} />
 
-{#if turnCard}
-  {@const c = turnCard}
-  <div class="turn-card" role="status" aria-live="polite" data-testid="turn-card">
-    <div class="tc-now" class:hero={c.now.hero} class:ally={c.now.side === 'ally'} class:neutral={c.now.side === 'neutral'}>
-      <span class="tc-label">Round {c.round} · Now</span>
-      <span class="tc-name">{c.now.name}{c.now.count > 1 ? ` ×${c.now.count}` : ''}</span>
-    </div>
-    {#if c.next}
-      <div class="tc-next" class:hero={c.next.hero} class:ally={c.next.side === 'ally'} class:neutral={c.next.side === 'neutral'}>
-        <span class="tc-label">Next</span>
-        <span class="tc-name small">{c.next.name}{c.next.count > 1 ? ` ×${c.next.count}` : ''}</span>
-      </div>
-    {/if}
-  </div>
-{/if}
-</div>
-
-{#if splash !== null}
-  <div class="splash" aria-live="polite" data-testid="round-splash"><span class="splash-label">Round</span><span class="splash-num">{splash}</span></div>
-{/if}
-
-<Modal title="Add creature" bind:open={addOpen} width={1000}>
-  {#if !status?.synced}
-    <p class="note warn">The bestiary is not synced: Settings → Combat → Sync from mirror ({status?.base_url}).</p>
-  {/if}
-  <div class="picker">
-    <div class="pick-left">
-      <div class="pick-filters">
-        <input id="combat-search" class="input grow" type="search" aria-label="Search the bestiary" placeholder="Search creatures…" bind:value={query} oninput={search} />
-        <select class="input compact" aria-label="Challenge rating" bind:value={crFilter}>
-          <option value="">Any CR</option>
-          {#each CR_BANDS as [id, l] (id)}<option value={id}>{l}</option>{/each}
-        </select>
-        <select class="input compact" aria-label="Source" bind:value={srcFilter}>
-          <option value="">Any source</option>
-          {#each sources as src (src)}<option value={src}>{src}</option>{/each}
-        </select>
-      </div>
-      <div class="pick-list" role="listbox" aria-label="Creatures">
-        {#each shownHits as h (h.hash)}
-          <button class="list-row pick-row" role="option" aria-selected={pick?.hash === h.hash} class:selected={pick?.hash === h.hash}
-            onclick={() => choose(h)} ondblclick={addCreature}>
-            <span class="list-thumb">{#if h.token_url}<img src={h.token_url} alt="" loading="lazy" />{:else}<span aria-hidden="true">🐉</span>{/if}</span>
-            <span class="title-cell"><span class="list-title">{h.name}</span><span class="list-sub">{h.source}</span></span>
-            <span class="list-pill">CR {h.cr ?? '—'}</span>
-            <span class="list-muted num">HP {h.hp ?? '—'}</span>
-          </button>
-        {:else}
-          <p class="muted pad">{status?.synced ? 'No matches.' : ''}</p>
-        {/each}
-      </div>
-    </div>
-    <div class="pick-right">
-      {#if pick}
-        <StatBlock mon={pickMon} hero={null} name={pick.name} />
-      {:else}
-        <p class="muted pad">Pick a creature to see its stat block.</p>
-      {/if}
-    </div>
-  </div>
-  {#snippet footer()}
-    <div class="pick-foot">
-      <span class="stepper" role="group" aria-label="Count">
-        <button class="btn ghost icon" aria-label="One fewer" onclick={() => (count = Math.max(1, count - 1))}>−</button>
-        <input class="input num" type="number" min="1" max="100" aria-label="Count" bind:value={count} />
-        <button class="btn ghost icon" aria-label="One more" onclick={() => (count = Math.min(100, count + 1))}>+</button>
-      </span>
-      <input class="input" aria-label="Custom name" placeholder="Custom name (optional)" bind:value={customName} />
-      <div class="segmented side-pick" role="group" aria-label="Side">
-        {#each SIDES as [id, l] (id)}
-          <button class="side-{id}" aria-pressed={side === id} onclick={() => (side = id)}>{l}</button>
-        {/each}
-      </div>
-      <label class="check nowrap-label"><input type="checkbox" bind:checked={rollHp} /> Roll HP</label>
-      <label class="cr-pick">CR
-        <select class="input compact" aria-label="Scale to CR" bind:value={addCr} disabled={!pickMon}>
-          <option value="">{pickMon ? `${crOfMon(pickMon) ?? '—'} (as is)` : 'as is'}</option>
-          {#each CRS as c (c)}<option value={c}>{c}</option>{/each}
-        </select>
-      </label>
-      <span class="grow"></span>
-      <button class="btn primary" disabled={!pick} onclick={addCreature}>Add {count > 1 ? `${count} × ` : ''}{pick?.name ?? 'creature'}</button>
-    </div>
-  {/snippet}
-</Modal>
-
-<Modal title="Edit {statRow ? label(statRow) : 'creature'}" bind:open={statOpen.value} width={980}>
-  {#if statEdit && statRow}
-    <div class="segmented ed-tabs" role="tablist" aria-label="Edit as">
-      <button role="tab" aria-selected={statTab === 'stats'} onclick={() => (statTab = 'stats')}><Icon name="pencil" size={15} /> Stats</button>
-      <button role="tab" aria-selected={statTab === 'json'} onclick={() => { statTab = 'json'; jsonText = JSON.stringify(merged(statRow!) ?? {}, null, 2); }}><Icon name="braces" size={15} /> 5etools JSON</button>
-    </div>
-    <p class="note">Changes apply to this {statRow.name} only and update its row in the tracker.{statRow.overrides ? ' It already has changes from the bestiary.' : ''}</p>
-    {#if statTab === 'stats'}
-      <div class="scale-row">
-        <span>Scale to CR</span>
-        <select class="input compact" aria-label="Scale to CR" bind:value={scaleTo}>
-          <option value="">—</option>
-          {#each CRS as c (c)}<option value={c}>{c}</option>{/each}
-        </select>
-        <button class="btn" disabled={!scaleTo || !monOf(statRow)} onclick={() => { applyScale(statRow!, monOf(statRow!)!, scaleTo); scaleTo = ''; statEdit = null; commit(); app.toast('success', 'Scaled'); }}
-          title="Adjusts AC, HP, to-hit, damage, save DCs, saves and skills with the DMG's monster statistics by CR (from the bestiary stats)">Scale</button>
-        <span class="muted">from CR {monOf(statRow) ? crOfMon(monOf(statRow)!) : '—'} in the bestiary</span>
-      </div>
-      <div class="stat-form">
-        <fieldset>
-          <legend>Basics</legend>
-          <label class="field wide">Name <input class="input" placeholder={statRow.name} bind:value={statEdit.name} /></label>
-          <label class="field">Size <input class="input" placeholder="M" bind:value={statEdit.size} /></label>
-          <label class="field">Type <input class="input" placeholder="humanoid" bind:value={statEdit.type} /></label>
-          <label class="field">CR <input class="input" bind:value={statEdit.cr} /></label>
-        </fieldset>
-        <fieldset>
-          <legend>Combat</legend>
-          <label class="field">AC <input class="input" inputmode="numeric" bind:value={statEdit.ac} /></label>
-          <label class="field">HP <input class="input" inputmode="numeric" bind:value={statEdit.hp_current} /></label>
-          <label class="field">Max HP <input class="input" inputmode="numeric" bind:value={statEdit.hp_max} /></label>
-          <label class="field">Initiative <input class="input" inputmode="numeric" bind:value={statEdit.initiative} /></label>
-          <label class="field">Passive Perception <input class="input" inputmode="numeric" bind:value={statEdit.passive} /></label>
-        </fieldset>
-        <fieldset>
-          <legend>Speed (ft.)</legend>
-          {#each SPEEDS as k (k)}
-            <label class="field">{k[0].toUpperCase() + k.slice(1)} <input class="input" inputmode="numeric" bind:value={statEdit.speed[k]} /></label>
-          {/each}
-        </fieldset>
-        <fieldset>
-          <legend>Abilities</legend>
-          {#each ABIL as a (a)}
-            <label class="field">{a.toUpperCase()} <input class="input" inputmode="numeric" bind:value={statEdit.abil[a]} /></label>
-          {/each}
-        </fieldset>
-        <fieldset class="wide-set">
-          <legend>Proficiencies and defences</legend>
-          <label class="field wide">Saving throws <input class="input" placeholder="dex +4, wis +2" bind:value={statEdit.save} /></label>
-          <label class="field wide">Skills <input class="input" placeholder="perception +5, stealth +6" bind:value={statEdit.skill} /></label>
-          {#each LISTS as [k, l] (k)}
-            <label class="field wide">{l} <input class="input" placeholder="comma separated" bind:value={statEdit.lists[k]} /></label>
-          {/each}
-        </fieldset>
-      </div>
-    {:else}
-      <p class="muted json-hint">The full stat block in 5etools format (the bestiary entry with this creature's changes). Edit it and save; only the fields that differ from the bestiary are stored.</p>
-      <textarea class="input json" spellcheck="false" aria-label="5etools JSON" bind:value={jsonText} oninput={() => (jsonError = '')}></textarea>
-      {#if jsonError}<p class="error-text" role="alert">{jsonError}</p>{/if}
-    {/if}
-  {/if}
-  {#snippet footer()}
-    {#if statRow?.overrides}<button class="btn ghost" onclick={resetToBestiary}><Icon name="undo" size={15} /> Reset to bestiary</button>{/if}
-    <span class="grow"></span>
-    {#if statTab === 'json'}<button class="btn" onclick={checkJson}>Check JSON</button>{/if}
-    <button class="btn primary" onclick={saveStatEdit}>Save</button>
-  {/snippet}
-</Modal>
+<CreatureEditor row={statRow} base={statRow ? monOf(statRow) : null} title={statRow ? label(statRow) : 'creature'}
+  onClose={() => (statEditId = null)} onApply={applyEdit} onScale={scaleEdited} onReset={resetEdited} />
 
 <Modal title="Add condition{condRow ? ` to ${label(condRow)}` : ''}" bind:open={condOpen.value} width={480}>
   <label class="field">Turns <span class="muted">(empty: until removed)</span>
@@ -1765,65 +1268,6 @@
     font-size: 15px;
     font-weight: 400;
     color: var(--text);
-    resize: vertical;
-  }
-  .diffbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 44px;
-    padding: 0 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface-2);
-  }
-  .db-title {
-    font-weight: 600;
-    font-size: 15px;
-  }
-  .db-rating {
-    min-width: 7ch;
-    font-weight: 800;
-    font-size: 15px;
-  }
-  .db-rating.rating-trivial,
-  .db-rating.rating-low { color: #2fb344; }
-  .db-rating.rating-moderate { color: #d6c21a; }
-  .db-rating.rating-high { color: #f08c00; }
-  .db-rating.rating-deadly { color: #d9381e; }
-  .db-rating.rating-tpk { color: var(--text); }
-  .db-track {
-    position: relative;
-    flex: 1;
-    display: flex;
-    height: 8px;
-    border-radius: 999px;
-    overflow: hidden;
-    cursor: help;
-  }
-  .db-zone.low { background: #2fb344; }
-  .db-zone.moderate { background: #d6c21a; }
-  .db-zone.high { background: #f08c00; }
-  .db-zone.deadly { background: #d9381e; }
-  .db-zone.tpk { background: #111; }
-  .db-marker {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    margin-left: -1px;
-    background: #fff;
-    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6);
-  }
-  .db-xp {
-    min-width: 9ch;
-    text-align: right;
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
-  }
-  .enc-notes {
-    min-height: 64px;
     resize: vertical;
   }
   .tracker {
@@ -2000,183 +1444,9 @@
     font-weight: 600;
     white-space: nowrap;
   }
-  /* .num sets a narrower width later in the sheet, so this needs the extra class */
-  .input.num.temp {
-    width: 60px;
-    padding: 0 4px;
-    font-size: 13px;
-    text-align: center;
-    color: #4aa3ff;
-    border-color: color-mix(in srgb, #4aa3ff 55%, var(--border));
-  }
-  .input.num.temp::placeholder {
-    color: color-mix(in srgb, #4aa3ff 65%, transparent);
-  }
-  .input.num.temp.has {
-    border-color: #4aa3ff;
-    font-weight: 700;
-  }
   .slot {
     display: inline-block;
     width: 32px;
-  }
-  .picker {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--space-4);
-    height: 60vh;
-  }
-  .pick-left {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    min-height: 0;
-  }
-  .pick-filters {
-    display: flex;
-    gap: var(--space-2);
-  }
-  .pick-list {
-    flex: 1;
-    overflow: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-  .pick-row {
-    width: 100%;
-    grid-template-columns: 40px minmax(0, 1fr) auto 64px;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-    cursor: pointer;
-    font: inherit;
-  }
-  .pick-right {
-    overflow: auto;
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface-2);
-  }
-  .pick-foot {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    width: 100%;
-  }
-  .side-pick button::before {
-    content: '';
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    margin-right: 6px;
-    border-radius: 50%;
-    vertical-align: -1px;
-  }
-  .side-pick .side-enemy::before {
-    background: #d9381e;
-  }
-  .side-pick .side-ally::before {
-    background: #f2f2f2;
-    box-shadow: 0 0 0 1px #888;
-  }
-  .side-pick .side-neutral::before {
-    background: #000;
-    box-shadow: 0 0 0 1px #888;
-  }
-  .stepper {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-  }
-  .pad {
-    padding: var(--space-3);
-  }
-  .title-cell {
-    display: grid;
-  }
-  .scale-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin-bottom: var(--space-3);
-    font-size: 15px;
-  }
-  .nowrap-label {
-    white-space: nowrap;
-    flex: none;
-  }
-  .cr-pick {
-    white-space: nowrap;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-  }
-  .ed-tabs {
-    margin-bottom: var(--space-3);
-  }
-  .ed-tabs button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .stat-form {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
-    max-height: 62vh;
-    overflow: auto;
-    font-size: 15px;
-  }
-  .stat-form fieldset {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-2) var(--space-3);
-    margin: 0;
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-  .stat-form .wide-set {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .stat-form legend {
-    padding: 0 6px;
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-  }
-  .stat-form .field {
-    display: grid;
-    gap: 4px;
-    font-size: 13px;
-  }
-  .stat-form .input {
-    font-size: 15px;
-  }
-  .stat-form .wide {
-    grid-column: 1 / -1;
-  }
-  .wide-set .wide {
-    grid-column: auto;
-  }
-  .json {
-    width: 100%;
-    height: 56vh;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.5;
-    white-space: pre;
-    resize: vertical;
-  }
-  .json-hint {
-    margin: 0 0 var(--space-2);
-    font-size: 13px;
   }
   .edit-btn {
     display: inline-flex;
@@ -2252,51 +1522,6 @@
   .tracker tr.selected td:last-child {
     box-shadow: inset -3px 0 0 var(--accent);
   }
-  .group-bar {
-    position: sticky;
-    top: calc(-1 * var(--space-3));
-    z-index: 4;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border: 1px solid var(--accent);
-    border-radius: 10px;
-    background: var(--surface);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
-    font-size: 15px;
-  }
-  .gb-count {
-    font-weight: 700;
-    margin-right: 4px;
-  }
-  .gb-amount {
-    width: 90px;
-  }
-  .gb-dmg {
-    color: #fff;
-    background: #c9341c;
-    border-color: #c9341c;
-  }
-  .gb-heal {
-    color: #fff;
-    background: #2a9a3f;
-    border-color: #2a9a3f;
-  }
-  .gb-temp {
-    color: #fff;
-    background: #2f7fd1;
-    border-color: #2f7fd1;
-  }
-  .gb-sep {
-    width: 1px;
-    align-self: stretch;
-    background: var(--border);
-  }
-  .gb-half {
-    font-size: 14px;
-  }
   .save-badge {
     margin-left: 8px;
     padding: 1px 8px;
@@ -2314,134 +1539,12 @@
   .redo :global(svg) {
     transform: scaleX(-1);
   }
-  .death {
-    display: grid;
-    gap: 3px;
-    flex: none;
-  }
-  .ds-row {
-    display: flex;
-    gap: 3px;
-  }
-  .ds {
-    width: 12px;
-    height: 12px;
-    padding: 0;
-    border: 2px solid currentColor;
-    border-radius: 50%;
-    background: transparent;
-    cursor: pointer;
-  }
-  .ok {
-    color: #2fb344;
-  }
-  .bad {
-    color: #e5533d;
-  }
-  .ds.on {
-    background: currentColor;
-  }
-  .stable {
-    font-size: 11px;
-    font-weight: 700;
-    color: #2fb344;
-  }
   .tracker tr.lair td:first-child {
     box-shadow: inset 4px 0 0 #8b5cf6;
   }
   .lair-btn {
     margin-bottom: var(--space-3);
     border-color: #8b5cf6;
-  }
-  .roll-win {
-    position: sticky;
-    bottom: calc(-1 * var(--space-4));
-    z-index: 2;
-    margin: var(--space-3) calc(-1 * var(--space-2)) calc(-1 * var(--space-4));
-    border: 1px solid var(--border);
-    border-radius: 10px 10px 0 0;
-    background: var(--surface);
-    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.3);
-  }
-  .roll-win header {
-    display: flex;
-    align-items: center;
-  }
-  .rw-toggle {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 12px;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    font: inherit;
-    font-weight: 700;
-    font-size: 15px;
-    text-align: left;
-    cursor: pointer;
-  }
-  .rw-last {
-    margin-left: auto;
-    font-weight: 600;
-    color: var(--text-muted);
-  }
-  .rw-last.crit {
-    color: #2fb344;
-  }
-  .rw-last.miss {
-    color: #e5533d;
-  }
-  .rw-clear {
-    margin-right: 6px;
-  }
-  .roll-log {
-    list-style: none;
-    margin: 0;
-    padding: 0 8px 8px;
-    display: grid;
-    gap: 4px;
-    max-height: 32vh;
-    overflow: auto;
-  }
-  .roll-log li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 4px 10px;
-    border-radius: 8px;
-    background: var(--surface-2);
-    opacity: 0.7;
-  }
-  .roll-log li.latest {
-    opacity: 1;
-    padding: 8px 12px;
-    border: 1px solid var(--accent);
-  }
-  .roll-log li.crit {
-    border-color: #2fb344;
-  }
-  .roll-log li.miss {
-    border-color: #e5533d;
-  }
-  .rl-total {
-    min-width: 2.5ch;
-    font-size: 18px;
-    font-weight: 800;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-  }
-  .latest .rl-total {
-    font-size: 26px;
-  }
-  .rl-what {
-    display: grid;
-    font-size: 14px;
-  }
-  .rl-what small {
-    color: var(--text-muted);
-    font-size: 12px;
   }
   .chip-wrap {
     position: relative;
@@ -2477,327 +1580,8 @@
   .chip-wrap:focus-within .tip {
     display: block;
   }
-  .conc-stack {
-    position: fixed;
-    top: 136px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 90;
-    display: grid;
-    gap: var(--space-2);
-  }
-  .conc {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    min-width: 420px;
-    padding: 14px 16px;
-    border: 2px solid #009f7a;
-    border-radius: var(--radius);
-    background: var(--surface);
-    box-shadow: var(--shadow);
-    font-size: 16px;
-    animation: conc-in 0.25s ease-out;
-  }
-  .conc-text {
-    flex: 1;
-  }
-  @keyframes conc-in {
-    from { transform: translateY(-12px); opacity: 0; }
-    to { transform: none; opacity: 1; }
-  }
-  .notices {
-    position: fixed;
-    top: 72px;
-    left: 50%;
-    z-index: 86;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    pointer-events: none;
-  }
-  .notice-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .notice-row:empty {
-    display: none;
-  }
-  .recharge-notice {
-    border-color: #e5533d !important;
-    pointer-events: auto;
-    animation-duration: 15s !important;
-  }
-  .rc-ok {
-    width: 30px;
-    height: 30px;
-    margin-left: 4px;
-    border: 1px solid #e5533d;
-    border-radius: 8px;
-    background: color-mix(in srgb, #e5533d 18%, transparent);
-    color: #e5533d;
-    font-size: 16px;
-    font-weight: 800;
-    cursor: pointer;
-  }
-  .rc-ok:hover {
-    background: color-mix(in srgb, #e5533d 32%, transparent);
-  }
-  .recharge-notice .ln-label {
-    color: #e5533d;
-  }
-  .rc-res {
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-  .legend-notice {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    max-width: 80vw;
-    padding: 10px 18px;
-    border: 1px solid #e0a400;
-    border-radius: 12px;
-    background: var(--surface);
-    box-shadow: 0 12px 36px rgb(0 0 0 / 0.35);
-    pointer-events: none;
-    font-size: 15px;
-    animation: note-life 4s ease forwards;
-  }
-  .ln-label {
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #e0a400;
-  }
-  .ln-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .ln-pips {
-    display: inline-flex;
-    gap: 3px;
-  }
-  .ln-pip {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #e0a400;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .note-card {
-      animation: none;
-    }
-  }
-  .note-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    max-width: 80vw;
-    padding: 10px 18px;
-    border: 1px solid #e0a400;
-    border-radius: 12px;
-    background: var(--surface);
-    box-shadow: 0 12px 36px rgb(0 0 0 / 0.35);
-    font-size: 15px;
-    animation: note-life 5s ease forwards;
-  }
-  .turn-card {
-    display: flex;
-    align-items: stretch;
-    min-width: 440px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    background: var(--surface);
-    box-shadow: 0 16px 48px rgb(0 0 0 / 0.4);
-    overflow: hidden;
-    pointer-events: none;
-    animation: note-life 3.2s ease forwards;
-  }
-  .tc-now,
-  .tc-next {
-    --edge: #d9381e;
-    display: grid;
-    gap: 2px;
-    padding: 14px 22px 14px 20px;
-    box-shadow: inset 5px 0 0 var(--edge);
-  }
-  .tc-now {
-    flex: 1.4;
-  }
-  .tc-next {
-    flex: 1;
-    border-left: 1px solid var(--border);
-    background: var(--surface-2);
-  }
-  .tc-now.hero,
-  .tc-next.hero {
-    --edge: #4aa3ff;
-  }
-  .tc-now.ally,
-  .tc-next.ally {
-    --edge: #f2f2f2;
-  }
-  .tc-now.neutral,
-  .tc-next.neutral {
-    --edge: #6b6b6b;
-  }
-  .tc-label {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-  .tc-name {
-    font-size: 26px;
-    font-weight: 800;
-    line-height: 1.15;
-  }
-  .tc-name.small {
-    font-size: 19px;
-    font-weight: 700;
-  }
-  @keyframes note-life {
-    0% { opacity: 0; transform: translateY(-10px); }
-    8% { opacity: 1; transform: none; }
-    85% { opacity: 1; transform: none; }
-    100% { opacity: 0; transform: translateY(-6px); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .turn-card {
-      animation: none;
-    }
-  }
-  .splash {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: grid;
-    place-content: center;
-    justify-items: center;
-    pointer-events: none;
-    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 35%, transparent), rgb(0 0 0 / 0.55));
-    animation: splash-bg 1.7s ease forwards;
-  }
-  .splash-label {
-    font-size: 28px;
-    letter-spacing: 0.4em;
-    text-transform: uppercase;
-    color: #fff;
-    animation: splash-in 1.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  }
-  .splash-num {
-    font-size: 160px;
-    font-weight: 800;
-    line-height: 1;
-    color: #fff;
-    text-shadow: 0 8px 40px rgb(0 0 0 / 0.5);
-    animation: splash-in 1.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  }
-  @keyframes splash-bg {
-    0% { opacity: 0; }
-    15% { opacity: 1; }
-    75% { opacity: 1; }
-    100% { opacity: 0; }
-  }
-  @keyframes splash-in {
-    0% { transform: scale(0.6); opacity: 0; }
-    20% { transform: scale(1.05); opacity: 1; }
-    30% { transform: scale(1); }
-    75% { transform: scale(1); opacity: 1; }
-    100% { transform: scale(1.15); opacity: 0; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .splash-label,
-    .splash-num {
-      animation: splash-bg 1.7s linear forwards;
-    }
-  }
   .conds-td {
     min-width: 140px;
-  }
-  .skull,
-  .skull-slot {
-    width: 30px;
-    flex: none;
-  }
-  .skull {
-    display: grid;
-    place-items: center;
-    height: 32px;
-    border: 1px solid color-mix(in srgb, #d9381e 60%, var(--border));
-    border-radius: 8px;
-    background: color-mix(in srgb, #d9381e 18%, transparent);
-    color: #e5533d;
-    cursor: pointer;
-  }
-  .skull:hover {
-    background: color-mix(in srgb, #d9381e 32%, transparent);
-  }
-  /* Defeated + Difficulty sit flush on the status bar, as one block */
-  .dock {
-    position: sticky;
-    bottom: calc(-1 * var(--space-3));
-    z-index: 3;
-    display: grid;
-    margin: auto calc(-1 * var(--space-3)) calc(-1 * var(--space-3));
-  }
-  .dock > .defeated,
-  .dock > .diffbar {
-    border-radius: 0;
-    border-width: 1px 0 0;
-    box-shadow: none;
-  }
-  .defeated {
-    width: 100%;
-    box-shadow: 0 -6px 18px rgb(0 0 0 / 0.25);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface-2);
-  }
-  .defeated summary {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #e5533d;
-    height: 44px;
-    padding: 0 14px;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 600;
-  }
-  .defeated ul {
-    max-height: 30vh;
-    overflow: auto;
-    list-style: none;
-    margin: 0;
-    padding: 0 8px 8px;
-  }
-  .defeated li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px;
-    border-top: 1px solid var(--border);
-    font-size: 15px;
-  }
-  .d-name {
-    font-weight: 600;
-    text-decoration: line-through;
-    color: var(--text-muted);
-  }
-  .d-hp {
-    font-size: 13px;
   }
   .conds {
     display: flex;
@@ -2824,101 +1608,6 @@
     width: 52px;
     text-align: center;
   }
-  .hp {
-    white-space: nowrap;
-  }
-  .hp-cell {
-    display: flex;
-    gap: 6px;
-    align-items: flex-start;
-  }
-  .hp-part,
-  .tmp-part {
-    position: relative;
-    display: grid;
-    gap: 3px;
-  }
-  .hp-inputs {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .slash {
-    text-align: center;
-  }
-  .hpbar {
-    height: 4px;
-    border-radius: 999px;
-    background: transparent;
-    overflow: hidden;
-  }
-  .hpbar > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-  }
-  .tmpbar > span {
-    background: #4aa3ff;
-  }
-  .hp-cell {
-    align-items: center;
-  }
-  .hp-part,
-  .tmp-part {
-    cursor: pointer;
-  }
-  /* the strip opens above what was clicked, centred on it */
-  .pop {
-    position: absolute;
-    left: 50%;
-    bottom: 100%;
-    transform: translateX(-50%);
-    z-index: 6;
-    padding-bottom: 6px;
-  }
-  /* the first row has nothing above it: open below */
-  .pop.below {
-    bottom: auto;
-    top: 100%;
-    padding-bottom: 0;
-    padding-top: 6px;
-  }
-  .pop .steps {
-    display: flex;
-    gap: 2px;
-    padding: 5px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface);
-    box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
-    animation: pop-in 0.1s ease-out;
-  }
-  .pop .tmp-steps {
-    border-color: color-mix(in srgb, #4aa3ff 55%, var(--border));
-  }
-  @keyframes pop-in {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: none; }
-  }
-  .step {
-    min-width: 40px;
-    height: 32px;
-    padding: 0 6px;
-    border-radius: 7px;
-    font-size: 15px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: #2fb344;
-  }
-  .step:hover {
-    background: color-mix(in srgb, currentColor 14%, transparent);
-  }
-  .step.minus {
-    color: #e5533d;
-  }
-  .tmp-steps .step {
-    color: #4aa3ff;
-  }
   .pair {
     white-space: nowrap;
   }
@@ -2940,9 +1629,6 @@
     height: 1px;
     overflow: hidden;
     clip: rect(0 0 0 0);
-  }
-  .nowrap {
-    flex-wrap: nowrap;
   }
   .field {
     font-size: 12px;

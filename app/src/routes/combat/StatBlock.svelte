@@ -40,6 +40,11 @@
       const body = m[2].split('|')[0].trim();
       if (onRoll && tag === 'hit') out.push({ roll: 'hit', value: body, label: Number(body) >= 0 ? `+${body}` : body });
       else if (onRoll && (tag === 'damage' || tag === 'dice')) out.push({ roll: 'damage', value: body, label: body });
+      else if (onRoll && (tag === 'scaledamage' || tag === 'scaledice')) {
+        const step = m[2].split('|')[2]?.trim();
+        if (step) out.push({ roll: 'damage', value: step, label: step });
+        else out.push({ text: plain(m[0]) });
+      }
       else if (onRoll && tag === 'd20') out.push({ roll: 'hit', value: body, label: Number(body) >= 0 ? `+${body}` : body });
       else out.push({ text: plain(m[0]) });
       last = m.index + m[0].length;
@@ -78,6 +83,9 @@
       if (tag === 'actTrigger') return 'Trigger:';
       if (tag === 'actResponse') return 'Response:';
       if (tag === 'dc') return `DC ${text}`;
+      if (tag === 'hitYourSpellAttack') return text || 'your spell attack modifier';
+      // {@scaledamage 8d6|3-9|1d6}: the per-level step is what you roll extra
+      if (tag === 'scaledamage' || tag === 'scaledice') return body.split('|')[2] ?? text;
       return text;
     });
   }
