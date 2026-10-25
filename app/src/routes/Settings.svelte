@@ -7,8 +7,15 @@
   import { app } from '../lib/state.svelte';
   import Icon from '../lib/components/Icon.svelte';
   import InfoTip from '../lib/components/InfoTip.svelte';
+  import CombatSettings from './combat/CombatSettings.svelte';
   import type { CloudKeyInfo, CloudKeyStatus, CloudModelSpec, CutLineStyle, PageFormat, Settings, SttEngine, Theme } from '../lib/types';
 
+  // vertical tabs: one functionality per tab
+  const TABS = [
+    ['general', 'General'], ['printing', 'Cut guides'], ['tokens', 'Tokens'], ['cutouts', 'Cut-outs & cards'],
+    ['maps', 'Maps'], ['transcription', 'Transcription'], ['combat', 'Combat'], ['data', 'Data'],
+  ] as const;
+  let tab = $state<(typeof TABS)[number][0]>('general');
   let errors = $state<Record<string, string>>({});
   let confirmingReset = $state(false);
   let dataDir = $state('');
@@ -160,7 +167,13 @@
 {/snippet}
 
 <div class="page">
-  <div class="sections">
+  <div class="vtabs" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+    {#each TABS as [id, label] (id)}
+      <button role="tab" aria-selected={tab === id} onclick={() => (tab = id)}>{label}</button>
+    {/each}
+  </div>
+  <div class="sections" role="tabpanel">
+    {#if tab === 'general'}
     <section class="card">
       <h2>General</h2>
       <div class="field">
@@ -179,7 +192,25 @@
       </div>
       {@render toggle('sidebar_collapsed', 'Start with the sidebar collapsed')}
     </section>
-
+    <details class="card advanced">
+      <summary><h2>Advanced</h2></summary>
+      <div class="label-row">
+        {@render toggle('mcp_http_enabled', 'Enable in-app MCP server (HTTP, localhost only)')}
+        <InfoTip
+          label="About the MCP server"
+          text="Lets AI assistants such as Claude drive the app over a local connection. The standalone sleuth-mcp server works regardless of this setting."
+        />
+      </div>
+      {#if app.settings.mcp_http_enabled}
+        <p class="muted hint" data-testid="mcp-url">
+          {#if mcp}
+            Endpoint <code>{mcp.url}</code>, header <code>Authorization: Bearer {mcp.token}</code>. For Claude Code:
+            <code>claude mcp add --transport http sleuth {mcp.url} --header "Authorization: Bearer {mcp.token}"</code>
+          {:else}Starting… (if this stays, port 8765 may be in use){/if}
+        </p>
+      {/if}
+    </details>
+    {:else if tab === 'printing'}
     <section class="card">
       <h2>Cut guide line <InfoTip label="About cut guides" text="The line drawn to cut along: token cut circles and map page borders." /></h2>
       <div class="field">
@@ -215,19 +246,19 @@
         />
       </svg>
     </section>
-
+    {:else if tab === 'tokens'}
     <section class="card">
       <h2>Tokens</h2>
       <div class="field"><span class="label">Page format</span>{@render formatPicker('token_page_format')}</div>
       {@render toggle('token_cut_border', 'Cut border on by default')}
     </section>
-
+    {:else if tab === 'cutouts'}
     <section class="card">
       <h2>Cut-outs &amp; cards</h2>
       <div class="field"><span class="label">Object sheet page format</span>{@render formatPicker('object_page_format')}</div>
       <div class="field"><span class="label">Card page format</span>{@render formatPicker('card_page_format')}</div>
     </section>
-
+    {:else if tab === 'maps'}
     <section class="card">
       <h2>Maps</h2>
       <div class="field"><span class="label">Page format</span>{@render formatPicker('map_page_format')}</div>
@@ -242,7 +273,7 @@
       {@render toggle('map_cut_border', 'Cut border on by default')}
       {@render toggle('map_align_to_grid', 'Align pages to grid')}
     </section>
-
+    {:else if tab === 'transcription'}
     <section class="card">
       <h2>Transcription</h2>
       <div class="field">
@@ -351,24 +382,9 @@
         </div>
       </details>
     </section>
-
-    <section class="card">
-      <h2>Combat tracker</h2>
-      <div class="field">
-        <div class="label-row">
-          <label for="fivetools_base_url">5etools mirror</label>
-          <InfoTip label="About the 5etools mirror" text="The 5etools site the combat tracker reads creatures from, e.g. your local copy on http://localhost:8080. Paths like /data/bestiary/ are read under it. Sync the bestiary in the Combat view after changing it." />
-        </div>
-        <input
-          id="fivetools_base_url"
-          class="input mono"
-          spellcheck="false"
-          value={app.settings.fivetools_base_url}
-          onchange={(e) => save('fivetools_base_url', e.currentTarget.value.trim())}
-        />
-      </div>
-    </section>
-
+    {:else if tab === 'combat'}
+      <CombatSettings />
+    {:else if tab === 'data'}
     <section class="card">
       <h2>Data</h2>
       <p class="muted hint">Stored in <code>{dataDir}</code></p>
@@ -380,25 +396,7 @@
         />
       </div>
     </section>
-
-    <details class="card advanced">
-      <summary><h2>Advanced</h2></summary>
-      <div class="label-row">
-        {@render toggle('mcp_http_enabled', 'Enable in-app MCP server (HTTP, localhost only)')}
-        <InfoTip
-          label="About the MCP server"
-          text="Lets AI assistants such as Claude drive the app over a local connection. The standalone sleuth-mcp server works regardless of this setting."
-        />
-      </div>
-      {#if app.settings.mcp_http_enabled}
-        <p class="muted hint" data-testid="mcp-url">
-          {#if mcp}
-            Endpoint <code>{mcp.url}</code>, header <code>Authorization: Bearer {mcp.token}</code>. For Claude Code:
-            <code>claude mcp add --transport http sleuth {mcp.url} --header "Authorization: Bearer {mcp.token}"</code>
-          {:else}Starting… (if this stays, port 8765 may be in use){/if}
-        </p>
-      {/if}
-    </details>
+    {/if}
   </div>
 
   <footer>
@@ -417,13 +415,44 @@
     height: 100%;
     overflow: auto;
     padding: var(--space-6);
+    display: grid;
+    grid-template-columns: 190px minmax(0, 720px);
+    grid-template-rows: auto 1fr;
+    column-gap: var(--space-6);
+    align-content: start;
+  }
+  .vtabs {
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+  .vtabs button {
+    text-align: left;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .vtabs button:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .vtabs button[aria-selected='true'] {
+    background: var(--accent-soft);
+    color: var(--text);
+    font-weight: 600;
   }
   .sections {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: var(--space-4);
-    align-items: start;
-    max-width: 1100px;
+    align-content: start;
   }
   section,
   details {
@@ -538,7 +567,7 @@
     gap: var(--space-2);
     align-items: center;
     margin-top: var(--space-6);
-    max-width: 1100px;
+    grid-column: 2;
   }
   code {
     font-family: var(--font-mono);

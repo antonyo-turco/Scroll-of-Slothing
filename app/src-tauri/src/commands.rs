@@ -17,10 +17,10 @@ use sleuth_core::units::PageFormat;
 use sleuth_service::{
     Asset, AssetPage, AssetPatch, AssetQuery, BestiaryEntry, BestiaryStatus, Border, CardOptions,
     CardSummary, CloudKeyInfo, CloudKeyStatus, CombatCatalog, CombatImport, CutoutDraft, Deck,
-    DeckSummary, ExportWhat, ImportFile, ImportReport, JobId, JobStatus, LegacyImportOptions,
-    ObjectItemPatch, ObjectSheet, RenameOutcome, RowPatch, Service, ServiceError, SettingsUpdate,
-    SheetItemPatch, SheetLayout, SourceImage, SttModel, TagCount, TokenDraft, TokenSheet,
-    TranscribeOptions,
+    DeckSummary, EncounterCreature, EncounterSummary, ExportWhat, Hero, ImportFile, ImportReport,
+    JobId, JobStatus, LegacyImportOptions, ObjectItemPatch, ObjectSheet, Party, RenameOutcome,
+    RowPatch, Service, ServiceError, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage,
+    SttModel, TagCount, TokenDraft, TokenSheet, TranscribeOptions,
 };
 use tauri::State;
 use tauri::ipc::Response;
@@ -1039,8 +1039,9 @@ pub async fn combat_add_creature(
     count: u32,
     roll_hp: Option<bool>,
     custom_name: Option<String>,
+    side: Option<String>,
 ) -> Res<Tracker> {
-    svc.combat_add_creature(hash, count, roll_hp, custom_name).await
+    svc.combat_add_creature(hash, count, roll_hp, custom_name, side).await
 }
 
 #[tauri::command]
@@ -1070,8 +1071,8 @@ pub async fn combat_add_condition(
 }
 
 #[tauri::command]
-pub async fn combat_reset(svc: Svc<'_>) -> Res<Tracker> {
-    svc.combat_reset().await
+pub async fn combat_reset(svc: Svc<'_>, keep_players: Option<bool>) -> Res<Tracker> {
+    svc.combat_reset(keep_players).await
 }
 
 #[tauri::command]
@@ -1111,4 +1112,140 @@ pub async fn bestiary_get(svc: Svc<'_>, hash: String) -> Res<Value> {
 #[tauri::command]
 pub async fn bestiary_sync(svc: Svc<'_>) -> Res<JobId> {
     svc.bestiary_sync().await
+}
+
+// ── saved encounters ──
+
+#[tauri::command]
+pub async fn encounters_list(svc: Svc<'_>) -> Res<Vec<EncounterSummary>> {
+    svc.encounters_list().await
+}
+
+#[tauri::command]
+pub async fn encounter_save(
+    svc: Svc<'_>,
+    id: Option<String>,
+    name: String,
+    notes: String,
+    creatures: Vec<EncounterCreature>,
+) -> Res<EncounterSummary> {
+    svc.encounter_save(id, name, notes, creatures).await
+}
+
+#[tauri::command]
+pub async fn encounter_set_pinned(svc: Svc<'_>, id: String, pinned: bool) -> Res<()> {
+    svc.encounter_set_pinned(id, pinned).await
+}
+
+#[tauri::command]
+pub async fn encounter_delete(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.encounter_delete(id).await
+}
+
+#[tauri::command]
+pub async fn encounter_save_current(svc: Svc<'_>, name: String) -> Res<EncounterSummary> {
+    svc.encounter_save_current(name).await
+}
+
+#[tauri::command]
+pub async fn encounter_import(
+    svc: Svc<'_>,
+    text: String,
+    name: Option<String>,
+) -> Res<EncounterSummary> {
+    svc.encounter_import(text, name).await
+}
+
+#[tauri::command]
+pub async fn encounter_import_file(svc: Svc<'_>, path: PathBuf) -> Res<EncounterSummary> {
+    svc.encounter_import_file(path).await
+}
+
+#[tauri::command]
+pub async fn encounter_start(svc: Svc<'_>, id: String, append: Option<bool>) -> Res<CombatImport> {
+    svc.encounter_start(id, append).await
+}
+
+#[tauri::command]
+pub async fn encounter_link(svc: Svc<'_>, id: String) -> Res<String> {
+    svc.encounter_link(id).await
+}
+
+// ── hero parties ──
+
+#[tauri::command]
+pub async fn parties_list(svc: Svc<'_>) -> Res<Vec<Party>> {
+    svc.parties_list().await
+}
+
+#[tauri::command]
+pub async fn party_save(
+    svc: Svc<'_>,
+    id: Option<String>,
+    name: String,
+    notes: String,
+    heroes: Vec<Hero>,
+) -> Res<Party> {
+    svc.party_save(id, name, notes, heroes).await
+}
+
+#[tauri::command]
+pub async fn party_delete(svc: Svc<'_>, id: String) -> Res<()> {
+    svc.party_delete(id).await
+}
+
+#[tauri::command]
+pub async fn party_add_to_tracker(
+    svc: Svc<'_>,
+    id: String,
+    hero_ids: Option<Vec<String>>,
+    as_default: bool,
+) -> Res<Tracker> {
+    svc.party_add_to_tracker(id, hero_ids, as_default).await
+}
+
+#[tauri::command]
+pub async fn encounters_export(
+    svc: Svc<'_>,
+    ids: Option<Vec<String>>,
+    path: PathBuf,
+) -> Res<usize> {
+    svc.encounters_export(ids, path).await
+}
+
+#[tauri::command]
+pub async fn encounters_import_denc(svc: Svc<'_>, path: PathBuf) -> Res<Vec<EncounterSummary>> {
+    svc.encounters_import_denc(path).await
+}
+
+#[tauri::command]
+pub async fn bestiary_save_creature(svc: Svc<'_>, creature: Value) -> Res<BestiaryEntry> {
+    svc.bestiary_save_creature(creature).await
+}
+
+#[tauri::command]
+pub async fn bestiary_homebrew(svc: Svc<'_>) -> Res<Vec<Value>> {
+    svc.bestiary_homebrew().await
+}
+
+#[tauri::command]
+pub async fn bestiary_delete_creature(svc: Svc<'_>, hash: String) -> Res<()> {
+    svc.bestiary_delete_creature(hash).await
+}
+
+#[tauri::command]
+pub async fn image_source_from_creature(
+    svc: Svc<'_>,
+    hash: String,
+    kind: sleuth_service::CreatureImage,
+) -> Res<SourceImage> {
+    svc.image_source_from_creature(hash, kind).await
+}
+
+#[tauri::command]
+pub async fn token_sheet_add_creatures(
+    svc: Svc<'_>,
+    items: Vec<sleuth_service::CreatureToken>,
+) -> Res<TokenSheet> {
+    svc.token_sheet_add_creatures(items).await
 }

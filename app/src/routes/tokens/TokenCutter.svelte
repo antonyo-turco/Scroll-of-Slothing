@@ -8,6 +8,7 @@
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
+  import CreaturePicker from '../../lib/components/CreaturePicker.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import FiltersPanel from '../../lib/components/FiltersPanel.svelte';
   import Slider from '../../lib/components/Slider.svelte';
@@ -308,6 +309,20 @@
       onSaveClick();
     } else if (e.key === 'Escape') pipette = false;
   }
+
+  // ── a 5etools creature's token or full art as the source ──
+  let pickOpen = $state(false);
+  async function fromCreature(picked: { entry: { hash: string; name: string; size: string } }[], kind: 'token' | 'art') {
+    const p = picked[0];
+    if (!p) return;
+    try {
+      setSource(await api.imageSourceFromCreature(p.entry.hash, kind));
+      d.name = p.entry.name;
+      d.size = p.entry.size;
+    } catch (e) {
+      app.error(kind === 'art' ? 'Could not load the art (try the token)' : 'Could not load the token', e);
+    }
+  }
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -315,6 +330,7 @@
 <ViewActions>
   <button class="btn" onclick={browse} title="Load an image from disk">Open image…</button>
   <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
+  <button class="btn" onclick={() => (pickOpen = true)} title="Load a 5etools creature's full art to cut a token from">From 5etools…</button>
   <button class="btn" disabled={!d.source} onclick={savePng} title="Write the token as a PNG file">Save PNG…</button>
   <button class="btn" disabled={!d.source || busy} onclick={addToSheet} title="Put the token on the token sheet">Add to sheet</button>
   <button class="btn primary" disabled={!d.source || busy} onclick={onSaveClick} title="Store the token in the Library (Ctrl+S)">Save to library…</button>
@@ -510,3 +526,5 @@
     border-top: 1px solid var(--border);
   }
 </style>
+
+<CreaturePicker bind:open={pickOpen} title="Image from 5etools" action="Load image" defaultKind="art" onPick={fromCreature} />

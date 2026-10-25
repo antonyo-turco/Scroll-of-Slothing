@@ -13,7 +13,7 @@ use super::{Column, NewId, Rng, Row, Tracker, creature};
 pub const PREFIX_COMBAT: &str = "combat=";
 pub const PREFIX_ENCOUNTER: &str = "encounter=";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LinkKind {
     Combat,
@@ -102,6 +102,32 @@ pub struct EncounterItem {
     pub count: u32,
     /// Set for scaled creatures (not applied yet, see the feature doc).
     pub custom_hash_id: Option<String>,
+}
+
+/// A 5etools exported Bestiary encounter (what "Save to File" and the
+/// `#encounter=` link carry) for these creature lines.
+pub fn exported_encounter(name: &str, items: &[EncounterItem]) -> Value {
+    let mut sources: Vec<String> = items
+        .iter()
+        .filter_map(|i| i.hash.rsplit_once('_').map(|(_, s)| s.to_uppercase()))
+        .collect();
+    sources.sort();
+    sources.dedup();
+    let items: Vec<Value> = items
+        .iter()
+        .map(|i| {
+            let mut o = serde_json::Map::new();
+            o.insert("h".into(), Value::String(i.hash.clone()));
+            if i.count > 1 {
+                o.insert("c".into(), Value::from(i.count));
+            }
+            if let Some(c) = &i.custom_hash_id {
+                o.insert("customHashId".into(), Value::String(c.clone()));
+            }
+            Value::Object(o)
+        })
+        .collect();
+    serde_json::json!({"name": name, "items": items, "sources": sources})
 }
 
 pub fn encounter_items(enc: &Value) -> Vec<EncounterItem> {

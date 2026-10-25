@@ -161,6 +161,30 @@ pub struct Settings {
     /// Root of the 5etools site or mirror the combat tracker reads creatures
     /// from, without a trailing slash (e.g. a local copy on `http://localhost:8080`).
     pub fivetools_base_url: String,
+    /// Roll initiative for creatures.
+    pub combat_roll_init: bool,
+    /// Roll creature HP instead of the average.
+    pub combat_roll_hp: bool,
+    /// Copies of the same creature share one initiative roll.
+    pub combat_roll_groups: bool,
+    /// Reroll initiative at the start of each round.
+    pub combat_reroll_each_round: bool,
+    /// Track hit points as damage taken.
+    pub combat_hp_as_damage: bool,
+    /// Imported encounters: one roll per creature type.
+    pub combat_import_roll_groups: bool,
+    /// Imported encounters add the party.
+    pub combat_import_add_players: bool,
+    /// Imported encounters add to the current combat.
+    pub combat_import_append: bool,
+    /// Encounter difficulty: apply the 2014 multiplier for the number of enemies.
+    pub combat_xp_multiplier_2014: bool,
+    /// Ask before Reset.
+    pub combat_reset_confirm: bool,
+    /// Reset keeps the players in the tracker (removes only creatures).
+    pub combat_reset_keep_players: bool,
+    /// Show a card with whose turn it is and who is next on each turn.
+    pub combat_turn_popup: bool,
 }
 
 impl Default for Settings {
@@ -188,6 +212,18 @@ impl Default for Settings {
             stt_cloud_base_url: DEFAULT_STT_CLOUD_BASE_URL.into(),
             stt_cloud_model: DEFAULT_STT_CLOUD_MODEL.into(),
             fivetools_base_url: DEFAULT_FIVETOOLS_BASE_URL.into(),
+            combat_roll_init: true,
+            combat_roll_hp: false,
+            combat_roll_groups: true,
+            combat_reroll_each_round: false,
+            combat_hp_as_damage: false,
+            combat_import_roll_groups: true,
+            combat_import_add_players: true,
+            combat_import_append: false,
+            combat_xp_multiplier_2014: false,
+            combat_reset_confirm: true,
+            combat_reset_keep_players: false,
+            combat_turn_popup: true,
         }
     }
 }
@@ -285,6 +321,18 @@ impl Settings {
             "map_align_to_grid" => set!(map_align_to_grid, bool),
             "mcp_http_enabled" => set!(mcp_http_enabled, bool),
             "stt_engine" => set!(stt_engine, SttEngine),
+            "combat_roll_init" => set!(combat_roll_init, bool),
+            "combat_roll_hp" => set!(combat_roll_hp, bool),
+            "combat_roll_groups" => set!(combat_roll_groups, bool),
+            "combat_reroll_each_round" => set!(combat_reroll_each_round, bool),
+            "combat_hp_as_damage" => set!(combat_hp_as_damage, bool),
+            "combat_import_roll_groups" => set!(combat_import_roll_groups, bool),
+            "combat_import_add_players" => set!(combat_import_add_players, bool),
+            "combat_import_append" => set!(combat_import_append, bool),
+            "combat_xp_multiplier_2014" => set!(combat_xp_multiplier_2014, bool),
+            "combat_reset_confirm" => set!(combat_reset_confirm, bool),
+            "combat_reset_keep_players" => set!(combat_reset_keep_players, bool),
+            "combat_turn_popup" => set!(combat_turn_popup, bool),
             "fivetools_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
                 Some(u)
                     if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>

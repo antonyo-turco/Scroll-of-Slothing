@@ -65,6 +65,8 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 - `object_sheet`
 - `map_paginator`: the Map Paginator document (`MapDoc`: source, grid, filters, print settings, region, excluded pages), shared by the UI and MCP
 - `aoe.sheet`: the AoE multi-template sheet (template configs + gap)
+- `combat.encounters`: saved encounters (creature lists and tracker snapshots), see `features/combat-tracker.md`
+- `combat.parties`: saved hero parties
 - `combat.tracker`: the combat tracker in the 5etools serial form (see `features/combat-tracker.md`); changes are logged as `combat/tracker`
 - `cards.editor`
 - `ui.last_route`

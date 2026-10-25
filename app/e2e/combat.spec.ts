@@ -78,3 +78,64 @@ test('stat columns fill from the stat block', async ({ page }) => {
   await inspector.getByRole('button', { name: 'Remove column AC' }).click();
   await expect(page.getByRole('columnheader', { name: 'AC', exact: true })).toHaveCount(0);
 });
+
+test('HP buttons appear on hover and step the current HP', async ({ page }) => {
+  await openWithGoblins(page);
+  const hp = page.getByLabel('Current HP of Goblin (1)');
+  const steps = page.getByRole('group', { name: 'Change the HP of Goblin (1)' });
+  await expect(steps).toBeHidden();
+  await hp.hover();
+  await expect(steps).toBeVisible();
+  await steps.getByRole('button', { name: '-5 HP to Goblin (1)' }).click();
+  await expect(hp).toHaveValue('2');
+  await steps.getByRole('button', { name: '+1 HP to Goblin (1)' }).click();
+  await expect(hp).toHaveValue('3');
+  await expect(page.getByRole('button', { name: /Shown to players/ })).toHaveCount(0);
+});
+
+test('encounters: build one, start it, and import a 5etools encounter file', async ({ page }) => {
+  await openWithGoblins(page);
+  await page.getByRole('tab', { name: 'Encounters' }).click();
+  await page.getByRole('button', { name: '+ New encounter' }).first().click();
+  const dlg = page.getByRole('dialog', { name: 'New encounter' });
+  await dlg.getByLabel('Add from the bestiary').fill('ogre');
+  await dlg.getByRole('button', { name: 'Add Ogre' }).click();
+  await dlg.getByRole('button', { name: 'One more Ogre' }).click();
+  await dlg.getByRole('button', { name: 'Save encounter' }).click();
+  const list = page.getByRole('table', { name: 'Encounters' });
+  await expect(list.getByText('2 × Ogre').first()).toBeVisible();
+
+  await list.getByRole('button', { name: 'Add 2 × Ogre to the current combat' }).click();
+  await expect(page.getByRole('tab', { name: 'Tracker' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('combat-row')).toHaveCount(5);
+
+  await page.getByRole('tab', { name: 'Encounters' }).click();
+  await page.getByRole('button', { name: 'Import from 5etools…' }).click();
+  const imp = page.getByRole('dialog', { name: 'Import from 5etools' });
+  await imp.getByLabel(/Encounter link/).fill(JSON.stringify({ name: 'Bridge', items: [{ h: 'goblin_mm', c: 4 }], fileType: 'encounter' }));
+  await imp.getByRole('button', { name: 'Import' }).click();
+  await expect(list.getByText('Bridge')).toBeVisible();
+  await expect(list.getByRole('row').filter({ hasText: 'Bridge' })).toContainText('4');
+});
+
+test('parties: save heroes and add them as player rows', async ({ page }) => {
+  await page.goto('/#/combat');
+  await page.getByRole('tab', { name: 'Parties' }).click();
+  await page.getByRole('button', { name: '+ New party' }).first().click();
+  const dlg = page.getByRole('dialog', { name: 'New party' });
+  await dlg.getByLabel('Party name').fill('Vox Machina');
+  await dlg.getByLabel('Name of hero 1').fill('Vex');
+  await dlg.getByLabel('Species of hero 1').fill('Half-elf');
+  await dlg.getByLabel('Class of hero 1').fill('Ranger');
+  await dlg.getByLabel('Level of hero 1').fill('5');
+  await dlg.getByLabel('Hit points of hero 1').fill('42');
+  await dlg.getByLabel('Hit points of hero 1').press('Tab');
+  await dlg.getByRole('button', { name: 'Save party' }).click();
+  const list = page.getByRole('table', { name: 'Parties' });
+  await expect(list).toContainText('Vex · Half-elf Ranger · lv 5');
+
+  await list.getByRole('button', { name: 'Add Vox Machina to the tracker' }).click();
+  await expect(page.getByRole('tab', { name: 'Tracker' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByLabel('Player name')).toHaveValue('Vex');
+  await expect(page.getByLabel('Max HP of Vex')).toHaveValue('42');
+});

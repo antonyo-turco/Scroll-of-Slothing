@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFiles, pickSavePath } from '../../lib/api';
   import InfoTip from '../../lib/components/InfoTip.svelte';
+  import CreaturePicker from '../../lib/components/CreaturePicker.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import { shapePath } from '../../lib/token-shapes';
@@ -85,12 +86,19 @@
       void exportPdf();
     }
   }
+
+  // ── tokens from 5etools creatures (sized from the creature) ──
+  let pickOpen = $state(false);
+  async function addCreatures(picked: { entry: { hash: string; name: string }; count: number }[]) {
+    await apply(api.tokenSheetAddCreatures(picked.map((p) => ({ hash: p.entry.hash, count: p.count }))), 'Could not add the creature tokens');
+  }
 </script>
 
 <svelte:window onkeydown={onKey} />
 
 <ViewActions>
   <button class="btn" onclick={upload} title="Add image files as tokens">Add images…</button>
+  <button class="btn" onclick={() => (pickOpen = true)} title="Add tokens of 5etools creatures, at each creature's size">From 5etools…</button>
   <button class="btn primary" disabled={!sheet.items.length || skippedLabels.length > 0} onclick={exportPdf} title="Ctrl+E">Export PDF</button>
 </ViewActions>
 
@@ -291,3 +299,5 @@
     width: 56px;
   }
 </style>
+
+<CreaturePicker bind:open={pickOpen} title="Tokens from 5etools" multi action="Add to sheet" onPick={addCreatures} />

@@ -64,6 +64,8 @@ pub struct Row {
     pub scaled_summon_class_level: Option<i64>,
     pub hp_current: Option<i64>,
     pub hp_max: Option<i64>,
+    /// Temporary hit points (this app's extension, `_ht` in the serial form).
+    pub hp_temp: Option<i64>,
     pub initiative: Option<i64>,
     pub is_active: bool,
     pub conditions: Vec<Condition>,
@@ -71,6 +73,11 @@ pub struct Row {
     pub is_player_visible: bool,
     pub ordinal: i64,
     pub cells: Vec<Cell>,
+    /// Stat block fields changed for this one creature (5etools JSON keys such
+    /// as `ac`, `speed`, `str`), shown over its bestiary entry (`_so`).
+    pub overrides: Option<Map<String, Value>>,
+    /// Which side a creature fights on: `ally` or `neutral`; None is an enemy (`_sd`).
+    pub side: Option<String>,
 }
 
 impl Row {
@@ -137,6 +144,8 @@ pub struct Tracker {
     pub conditions_custom: Vec<CustomCondition>,
     pub rows: Vec<Row>,
     pub rows_default_party: Vec<Row>,
+    /// Defeated creatures set aside: out of the turn order, restorable (`_dead`).
+    pub defeated: Vec<Row>,
     pub round: i64,
     pub notes: String,
     /// Not saved in links (5etools: temporary).
@@ -169,6 +178,7 @@ impl Default for Tracker {
             conditions_custom: vec![],
             rows: vec![],
             rows_default_party: vec![],
+            defeated: vec![],
             round: 1,
             notes: String::new(),
             is_locked: false,
@@ -624,6 +634,9 @@ impl Tracker {
         );
         put("r", Value::Array(self.rows.iter().map(row_to_serial).collect()));
         put("rdp", Value::Array(self.rows_default_party.iter().map(row_to_serial).collect()));
+        if !self.defeated.is_empty() {
+            put("_dead", Value::Array(self.defeated.iter().map(row_to_serial).collect()));
+        }
         put("n", json!(self.round));
         put("not", json!(self.notes));
         Value::Object(o)
@@ -682,11 +695,12 @@ impl Tracker {
         t.rows = arr("r").iter().filter_map(|r| row_from_serial(r, new_id)).collect();
         t.rows_default_party =
             arr("rdp").iter().filter_map(|r| row_from_serial(r, new_id)).collect();
+        t.defeated = arr("_dead").iter().filter_map(|r| row_from_serial(r, new_id)).collect();
         t.round = o.get("n").and_then(num).unwrap_or(1).max(1);
         t.notes = str_of(v, "not").unwrap_or_default();
-        const KNOWN: [&str; 21] = [
-            "s", "d", "ri", "m", "rg", "rri", "wId", "g", "p", "a", "k", "piHp", "piHm", "piV",
-            "piO", "nov", "c", "cndc", "r", "rdp", "n",
+        const KNOWN: [&str; 22] = [
+            "_dead", "s", "d", "ri", "m", "rg", "rri", "wId", "g", "p", "a", "k", "piHp", "piHm",
+            "piV", "piO", "nov", "c", "cndc", "r", "rdp", "n",
         ];
         t.extra = o
             .iter()
@@ -757,6 +771,9 @@ fn row_to_serial(r: &Row) -> Value {
         "v": r.is_player_visible,
         "o": r.ordinal,
         "k": cells,
+        "_ht": r.hp_temp,
+        "_so": r.overrides,
+        "_sd": r.side,
     }))
 }
 
@@ -831,6 +848,9 @@ fn row_from_serial(v: &Value, new_id: NewId) -> Option<Row> {
         is_player_visible: o.get("v").and_then(Value::as_bool).unwrap_or(true),
         ordinal: num_of(v, "o").unwrap_or(1),
         cells,
+        hp_temp: num_of(v, "_ht"),
+        overrides: o.get("_so").and_then(Value::as_object).cloned(),
+        side: str_of(v, "_sd").filter(|s| matches!(s.as_str(), "ally" | "neutral")),
     })
 }
 

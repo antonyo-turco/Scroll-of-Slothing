@@ -224,6 +224,40 @@ impl Service {
         .await
     }
 
+    /// Adds 5etools creature tokens (downloaded from the mirror), sized from
+    /// the creature (Tiny … Gargantuan), `count` copies each. Creatures without
+    /// a token are reported and nothing is added.
+    pub async fn token_sheet_add_creatures(&self, items: Vec<CreatureToken>) -> Result<TokenSheet> {
+        let svc = self.clone();
+        self.sheet_mutate(move |s, sheet| {
+            let mut fetched = vec![];
+            let mut missing = vec![];
+            for it in &items {
+                match svc.creature_image_bytes(s, &it.hash, crate::CreatureImage::Token) {
+                    Ok(x) => fetched.push((x, it.count.clamp(1, 99))),
+                    Err(e) => missing.push(format!("{} ({e})", it.hash)),
+                }
+            }
+            if !missing.is_empty() {
+                return Err(ServiceError::NotFound(format!(
+                    "no token for: {}",
+                    missing.join("; ")
+                )));
+            }
+            for ((mon, bytes), count) in fetched {
+                let src = store_source(s, &bytes)?;
+                let thumb = thumb_of(s, &src.hash)?;
+                let label = mon["name"].as_str().unwrap_or("Creature").to_string();
+                let size = crate::combat::creature_size_label(&mon);
+                let mut item = new_item(s, label, size, src.hash, thumb, None)?;
+                item.copies = count;
+                sheet.items.push(item);
+            }
+            Ok(())
+        })
+        .await
+    }
+
     /// Adds a token straight from the Token Cutter (composed now, at full quality).
     pub async fn token_sheet_add_composed(
         &self,
@@ -503,4 +537,12 @@ mod tests {
         assert_eq!(st.state, JobState::Failed);
         assert!(st.error.unwrap().contains("empty"));
     }
+}
+
+/// One creature for `token_sheet_add_creatures`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreatureToken {
+    /// 5etools creature hash, e.g. `goblin_mm`.
+    pub hash: String,
+    pub count: u32,
 }

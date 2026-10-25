@@ -16,6 +16,12 @@ Collects tokens, packs them onto Letter or A4 pages, previews the pages, and exp
 
 The legacy importer maps the Python labels to these.
 
+## From 5etools
+*From 5etools…* opens a creature picker (the cached bestiary, see `combat-tracker.md`): pick
+creatures and counts, and each one's round token is downloaded from the 5etools mirror and added
+at the creature's size (5etools `size`: T/S/M/L/H/G → Tiny … Gargantuan). Creatures without a
+token are reported and nothing is added. MCP: `token_sheet_add_creatures`.
+
 ## Items
 Each item has:
 - a source: an asset id, or a transient image (for example straight from the cutter or an upload);

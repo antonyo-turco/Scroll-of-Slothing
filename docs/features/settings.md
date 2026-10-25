@@ -2,6 +2,12 @@
 
 Global preferences, stored in the `settings` table (key → JSON) with typed defaults in Rust. Changes are applied **live to every view**. Python only pushed them to the token sheet and map paginator.
 
+## Layout
+The page uses vertical tabs, one per feature: General, Cut guides, Tokens, Cut-outs & cards,
+Maps, Transcription, Combat and Data. Advanced options sit in accordions: the in-app MCP server
+at the bottom of General, the cloud model id under Transcription, the encounter import options
+under Combat.
+
 ## Keys and defaults
 | key | type | default | validation | used by |
 |---|---|---|---|---|
@@ -27,6 +33,18 @@ Global preferences, stored in the `settings` table (key → JSON) with typed def
 | `stt_cloud_base_url` | string | `https://openrouter.ai/api/v1` | http(s) URL; trimmed, trailing `/` dropped | transcription, cloud (*new*) |
 | `stt_cloud_model` | string | `openai/whisper-1` | not empty; trimmed | transcription, cloud (*new*) |
 | `fivetools_base_url` | string | `http://localhost:8080` | an http(s) URL; trailing `/` dropped | combat tracker: the 5etools site or mirror creatures are read from (*new*) |
+| `combat_roll_init` | bool | `true` | | combat tracker: roll creature initiative (*new*) |
+| `combat_roll_groups` | bool | `true` | | combat tracker: copies of a creature share one roll (*new*) |
+| `combat_roll_hp` | bool | `false` | | combat tracker: roll HP instead of the average (*new*) |
+| `combat_reroll_each_round` | bool | `false` | | combat tracker: reroll initiative each round (*new*) |
+| `combat_hp_as_damage` | bool | `false` | | combat tracker: track HP as damage (*new*) |
+| `combat_import_roll_groups` | bool | `true` | | combat tracker: encounter import: one roll per creature type (*new*) |
+| `combat_import_add_players` | bool | `true` | | combat tracker: encounter import: add the default party (*new*) |
+| `combat_xp_multiplier_2014` | bool | `false` | | encounter difficulty: apply the 2014 multiplier for the number of enemies (*new*) |
+| `combat_turn_popup` | bool | `true` | | combat tracker: a card with whose turn it is and who is next, on each turn (*new*) |
+| `combat_reset_confirm` | bool | `true` | | combat tracker: ask before Reset (*new*) |
+| `combat_reset_keep_players` | bool | `false` | | combat tracker: Reset removes only creatures and keeps the players (*new*) |
+| `combat_import_append` | bool | `false` | | combat tracker: encounter import: add to the current combat (*new*) |
 
 The OpenRouter API key is **not** a setting: it is kept in the Windows Credential Manager (entry `sleuth` / `openrouter_api_key`), see `features/transcribe.md`.
 

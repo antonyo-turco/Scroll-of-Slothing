@@ -32,6 +32,18 @@ export interface Settings {
   stt_cloud_model: string;
   /** Root of the 5etools site or mirror the combat tracker reads creatures from. */
   fivetools_base_url: string;
+  combat_roll_init: boolean;
+  combat_roll_hp: boolean;
+  combat_roll_groups: boolean;
+  combat_reroll_each_round: boolean;
+  combat_hp_as_damage: boolean;
+  combat_import_roll_groups: boolean;
+  combat_import_add_players: boolean;
+  combat_import_append: boolean;
+  combat_xp_multiplier_2014: boolean;
+  combat_reset_confirm: boolean;
+  combat_reset_keep_players: boolean;
+  combat_turn_popup: boolean;
 }
 
 export interface SettingsUpdate {
@@ -90,6 +102,18 @@ export const DEFAULT_SETTINGS: Settings = {
   stt_cloud_base_url: 'https://openrouter.ai/api/v1',
   stt_cloud_model: 'openai/whisper-1',
   fivetools_base_url: 'http://localhost:8080',
+  combat_roll_init: true,
+  combat_roll_hp: false,
+  combat_roll_groups: true,
+  combat_reroll_each_round: false,
+  combat_hp_as_damage: false,
+  combat_import_roll_groups: true,
+  combat_import_add_players: true,
+  combat_import_append: false,
+  combat_xp_multiplier_2014: false,
+  combat_reset_confirm: true,
+  combat_reset_keep_players: false,
+  combat_turn_popup: true,
 };
 
 // ── library (crates/store/src/assets.rs) ──
@@ -693,6 +717,8 @@ export interface CombatRow {
   scaled_summon_class_level: number | null;
   hp_current: number | null;
   hp_max: number | null;
+  /** Temporary hit points. */
+  hp_temp: number | null;
   initiative: number | null;
   is_active: boolean;
   conditions: CombatCondition[];
@@ -700,6 +726,10 @@ export interface CombatRow {
   is_player_visible: boolean;
   ordinal: number;
   cells: CombatCell[];
+  /** Stat block fields changed for this creature (5etools keys: ac, speed, str, …). */
+  overrides: Record<string, unknown> | null;
+  /** Creatures: which side they fight on (null = enemy). */
+  side: 'ally' | 'neutral' | null;
 }
 
 export interface CombatColumn {
@@ -739,6 +769,8 @@ export interface Tracker {
   conditions_custom: CombatCustomCondition[];
   rows: CombatRow[];
   rows_default_party: CombatRow[];
+  /** Defeated creatures set aside (out of the turn order). */
+  defeated: CombatRow[];
   round: number;
   notes: string;
   is_locked: boolean;
@@ -765,6 +797,8 @@ export interface BestiaryEntry {
   hp: number | null;
   ac: unknown;
   token_url: string | null;
+  /** Tiny … Gargantuan. */
+  size: string;
 }
 
 export interface BestiaryStatus {
@@ -791,9 +825,68 @@ export interface RowPatch {
   custom_name?: string;
   hp_current?: number;
   hp_max?: number;
+  hp_temp?: number;
   damage?: number;
   initiative?: number;
   notes?: string;
-  is_player_visible?: boolean;
   remove_conditions?: string[];
+  /** 5etools stat fields to change for this creature only (null removes one). */
+  stats?: Record<string, unknown>;
+  reset_stats?: boolean;
+}
+
+export interface EncounterCreature {
+  hash: string;
+  count: number;
+  /** 5etools stat fields changed for these copies. */
+  stats?: Record<string, unknown> | null;
+}
+
+export interface EncounterLine {
+  hash: string;
+  name: string;
+  source: string;
+  count: number;
+  cr: string | null;
+  known: boolean;
+}
+
+export interface EncounterSummary {
+  id: string;
+  name: string;
+  notes: string;
+  kind: 'encounter' | 'combat';
+  creatures: EncounterCreature[];
+  combat: unknown | null;
+  pinned: boolean;
+  created: string;
+  updated: string;
+  lines: EncounterLine[];
+  total: number;
+  xp: number | null;
+}
+
+export interface Hero {
+  id: string;
+  name: string;
+  species: string;
+  class: string;
+  subclass: string;
+  level: number | null;
+  hp_max: number | null;
+  ac: number | null;
+  initiative_bonus: number | null;
+  passive_perception: number | null;
+  speed: number | null;
+  spell_dc: number | null;
+  player: string;
+  notes: string;
+}
+
+export interface Party {
+  id: string;
+  name: string;
+  notes: string;
+  heroes: Hero[];
+  updated: string;
 }

@@ -22,8 +22,9 @@ use sleuth_core::stt::{Correction, ExportFormat, Segment};
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    AssetPatch, AssetQuery, AssetSort, CardOptions, ExportWhat, ImportFile, LegacyImportOptions,
-    ObjectItemPatch, RowPatch, Service, ServiceError, SheetItemPatch, TranscribeOptions,
+    AssetPatch, AssetQuery, AssetSort, CardOptions, EncounterCreature, ExportWhat, Hero,
+    ImportFile, LegacyImportOptions, ObjectItemPatch, RowPatch, Service, ServiceError,
+    SheetItemPatch, TranscribeOptions,
 };
 
 type ToolResult = Result<CallToolResult, ErrorData>;
@@ -1338,7 +1339,7 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Add creatures from the cached 5etools bestiary by hash (e.g. goblin_mm, from bestiary_search). count 1-100; roll_hp rolls the HP formula instead of the average; custom_name renames the copies. Initiative is rolled when the tracker's roll-initiative setting is on."
+        description = "Add creatures from the cached 5etools bestiary by hash (e.g. goblin_mm, from bestiary_search). count 1-100; roll_hp rolls the HP formula instead of the average; custom_name renames the copies; side is enemy (default), ally or neutral. Initiative is rolled when the tracker's roll-initiative setting is on."
     )]
     async fn combat_add_creature(
         &self,
@@ -1346,13 +1347,13 @@ impl SleuthServer {
     ) -> ToolResult {
         done(
             self.svc
-                .combat_add_creature(p.hash, p.count.unwrap_or(1), p.roll_hp, p.custom_name)
+                .combat_add_creature(p.hash, p.count.unwrap_or(1), p.roll_hp, p.custom_name, p.side)
                 .await,
         )
     }
 
     #[tool(
-        description = "Change one row: name, custom_name (empty clears), hp_current, hp_max, damage (positive hurts, negative heals), initiative, notes, is_player_visible, remove_conditions (condition ids)."
+        description = "Change one row: name, custom_name (empty clears), hp_current, hp_max, hp_temp, damage (positive hurts temporary HP first, negative heals), initiative, notes, remove_conditions (condition ids), stats (5etools JSON fields changed for this creature only; null removes one), reset_stats."
     )]
     async fn combat_update_row(&self, Parameters(p): Parameters<CombatRowParams>) -> ToolResult {
         let patch = RowPatch {
@@ -1360,11 +1361,13 @@ impl SleuthServer {
             custom_name: p.custom_name,
             hp_current: p.hp_current,
             hp_max: p.hp_max,
+            hp_temp: p.hp_temp,
             damage: p.damage,
             initiative: p.initiative,
             notes: p.notes,
-            is_player_visible: p.is_player_visible,
             remove_conditions: p.remove_conditions,
+            stats: p.stats,
+            reset_stats: p.reset_stats,
         };
         done(self.svc.combat_update_row(p.id, patch).await)
     }
@@ -1384,9 +1387,11 @@ impl SleuthServer {
         done(self.svc.combat_delete(p.id, p.similar.unwrap_or(false)).await)
     }
 
-    #[tool(description = "Reset the tracker to the default party at round 1.")]
-    async fn combat_reset(&self) -> ToolResult {
-        done(self.svc.combat_reset().await)
+    #[tool(
+        description = "Reset the tracker to round 1: replaces every row with the default party, or with keep_players: true removes only the creatures (default: the combat_reset_keep_players setting)."
+    )]
+    async fn combat_reset(&self, Parameters(p): Parameters<CombatResetParams>) -> ToolResult {
+        done(self.svc.combat_reset(p.keep_players).await)
     }
 
     #[tool(
@@ -1410,6 +1415,46 @@ impl SleuthServer {
         done(self.svc.bestiary_search(p.query, p.limit).await)
     }
 
+    #[tool(
+        description = "Create or replace a homebrew creature: a 5etools monster JSON object (name, source such as \"Homebrew\", size, type, ac, hp {average, formula}, speed, str…cha, cr, trait/action/… entries). It joins the bestiary, so bestiary_search, combat_add_creature and encounters find it by the returned hash. Same name and source replaces it."
+    )]
+    async fn bestiary_save_creature(
+        &self,
+        Parameters(p): Parameters<CreatureJsonParams>,
+    ) -> ToolResult {
+        done(self.svc.bestiary_save_creature(Value::Object(p.creature)).await)
+    }
+
+    #[tool(
+        description = "Homebrew creatures saved with bestiary_save_creature (full 5etools JSON)."
+    )]
+    async fn bestiary_homebrew(&self) -> ToolResult {
+        done(self.svc.bestiary_homebrew().await)
+    }
+
+    #[tool(description = "Delete a homebrew creature by hash.")]
+    async fn bestiary_delete_creature(
+        &self,
+        Parameters(p): Parameters<BestiaryHashParams>,
+    ) -> ToolResult {
+        done(self.svc.bestiary_delete_creature(p.hash).await)
+    }
+
+    #[tool(
+        description = "Add 5etools creature tokens to the token sheet: items [{hash, count}]; each token is downloaded from the 5etools mirror and sized from the creature (Tiny to Gargantuan)."
+    )]
+    async fn token_sheet_add_creatures(
+        &self,
+        Parameters(p): Parameters<CreatureTokensParams>,
+    ) -> ToolResult {
+        let items = p
+            .items
+            .into_iter()
+            .map(|i| sleuth_service::CreatureToken { hash: i.hash, count: i.count })
+            .collect();
+        done(self.svc.token_sheet_add_creatures(items).await)
+    }
+
     #[tool(description = "A cached creature's full 5etools stat block JSON, by hash.")]
     async fn bestiary_get(&self, Parameters(p): Parameters<BestiaryHashParams>) -> ToolResult {
         done(self.svc.bestiary_get(p.hash).await)
@@ -1427,6 +1472,108 @@ impl SleuthServer {
     )]
     async fn bestiary_sync(&self) -> ToolResult {
         done(self.svc.bestiary_sync().await)
+    }
+
+    #[tool(
+        description = "Saved encounters (pinned first): id, name, notes, kind (encounter: a creature list rolled in when started; combat: a whole tracker snapshot), creature lines with name/source/CR from the bestiary cache, total creatures and XP."
+    )]
+    async fn encounters_list(&self) -> ToolResult {
+        done(self.svc.encounters_list().await)
+    }
+
+    #[tool(
+        description = "Create (no id) or update a creature-list encounter: name (empty: named from its creatures), notes, creatures [{hash, count, stats?}] with 5etools hashes from bestiary_search; stats are 5etools fields changed for those copies (applied when the encounter starts)."
+    )]
+    async fn encounter_save(&self, Parameters(p): Parameters<EncounterSaveParams>) -> ToolResult {
+        let creatures = p
+            .creatures
+            .into_iter()
+            .map(|c| EncounterCreature { hash: c.hash, count: c.count, stats: c.stats })
+            .collect();
+        done(
+            self.svc
+                .encounter_save(
+                    p.id,
+                    p.name.unwrap_or_default(),
+                    p.notes.unwrap_or_default(),
+                    creatures,
+                )
+                .await,
+        )
+    }
+
+    #[tool(
+        description = "Import 5etools data as a saved encounter: a Bestiary encounter file's JSON (Save to File), an #encounter= link, or a #combat= link (saved as a combat snapshot)."
+    )]
+    async fn encounter_import(
+        &self,
+        Parameters(p): Parameters<EncounterImportParams>,
+    ) -> ToolResult {
+        done(self.svc.encounter_import(p.text, p.name).await)
+    }
+
+    #[tool(description = "Save the current combat tracker as a combat snapshot encounter.")]
+    async fn encounter_save_current(
+        &self,
+        Parameters(p): Parameters<CombatPlayerParams>,
+    ) -> ToolResult {
+        done(self.svc.encounter_save_current(p.name.unwrap_or_default()).await)
+    }
+
+    #[tool(
+        description = "Start a saved encounter in the combat tracker: a creature list is rolled in with the tracker's import settings (append: true adds to the current rows, false replaces them); a combat snapshot replaces the tracker. Reports creatures missing from the bestiary cache."
+    )]
+    async fn encounter_start(&self, Parameters(p): Parameters<EncounterStartParams>) -> ToolResult {
+        done(self.svc.encounter_start(p.id, p.append).await)
+    }
+
+    #[tool(description = "The 5etools link (#encounter= or #combat=) for a saved encounter.")]
+    async fn encounter_link(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.encounter_link(p.id).await)
+    }
+
+    #[tool(
+        description = "Saved hero parties: name, notes, heroes (name, species, class, level, hp_max, ac, initiative_bonus, passive_perception, speed, spell_dc, player, notes)."
+    )]
+    async fn parties_list(&self) -> ToolResult {
+        done(self.svc.parties_list().await)
+    }
+
+    #[tool(
+        description = "Create (no id) or replace a hero party. Heroes: name, species, class, level, hp_max, ac, initiative_bonus, passive_perception, speed, spell_dc, player, notes (give a hero's id to keep it)."
+    )]
+    async fn party_save(&self, Parameters(p): Parameters<PartySaveParams>) -> ToolResult {
+        done(self.svc.party_save(p.id, p.name, p.notes.unwrap_or_default(), p.heroes).await)
+    }
+
+    #[tool(
+        description = "Add a party's heroes (all, or hero_ids) to the combat tracker as player rows with full HP, rolled initiative and AC/PP/speed/spell DC columns filled; as_default also makes them the default party restored on Reset."
+    )]
+    async fn party_add_to_tracker(&self, Parameters(p): Parameters<PartyAddParams>) -> ToolResult {
+        done(self.svc.party_add_to_tracker(p.id, p.hero_ids, p.as_default.unwrap_or(false)).await)
+    }
+
+    #[tool(description = "Delete a saved hero party.")]
+    async fn party_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.party_delete(p.id).await)
+    }
+
+    #[tool(description = "Write saved encounters (all, or ids) to a .denc file at path.")]
+    async fn encounters_export(
+        &self,
+        Parameters(p): Parameters<EncountersExportParams>,
+    ) -> ToolResult {
+        done(self.svc.encounters_export(p.ids, PathBuf::from(p.path)).await)
+    }
+
+    #[tool(description = "Add the encounters of a .denc file (as copies with new ids).")]
+    async fn encounters_import_denc(&self, Parameters(p): Parameters<PathParams>) -> ToolResult {
+        done(self.svc.encounters_import_denc(PathBuf::from(p.path)).await)
+    }
+
+    #[tool(description = "Delete a saved encounter.")]
+    async fn encounter_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.encounter_delete(p.id).await)
     }
 
     // ── UI remote control (in-app server only) ──
@@ -2215,6 +2362,8 @@ pub struct CombatCreatureParams {
     pub count: Option<u32>,
     pub roll_hp: Option<bool>,
     pub custom_name: Option<String>,
+    /// enemy (default), ally or neutral.
+    pub side: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -2224,11 +2373,16 @@ pub struct CombatRowParams {
     pub custom_name: Option<String>,
     pub hp_current: Option<i64>,
     pub hp_max: Option<i64>,
+    pub hp_temp: Option<i64>,
     pub damage: Option<i64>,
     pub initiative: Option<i64>,
     pub notes: Option<String>,
-    pub is_player_visible: Option<bool>,
     pub remove_conditions: Option<Vec<String>>,
+    /// 5etools stat block fields to change for this creature only, e.g. {"ac": [17], "str": 18,
+    /// "action": [...]}; null removes a change. hp.average also sets the max HP.
+    pub stats: Option<Map<String, Value>>,
+    /// true: drop every stat change (back to the bestiary entry).
+    pub reset_stats: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -2259,4 +2413,122 @@ pub struct BestiarySearchParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct BestiaryHashParams {
     pub hash: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct EncounterCreatureParams {
+    /// 5etools creature hash, e.g. `goblin_mm`.
+    pub hash: String,
+    pub count: u32,
+    /// 5etools stat block fields changed for these copies, e.g. {"ac": [17], "hp": {"average": 30, "formula": "5d8+8"}}.
+    pub stats: Option<Map<String, Value>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct EncounterSaveParams {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub notes: Option<String>,
+    pub creatures: Vec<EncounterCreatureParams>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct EncounterImportParams {
+    pub text: String,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct EncounterStartParams {
+    pub id: String,
+    pub append: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct HeroParams {
+    pub id: Option<String>,
+    pub name: String,
+    pub species: Option<String>,
+    pub class: Option<String>,
+    pub subclass: Option<String>,
+    pub level: Option<i64>,
+    pub hp_max: Option<i64>,
+    pub ac: Option<i64>,
+    pub initiative_bonus: Option<i64>,
+    pub passive_perception: Option<i64>,
+    pub speed: Option<i64>,
+    pub spell_dc: Option<i64>,
+    pub player: Option<String>,
+    pub notes: Option<String>,
+}
+
+impl From<HeroParams> for Hero {
+    fn from(h: HeroParams) -> Self {
+        Hero {
+            id: h.id.unwrap_or_default(),
+            name: h.name,
+            species: h.species.unwrap_or_default(),
+            class: h.class.unwrap_or_default(),
+            subclass: h.subclass.unwrap_or_default(),
+            level: h.level,
+            hp_max: h.hp_max,
+            ac: h.ac,
+            initiative_bonus: h.initiative_bonus,
+            passive_perception: h.passive_perception,
+            speed: h.speed,
+            spell_dc: h.spell_dc,
+            player: h.player.unwrap_or_default(),
+            notes: h.notes.unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PartySaveParams {
+    pub id: Option<String>,
+    pub name: String,
+    pub notes: Option<String>,
+    #[serde(deserialize_with = "heroes_from_params")]
+    #[schemars(with = "Vec<HeroParams>")]
+    pub heroes: Vec<Hero>,
+}
+
+fn heroes_from_params<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Hero>, D::Error> {
+    Ok(Vec::<HeroParams>::deserialize(d)?.into_iter().map(Hero::from).collect())
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PartyAddParams {
+    pub id: String,
+    pub hero_ids: Option<Vec<String>>,
+    pub as_default: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct EncountersExportParams {
+    pub ids: Option<Vec<String>>,
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CombatResetParams {
+    pub keep_players: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CreatureJsonParams {
+    /// A 5etools monster object; needs at least "name" and "source".
+    pub creature: Map<String, Value>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CreatureTokensParams {
+    pub items: Vec<EncounterCreatureCount>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct EncounterCreatureCount {
+    /// 5etools creature hash, e.g. `goblin_mm`.
+    pub hash: String,
+    pub count: u32,
 }

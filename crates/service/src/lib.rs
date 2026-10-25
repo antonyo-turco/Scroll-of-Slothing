@@ -34,7 +34,10 @@ use tokio::sync::broadcast;
 
 pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
 pub use cards::{CardOptions, CardSummary};
-pub use combat::{BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, RowPatch};
+pub use combat::{
+    BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CreatureImage, DENC_FORMAT,
+    EncounterCreature, EncounterLine, EncounterSummary, Hero, Party, RowPatch, SavedEncounter,
+};
 pub use cutouts::CutoutDraft;
 pub use error::{ErrorCode, ServiceError};
 pub use events::Event;
@@ -63,7 +66,9 @@ pub use stt::{
     CloudKeyStatus, EngineEstimate, SttModel, TranscribeEstimate, TranscribeOptions,
     TranscribeResult,
 };
-pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
+pub use token_sheet::{
+    CreatureToken, PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet,
+};
 pub use tokens::{Border, SourceImage, TokenDraft};
 pub use ui::editor_route;
 

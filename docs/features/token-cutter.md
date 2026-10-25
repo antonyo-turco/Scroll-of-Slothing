@@ -10,6 +10,11 @@ Frames any image inside a token border (round, square, hexagonal, octagonal or d
   2. a file list on the clipboard;
   3. clipboard text that is a path to an image.
 
+## From 5etools
+*From 5etools…* loads a creature's **full art** (`<mirror>/img/bestiary/<source>/<name>.webp`) as
+the source, or its ready-made round token, and fills in the token's name and size from the
+creature. The image is downloaded at that moment, so the mirror must be running.
+
 ## Controls (inspector)
 | Section | Control | Default | Range |
 |---|---|---|---|
