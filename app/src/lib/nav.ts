@@ -22,8 +22,8 @@ export interface Destination {
   views: View[];
   disabled?: boolean;
   hint?: string;
-  /** Draw a separator above this destination (starts a new group in the rail). */
-  groupStart?: boolean;
+  /** Starts a new group in the rail, headed by this label (when the game is prepped, run, reviewed). */
+  group?: string;
 }
 
 const placeholder = () => import('../routes/Placeholder.svelte');
@@ -31,7 +31,7 @@ const placeholder = () => import('../routes/Placeholder.svelte');
 export const DESTINATIONS: Destination[] = [
   { id: 'library', label: 'Library', icon: 'library',
     views: [{ id: 'library', label: 'Library', phase: 1, load: () => import('../routes/library/Library.svelte') }] },
-  { id: 'tokens', label: 'Tokens', icon: 'token', views: [
+  { id: 'tokens', label: 'Tokens', icon: 'token', group: 'Before', views: [
     { id: 'tokens.cutter', label: 'Cutter', phase: 2, load: () => import('../routes/tokens/TokenCutter.svelte') },
     { id: 'tokens.sheet', label: 'Sheet', phase: 2, load: () => import('../routes/tokens/TokenSheet.svelte') },
   ] },
@@ -45,10 +45,9 @@ export const DESTINATIONS: Destination[] = [
     { id: 'maps.paginator', label: 'Paginator', phase: 5, load: () => import('../routes/maps/MapPaginator.svelte') },
     { id: 'maps.aoe', label: 'AoE templates', phase: 5, load: () => import('../routes/aoe/AoeTemplates.svelte') },
   ] },
-  // Audio tools form their own group, below the print tools.
-  { id: 'music', label: 'Music', icon: 'music', groupStart: true,
+  { id: 'music', label: 'Music', icon: 'music', group: 'During',
     views: [{ id: 'music', label: 'Music', phase: 7, load: () => import('../routes/music/Music.svelte') }] },
-  { id: 'transcribe', label: 'Transcribe', icon: 'mic', views: [
+  { id: 'transcribe', label: 'Transcribe', icon: 'mic', group: 'After', views: [
     { id: 'transcribe.file', label: 'File', phase: 8, load: () => import('../routes/transcribe/TranscribeFile.svelte') },
   ] },
 ];
