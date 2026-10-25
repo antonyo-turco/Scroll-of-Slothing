@@ -75,6 +75,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `parties_list` / `party_save` / `party_add_to_tracker` / `party_delete` | 9 | Saved hero parties (name, species, class, level, HP, AC, initiative bonus, passive Perception, speed, spell DC, player, notes); adding them makes player rows, optionally the default party |
 | `bestiary_save_creature` / `bestiary_homebrew` / `bestiary_delete_creature` | 9 | Homebrew creatures as 5etools monster JSON, kept in `<data dir>/fivetools/homebrew-bestiary.json` and merged into the bestiary (search, add, encounters) |
 | `token_sheet_add_creatures` | 9 | 5etools creature tokens onto the token sheet, sized from each creature |
+| `bestiary_legendary_group` | 9 | Lair actions and regional effects of a creature's legendary group (synced as `legendarygroups.json`) |
 | `bestiary_status` / `bestiary_sync` / `bestiary_search` / `bestiary_get` | 9 | Local cache of the 5etools mirror's bestiary (setting `fivetools_base_url`): sync (job), search, full stat block |
 | `transcript_export` | 8 | Render segments as txt, md, srt or vtt; optionally write to a path |
 

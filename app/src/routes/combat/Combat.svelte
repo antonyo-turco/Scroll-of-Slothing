@@ -11,7 +11,9 @@
   import Modal from '../../lib/components/Modal.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import Encounters from './Encounters.svelte';
-  import StatBlock from './StatBlock.svelte';
+  import StatBlock, { type RollRequest } from './StatBlock.svelte';
+  import { rollAttack, rollFormula } from '../../lib/dice';
+  import { CRS, crOfMon, scaleCreature } from '../../lib/scale';
   import Icon from '../../lib/components/Icon.svelte';
   import { difficulty, RATING_LABEL, xpOf } from '../../lib/difficulty';
   import { concentrationDc, conditionTip } from '../../lib/conditions';
@@ -56,7 +58,7 @@
     try {
       const [tr, cat, st] = await Promise.all([api.combatGet(), api.combatCatalog(), api.bestiaryStatus()]);
       [catalog, status] = [cat, st];
-      setTracker(tr);
+      setTracker(tr, false);
     } catch (e) {
       app.error('Could not load the combat tracker', e);
     }
@@ -88,11 +90,57 @@
 
   /** Every row gets a cell per column, so inputs can bind to them (the
    *  service fills new columns' cells; this only covers old data). */
-  function setTracker(x: Tracker) {
+  function setTracker(x: Tracker, history = true) {
     for (const r of x.rows) {
       for (const c of x.stats_cols) if (!r.cells.some((cell) => cell.id === c.id)) r.cells.push({ id: c.id, value: null });
     }
     t = x;
+    remember(history);
+  }
+
+  // ── undo / redo (the last 30 saved states; other windows' changes don't count) ──
+  let undoStack = $state<string[]>([]);
+  let redoStack = $state<string[]>([]);
+  let savedJson = '';
+  /** Called after each change lands: the previous state becomes an undo step. */
+  function remember(history: boolean) {
+    if (!t) return;
+    const now = JSON.stringify({ ...$state.snapshot(t), is_locked: false });
+    if (now === savedJson) return;
+    if (history && savedJson && !restoring) {
+      undoStack = [...undoStack.slice(-29), savedJson];
+      redoStack = [];
+    }
+    savedJson = now;
+  }
+  let restoring = false;
+  async function travel(from: 'undo' | 'redo') {
+    const stack = from === 'undo' ? undoStack : redoStack;
+    const target = stack[stack.length - 1];
+    if (!target || !t) return;
+    if (from === 'undo') {
+      undoStack = undoStack.slice(0, -1);
+      redoStack = [...redoStack, savedJson];
+    } else {
+      redoStack = redoStack.slice(0, -1);
+      undoStack = [...undoStack, savedJson];
+    }
+    restoring = true;
+    try {
+      const prev = JSON.parse(target) as Tracker;
+      prev.is_locked = t.is_locked;
+      await op(api.combatSet(prev), 'Could not undo');
+    } finally {
+      restoring = false;
+    }
+  }
+  function undoKeys(e: KeyboardEvent) {
+    if (e.key === 'Escape' && selected.size && !(e.target as HTMLElement)?.closest?.('[role="dialog"]')) return clearSelection();
+    if (tab !== 'tracker' || !(e.ctrlKey || e.metaKey)) return;
+    if ((e.target as HTMLElement)?.matches?.('input, textarea')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) return void (e.preventDefault(), travel('undo'));
+    if (k === 'y' || (k === 'z' && e.shiftKey)) return void (e.preventDefault(), travel('redo'));
   }
 
   async function op(p: Promise<Tracker>, what = 'Could not update the tracker') {
@@ -159,6 +207,109 @@
     setTimeout(() => (concAlerts = concAlerts.filter((a) => a.id !== id)), 12000);
   }
 
+  // ── rolls from the stat block ──
+  type RollLine = { id: number; who: string; entry: string; kind: 'hit' | 'damage'; total: number; detail: string; tag: string };
+  let rolls = $state<RollLine[]>([]);
+  let rollSeq = 0;
+  /** Abilities whose last attack was a natural 20: their next damage roll is a crit. */
+  const critNext = new Set<string>();
+  function doRoll(r: CombatRow, q: RollRequest) {
+    const key = `${r.id}|${q.entry}`;
+    let line: RollLine;
+    if (q.kind === 'hit') {
+      const a = rollAttack(Number(q.value) || 0, q.shift ? 1 : q.ctrl ? -1 : 0);
+      const tag = a.natural === 20 ? 'CRIT' : a.natural === 1 ? 'MISS' : '';
+      if (a.natural === 20) critNext.add(key);
+      else critNext.delete(key);
+      line = { id: ++rollSeq, who: label(r), entry: q.entry, kind: 'hit', total: a.total, detail: a.detail, tag };
+    } else {
+      const crit = q.shift || critNext.has(key);
+      critNext.delete(key);
+      const d = rollFormula(q.value, crit);
+      if (!d) return app.toast('error', `Can't roll “${q.value}”`);
+      line = { id: ++rollSeq, who: label(r), entry: q.entry, kind: 'damage', total: d.total, detail: d.detail, tag: crit ? 'CRIT' : '' };
+    }
+    rolls = [line, ...rolls].slice(0, 6);
+  }
+
+  // ── lair: a row at initiative 20 that loses ties, showing the lair actions ──
+  let lairGroups = $state<Record<string, Record<string, unknown> | null>>({});
+  const groupOf = (r: CombatRow) => {
+    const g = merged(r)?.legendaryGroup as { name?: string; source?: string } | undefined;
+    return g?.name && g.source ? { name: g.name, source: g.source } : null;
+  };
+  const lairKey = (g: { name: string; source: string }) => `${g.name}|${g.source}`.toLowerCase();
+  function fetchGroup(g: { name: string; source: string }) {
+    const k = lairKey(g);
+    if (k in lairGroups) return;
+    lairGroups[k] = null;
+    void api.bestiaryLegendaryGroup(g.name, g.source).then((v) => (lairGroups[k] = v)).catch(() => {});
+  }
+  const lairOf = (r: CombatRow) => {
+    const g = r.usage?.__lair as { name: string; source: string } | undefined;
+    return g ? lairGroups[lairKey(g)] ?? null : null;
+  };
+  $effect(() => {
+    if (!focus) return;
+    const g = focus.side === 'lair' ? (focus.usage?.__lair as { name: string; source: string } | undefined) : groupOf(focus);
+    if (g) fetchGroup(g);
+  });
+  const hasLairRow = (g: { name: string; source: string }) =>
+    !!t?.rows.some((r) => r.side === 'lair' && lairKey((r.usage?.__lair ?? { name: '', source: '' }) as { name: string; source: string }) === lairKey(g));
+  function addLair(r: CombatRow) {
+    const g = groupOf(r);
+    if (!t || !g) return;
+    t.rows = [...t.rows, {
+      id: crypto.randomUUID(), name: `Lair (${g.name})`, display_name: null, custom_name: null, source: null, scaled_cr: null,
+      scaled_summon_spell_level: null, scaled_summon_class_level: null, hp_current: null, hp_max: null, hp_temp: null,
+      initiative: 20, is_active: false, conditions: [], notes: '', is_player_visible: true, ordinal: 1, cells: [],
+      overrides: null, side: 'lair', usage: { __lair: g },
+    }];
+    commit();
+    app.toast('success', `Lair added at initiative 20`);
+  }
+
+  /** At the start of a creature's turn: legendary actions refill, spent recharges roll a d6. */
+  function startOfTurn(rows: CombatRow[]) {
+    const notes: string[] = [];
+    for (const r of rows) {
+      if (!r.source || !r.usage) continue;
+      if (r.usage.__la) setUsage(r, '__la', null);
+      const m = merged(r);
+      for (const key of Object.keys(r.usage)) {
+        if (key.startsWith('__')) continue;
+        const raw = ['trait', 'action', 'bonus', 'reaction', 'legendary']
+          .flatMap((k) => (Array.isArray(m?.[k]) ? (m![k] as { name?: string }[]) : []))
+          .find((b) => String(b.name ?? '').replace(/\s*\{@recharge[^}]*\}|\s*\((?:Recharge[^)]*)\)/gi, '').trim() === key)?.name;
+        const rc = raw?.match(/\{@recharge\s*(\d*)\}/) ?? raw?.match(/\(Recharge (\d)/i);
+        if (!rc) continue;
+        const need = Number(rc[1]) || 6;
+        const d6 = 1 + Math.floor(Math.random() * 6);
+        if (d6 >= need) setUsage(r, key, null);
+        notes.push(`${label(r)}: ${key} ${d6 >= need ? 'recharged' : 'not recharged'} (rolled ${d6}, needs ${need})`);
+      }
+    }
+    if (notes.length) {
+      commit();
+      for (const n of notes) app.toast('info', n);
+    }
+  }
+  /** After another combatant's turn: who still has legendary actions; dying heroes roll death saves. */
+  function afterTurn(started: CombatRow[]) {
+    if (!t) return;
+    const startedIds = new Set(started.map((r) => r.id));
+    const legend = t.rows
+      .filter((r) => r.source && !startedIds.has(r.id) && !isDown(r))
+      .map((r) => {
+        const m = merged(r);
+        const max = Number(m?.legendaryActions ?? (Array.isArray(m?.legendary) && (m!.legendary as unknown[]).length ? 3 : 0)) || 0;
+        return { r, left: max - (Number(r.usage?.__la) || 0) };
+      })
+      .filter((x) => x.left > 0);
+    if (legend.length) app.toast('info', `Legendary actions: ${legend.map((x) => `${label(x.r)} (${x.left} left)`).join(', ')}`);
+    for (const r of started) if (isDying(r) && deathSaves(r).s < 3) app.toast('info', `${label(r)} is dying: roll a death saving throw`);
+  }
+
   // ── difficulty of the fight: enemies in the tracker vs the heroes in it ──
   $effect(() => {
     for (const r of t?.rows ?? []) if (r.source) fetchMon(r);
@@ -167,7 +318,7 @@
   const fight = $derived.by(() => {
     if (!t) return null;
     const enemies = t.rows.filter((r) => r.source && !r.side);
-    const heroes = t.rows.filter((r) => !r.source);
+    const heroes = t.rows.filter((r) => isHero(r));
     let levels = heroes.map(levelOf).filter((l): l is number => !!l);
     if (!levels.length) {
       // no hero levels in the tracker: fall back on the default party
@@ -286,6 +437,8 @@
   /** Damage: temporary HP soak it first; a concentrating target gets a reminder. */
   function damage(r: CombatRow, n: number) {
     if (n <= 0) return;
+    // a dying hero who takes damage fails a death save
+    if (isDying(r)) setDeathSaves(r, deathSaves(r).s, deathSaves(r).f + 1);
     tookDamage(r, n);
     let rest = n;
     if (r.hp_temp) {
@@ -301,8 +454,30 @@
   function heal(r: CombatRow, n: number) {
     if (n <= 0) return;
     if (t?.is_invert_wound_direction) r.hp_current = Math.max(0, (r.hp_current ?? 0) - n);
-    else r.hp_current = Math.min(r.hp_max ?? Infinity, (r.hp_current ?? 0) + n);
+    else r.hp_current = Math.min(r.hp_max ?? Infinity, Math.max(0, r.hp_current ?? 0) + n);
+    if (!isDown(r) && r.usage?.__ds) clearDeathSaves(r);
     commit();
+  }
+
+  // ── usage: spent uses and recharges, legendary actions, death saves ──
+  function setUsage(r: CombatRow, key: string, v: unknown) {
+    const u = { ...(r.usage ?? {}) };
+    if (v === null || v === 0 || v === undefined) delete u[key];
+    else u[key] = v;
+    r.usage = Object.keys(u).length ? u : null;
+  }
+  const isHero = (r: CombatRow) => !r.source && r.side !== 'lair';
+  const isDying = (r: CombatRow) => isHero(r) && isDown(r);
+  const deathSaves = (r: CombatRow) => {
+    const d = (r.usage?.__ds ?? {}) as { s?: number; f?: number };
+    return { s: d.s ?? 0, f: d.f ?? 0 };
+  };
+  function setDeathSaves(r: CombatRow, s: number, f: number) {
+    setUsage(r, '__ds', { s: Math.max(0, Math.min(3, s)), f: Math.max(0, Math.min(3, f)) });
+    commit();
+  }
+  function clearDeathSaves(r: CombatRow) {
+    setUsage(r, '__ds', null);
   }
 
   /** Share of HP left, 0–100 (as damage: of HP not yet lost). */
@@ -393,10 +568,31 @@
   }
   async function addCreature() {
     if (!pick) return;
+    const before = new Set(t?.rows.map((r) => r.id) ?? []);
     await op(api.combatAddCreature(pick.hash, Math.max(1, Math.min(100, count || 1)), rollHp, customName.trim() || null, side), 'Could not add the creature');
+    if (t && addCr && pickMon && addCr !== crOfMon(pickMon)) {
+      for (const r of t.rows.filter((x) => !before.has(x.id))) applyScale(r, pickMon, addCr);
+      commit();
+    }
     addOpen = false;
-    [pick, count, customName] = [null, 1, ''];
+    [pick, count, customName, addCr] = [null, 1, '', ''];
   }
+  /** Scale to CR: the stat changes become this row's overrides; HP follows. */
+  function applyScale(r: CombatRow, base: Record<string, unknown>, cr: string) {
+    const o = scaleCreature(base, cr);
+    if (!o) return;
+    r.overrides = { ...(r.overrides ?? {}), ...o };
+    const [a, b] = cr.split('/').map(Number);
+    r.scaled_cr = b ? a / b : a;
+    const avg = (o.hp as { average?: number } | undefined)?.average;
+    if (avg) {
+      r.hp_max = avg;
+      r.hp_current = t?.is_invert_wound_direction ? 0 : avg;
+    }
+    syncRow(r, { ...base, ...o });
+  }
+  let addCr = $state('');
+  let scaleTo = $state('');
 
   // ── conditions ──
   let condRow = $state<CombatRow | null>(null);
@@ -411,8 +607,82 @@
   };
   async function addCondition(name: string, color: string, turns: number | null) {
     if (!condRow) return;
-    await op(api.combatAddCondition(condRow.id, name, color, turns && turns > 0 ? turns : null), 'Could not add the condition');
+    // the group bar opens the picker for every selected row
+    const ids = condForGroup ? [...selected] : [condRow.id];
+    for (const id of ids) await op(api.combatAddCondition(id, name, color, turns && turns > 0 ? turns : null), 'Could not add the condition');
     condRow = null;
+    condForGroup = false;
+  }
+
+  // ── group actions: Shift+click rows to select them ──
+  let selected = $state<Set<string>>(new Set());
+  let condForGroup = false;
+  let groupAmount = $state<number | null>(null);
+  let saveAbility = $state('dex');
+  let saveDc = $state<number | null>(null);
+  let halfOnSave = $state(true);
+  /** Last group save: row id → total and whether it beat the DC. */
+  let saveResults = $state<Record<string, { total: number; pass: boolean } | 'self'>>({});
+  const selRows = $derived(t?.rows.filter((r) => selected.has(r.id)) ?? []);
+  function toggleSelect(r: CombatRow) {
+    const s2 = new Set(selected);
+    if (s2.has(r.id)) s2.delete(r.id);
+    else s2.add(r.id);
+    selected = s2;
+  }
+  function rowClick(r: CombatRow, e: MouseEvent) {
+    if (!e.shiftKey) return;
+    const el = e.target as HTMLElement;
+    if (el.closest('input, textarea, select, .steps, .ds, .chip, .acts')) return;
+    e.preventDefault();
+    toggleSelect(r);
+  }
+  function clearSelection() {
+    selected = new Set();
+    saveResults = {};
+  }
+  function groupHp(kind: 'damage' | 'heal' | 'temp') {
+    const n = Math.round(Number(groupAmount) || 0);
+    if (n <= 0) return;
+    for (const r of selRows) {
+      if (kind === 'heal') heal(r, n);
+      else if (kind === 'temp') {
+        r.hp_temp = Math.max(r.hp_temp ?? 0, n);
+        commit();
+      } else {
+        const res = saveResults[r.id];
+        const half = halfOnSave && res && res !== 'self' && res.pass;
+        damage(r, half ? Math.floor(n / 2) : n);
+      }
+    }
+  }
+  /** Each selected creature rolls its own save (its save bonus, else the ability modifier). */
+  function groupSaves() {
+    const out: typeof saveResults = {};
+    const lines: RollLine[] = [];
+    for (const r of selRows) {
+      const m = merged(r);
+      if (!m) {
+        out[r.id] = 'self';
+        continue;
+      }
+      const save = (m.save as Record<string, string> | undefined)?.[saveAbility];
+      const score = Number(m[saveAbility]);
+      const bonus = save !== undefined ? Number(String(save).replace(/\s+/g, '')) || 0 : Number.isFinite(score) ? Math.floor((score - 10) / 2) : 0;
+      const a = rollAttack(bonus);
+      const pass = saveDc ? a.total >= saveDc : false;
+      out[r.id] = { total: a.total, pass };
+      lines.push({ id: ++rollSeq, who: label(r), entry: `${saveAbility.toUpperCase()} save`, kind: 'hit', total: a.total, detail: a.detail,
+        tag: saveDc ? (pass ? 'SAVED' : 'FAILED') : '' });
+    }
+    saveResults = out;
+    rolls = [...lines, ...rolls].slice(0, 8);
+  }
+  function groupCondition() {
+    if (!selRows.length) return;
+    condForGroup = true;
+    condRow = selRows[0];
+    condTurns = null;
   }
   function removeCondition(r: CombatRow, id: string) {
     void op(api.combatUpdateRow(r.id, { remove_conditions: [id] }));
@@ -721,6 +991,9 @@
       splashTimer = setTimeout(() => (splash = null), 1700);
     }
     showTurnCard(newRound ? 1700 : 0);
+    const started = t?.rows.filter((r) => r.is_active) ?? [];
+    startOfTurn(started);
+    afterTurn(started);
   }
 
   // ── turn card: whose turn it is and who comes next ──
@@ -765,6 +1038,8 @@
   const sortLabel = (s: CombatSort) => (t?.sort === s ? (t.dir === 'ASC' ? ' ↑' : ' ↓') : '');
 </script>
 
+<svelte:window onkeydown={undoKeys} />
+
 <ViewActions slot="nav">
   <div class="segmented" role="tablist" aria-label="Combat views">
     {#each TABS as [id, l] (id)}
@@ -803,6 +1078,8 @@
       <span class="sep"></span>
       <button class="btn" onclick={() => op(api.combatAddPlayer())} disabled={locked}>+ Player</button>
       <button class="btn" onclick={openAdd} disabled={locked}>+ Creature…</button>
+      <button class="btn ghost icon" onclick={() => travel('undo')} disabled={!undoStack.length} aria-label="Undo" title="Undo (Ctrl+Z)"><Icon name="undo" size={17} /></button>
+      <button class="btn ghost icon redo" onclick={() => travel('redo')} disabled={!redoStack.length} aria-label="Redo" title="Redo (Ctrl+Y)"><Icon name="undo" size={17} /></button>
       {#if t}
         <button class="btn" class:danger={locked} aria-pressed={locked} onclick={() => { t!.is_locked = !t!.is_locked; commit(); }}
           title="While locked, rows can't be added, removed or edited">{locked ? '🔒 Locked' : '🔓 Lock'}</button>
@@ -823,6 +1100,27 @@
           <span>Add players and creatures, or open a 5etools combat or encounter link.</span>
         </div>
       {:else}
+        {#if selRows.length}
+          <div class="group-bar" role="toolbar" aria-label="Group actions">
+            <span class="gb-count">{selRows.length} selected</span>
+            <input class="input num gb-amount" type="number" min="1" placeholder="Amount" aria-label="Amount" bind:value={groupAmount}
+              onkeydown={(e) => e.key === 'Enter' && groupHp('damage')} />
+            <button class="btn gb-dmg" disabled={!groupAmount || locked} onclick={() => groupHp('damage')}>Damage</button>
+            <button class="btn gb-heal" disabled={!groupAmount || locked} onclick={() => groupHp('heal')}>Heal</button>
+            <button class="btn gb-temp" disabled={!groupAmount || locked} onclick={() => groupHp('temp')}>Temp HP</button>
+            <span class="gb-sep"></span>
+            <select class="input compact" aria-label="Save ability" bind:value={saveAbility}>
+              {#each ['str', 'dex', 'con', 'int', 'wis', 'cha'] as a (a)}<option value={a}>{a.toUpperCase()}</option>{/each}
+            </select>
+            <input class="input num" type="number" min="1" placeholder="DC" aria-label="Save DC" bind:value={saveDc} />
+            <button class="btn" onclick={groupSaves}>Roll saves</button>
+            <label class="check gb-half" title="With save results, creatures that saved take half"><input type="checkbox" bind:checked={halfOnSave} /> Half on save</label>
+            <span class="gb-sep"></span>
+            <button class="btn" disabled={locked} onclick={groupCondition}>Condition…</button>
+            <span class="grow"></span>
+            <button class="btn ghost" onclick={clearSelection} title="Esc">Clear</button>
+          </div>
+        {/if}
         <table class="tracker" data-testid="combat-table">
           <thead>
             <tr>
@@ -837,7 +1135,7 @@
           <tbody>
             {#each t.rows as r (r.id)}
               {@const w = wound(r)}
-              <tr class:active={r.is_active} class:defeated={w.text === 'Defeated'} class:hero={!r.source} class:monster={!!r.source && !r.side} class:ally={r.side === 'ally'} class:neutral={r.side === 'neutral'} data-testid="combat-row">
+              <tr onclick={(e) => rowClick(r, e)} class:selected={selected.has(r.id)} class:active={r.is_active} class:defeated={w.text === 'Defeated'} class:hero={isHero(r)} class:monster={!!r.source && !r.side} class:ally={r.side === 'ally'} class:neutral={r.side === 'neutral'} class:lair={r.side === 'lair'} data-testid="combat-row">
                 <td class="name">
                   {#if editing.has(r.id) && !locked}
                     {#if r.source}
@@ -847,9 +1145,15 @@
                       <input class="input" aria-label="Player name" placeholder="Player" bind:value={r.name} onchange={commit} />
                     {/if}
                   {:else}
-                    <button class="cname" class:inspected={inspectId === r.id} onclick={() => (inspectId = inspectId === r.id ? null : r.id)}
+                    <button class="cname" class:inspected={inspectId === r.id} onclick={(e) => { if (!e.shiftKey) inspectId = inspectId === r.id ? null : r.id; }}
                       title="Show in the side panel">{label(r)}</button>
                     {#if r.source}<span class="src">{r.source}</span>{/if}
+                    {#if saveResults[r.id]}
+                      {@const sr = saveResults[r.id]}
+                      <span class="save-badge" class:pass={sr !== 'self' && sr.pass} class:fail={sr !== 'self' && !sr.pass && !!saveDc}>
+                        {sr === 'self' ? 'rolls own save' : `${sr.total}${saveDc ? (sr.pass ? ' ✓' : ' ✗') : ''}`}
+                      </span>
+                    {/if}
                     <button type="button" class="info" aria-label="Details of {label(r)}" onmouseenter={() => fetchMon(r)} onfocus={() => fetchMon(r)}>
                       i
                       <span class="info-pop">{#each infoLines(r) as l, i (i)}<span class:first={i === 0}>{l}</span>{:else}<span>No details</span>{/each}</span>
@@ -888,7 +1192,20 @@
                 {/each}
                 <td class="hp">
                   <div class="hp-cell">
-                    {#if isDown(r)}
+                    {#if isDying(r) && deathSaves(r).f < 3}
+                      {@const ds = deathSaves(r)}
+                      <div class="death" role="group" aria-label="Death saves of {label(r)}">
+                        <span class="ds-row ok" title={ds.s >= 3 ? 'Stable' : 'Successes'}>
+                          {#each [0, 1, 2] as i (i)}<button class="ds" class:on={ds.s > i} aria-label="Success {i + 1}" disabled={locked}
+                            onclick={() => setDeathSaves(r, ds.s > i ? i : i + 1, ds.f)}></button>{/each}
+                        </span>
+                        <span class="ds-row bad" title="Failures">
+                          {#each [0, 1, 2] as i (i)}<button class="ds" class:on={ds.f > i} aria-label="Failure {i + 1}" disabled={locked}
+                            onclick={() => setDeathSaves(r, ds.s, ds.f > i ? i : i + 1)}></button>{/each}
+                        </span>
+                        {#if ds.s >= 3}<span class="stable">Stable</span>{/if}
+                      </div>
+                    {:else if isDown(r)}
                       <button class="skull" aria-label="Set {label(r)} aside as defeated" title="Defeated: move to the list below the tracker"
                         onclick={() => defeat(r)} disabled={locked}><Icon name="skull" size={18} /></button>
                     {:else}
@@ -1013,7 +1330,22 @@
           <span>Notes</span>
           <textarea class="input" aria-label="Notes for {label(focus)}" placeholder="Notes for {label(focus)}…" bind:value={focus.notes} oninput={commit} disabled={locked}></textarea>
         </label>
-        <StatBlock mon={merged(focus)} hero={heroOf(focus)} name={label(focus)} sub={focus.display_name ?? undefined} />
+        {#if focus.source && groupOf(focus) && lairGroups[lairKey(groupOf(focus)!)]?.lairActions && !hasLairRow(groupOf(focus)!)}
+          <button class="btn lair-btn" onclick={() => addLair(focus!)} disabled={locked}>+ Add lair (initiative 20)</button>
+        {/if}
+        {#if rolls.length}
+          <ol class="roll-log" aria-label="Recent rolls" aria-live="polite">
+            {#each rolls as l, i (l.id)}
+              <li class:latest={i === 0} class:crit={l.tag === 'CRIT'} class:miss={l.tag === 'MISS'}>
+                <span class="rl-total">{l.total}</span>
+                <span class="rl-what">{l.entry} {l.kind === 'hit' ? 'to hit' : 'damage'}{l.tag ? ` · ${l.tag}` : ''}<small>{l.who} · {l.detail}</small></span>
+              </li>
+            {/each}
+          </ol>
+        {/if}
+        <StatBlock mon={focus.side === 'lair' ? null : merged(focus)} hero={heroOf(focus)} name={label(focus)} sub={focus.display_name ?? undefined}
+          lair={focus.side === 'lair' ? lairOf(focus) : null} usage={focus.usage}
+          onRoll={(q) => doRoll(focus!, q)} onUse={(key, n) => { setUsage(focus!, key, Math.max(0, n)); commit(); }} />
         {#if active.length > 1}<p class="note">Also acting: {active.slice(1).map(label).join(', ')}</p>{/if}
       {:else}
         <p class="note">The stat block of whoever's turn it is shows here. Press <b>Next turn</b> to start.</p>
@@ -1128,6 +1460,12 @@
         {/each}
       </div>
       <label class="check"><input type="checkbox" bind:checked={rollHp} /> Roll HP</label>
+      <label class="cr-pick">CR
+        <select class="input compact" aria-label="Scale to CR" bind:value={addCr} disabled={!pickMon}>
+          <option value="">{pickMon ? `${crOfMon(pickMon) ?? '—'} (as is)` : 'as is'}</option>
+          {#each CRS as c (c)}<option value={c}>{c}</option>{/each}
+        </select>
+      </label>
       <span class="grow"></span>
       <button class="btn primary" disabled={!pick} onclick={addCreature}>Add {count > 1 ? `${count} × ` : ''}{pick?.name ?? 'creature'}</button>
     </div>
@@ -1142,6 +1480,16 @@
     </div>
     <p class="note">Changes apply to this {statRow.name} only and update its row in the tracker.{statRow.overrides ? ' It already has changes from the bestiary.' : ''}</p>
     {#if statTab === 'stats'}
+      <div class="scale-row">
+        <span>Scale to CR</span>
+        <select class="input compact" aria-label="Scale to CR" bind:value={scaleTo}>
+          <option value="">—</option>
+          {#each CRS as c (c)}<option value={c}>{c}</option>{/each}
+        </select>
+        <button class="btn" disabled={!scaleTo || !monOf(statRow)} onclick={() => { applyScale(statRow!, monOf(statRow!)!, scaleTo); scaleTo = ''; statEdit = null; commit(); app.toast('success', 'Scaled'); }}
+          title="Adjusts AC, HP, to-hit, damage, save DCs, saves and skills with the DMG's monster statistics by CR (from the bestiary stats)">Scale</button>
+        <span class="muted">from CR {monOf(statRow) ? crOfMon(monOf(statRow)!) : '—'} in the bestiary</span>
+      </div>
       <div class="stat-form">
         <fieldset>
           <legend>Basics</legend>
@@ -1555,6 +1903,19 @@
   .title-cell {
     display: grid;
   }
+  .scale-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: 15px;
+  }
+  .cr-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+  }
   .ed-tabs {
     margin-bottom: var(--space-3);
   }
@@ -1683,6 +2044,158 @@
   .reset-hint {
     margin: var(--space-2) 0 0;
     font-size: 13px;
+  }
+  .tracker tr.selected td {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .tracker tr.selected td:last-child {
+    box-shadow: inset -3px 0 0 var(--accent);
+  }
+  .group-bar {
+    position: sticky;
+    top: calc(-1 * var(--space-3));
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+    font-size: 15px;
+  }
+  .gb-count {
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .gb-amount {
+    width: 90px;
+  }
+  .gb-dmg {
+    color: #fff;
+    background: #c9341c;
+    border-color: #c9341c;
+  }
+  .gb-heal {
+    color: #fff;
+    background: #2a9a3f;
+    border-color: #2a9a3f;
+  }
+  .gb-temp {
+    color: #fff;
+    background: #2f7fd1;
+    border-color: #2f7fd1;
+  }
+  .gb-sep {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border);
+  }
+  .gb-half {
+    font-size: 14px;
+  }
+  .save-badge {
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .save-badge.pass {
+    color: #2fb344;
+  }
+  .save-badge.fail {
+    color: #e5533d;
+  }
+  .redo :global(svg) {
+    transform: scaleX(-1);
+  }
+  .death {
+    display: grid;
+    gap: 3px;
+    flex: none;
+  }
+  .ds-row {
+    display: flex;
+    gap: 3px;
+  }
+  .ds {
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+  }
+  .ok {
+    color: #2fb344;
+  }
+  .bad {
+    color: #e5533d;
+  }
+  .ds.on {
+    background: currentColor;
+  }
+  .stable {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2fb344;
+  }
+  .tracker tr.lair td:first-child {
+    box-shadow: inset 4px 0 0 #8b5cf6;
+  }
+  .lair-btn {
+    margin-bottom: var(--space-3);
+    border-color: #8b5cf6;
+  }
+  .roll-log {
+    list-style: none;
+    margin: 0 0 var(--space-3);
+    padding: 0;
+    display: grid;
+    gap: 4px;
+  }
+  .roll-log li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    opacity: 0.7;
+  }
+  .roll-log li.latest {
+    opacity: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--accent);
+  }
+  .roll-log li.crit {
+    border-color: #2fb344;
+  }
+  .roll-log li.miss {
+    border-color: #e5533d;
+  }
+  .rl-total {
+    min-width: 2.5ch;
+    font-size: 18px;
+    font-weight: 800;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .latest .rl-total {
+    font-size: 26px;
+  }
+  .rl-what {
+    display: grid;
+    font-size: 14px;
+  }
+  .rl-what small {
+    color: var(--text-muted);
+    font-size: 12px;
   }
   .chip-wrap {
     position: relative;

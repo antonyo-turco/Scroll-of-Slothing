@@ -728,8 +728,10 @@ export interface CombatRow {
   cells: CombatCell[];
   /** Stat block fields changed for this creature (5etools keys: ac, speed, str, …). */
   overrides: Record<string, unknown> | null;
-  /** Creatures: which side they fight on (null = enemy). */
-  side: 'ally' | 'neutral' | null;
+  /** Creatures: which side they fight on (null = enemy); 'lair' marks a lair row. */
+  side: 'ally' | 'neutral' | 'lair' | null;
+  /** Play-time bookkeeping: spent uses/recharges by ability name, __la, __ds, __lair. */
+  usage: Record<string, unknown> | null;
 }
 
 export interface CombatColumn {
@@ -848,6 +850,8 @@ export interface EncounterLine {
   source: string;
   count: number;
   cr: string | null;
+  /** The bestiary's CR when the line is scaled. */
+  base_cr: string | null;
   known: boolean;
 }
 

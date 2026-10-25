@@ -1455,6 +1455,16 @@ impl SleuthServer {
         done(self.svc.token_sheet_add_creatures(items).await)
     }
 
+    #[tool(
+        description = "A creature's lair actions and regional effects (5etools legendaryGroup), by the name and source in its legendaryGroup field. Null when the synced mirror has none."
+    )]
+    async fn bestiary_legendary_group(
+        &self,
+        Parameters(p): Parameters<LegendaryGroupParams>,
+    ) -> ToolResult {
+        done(self.svc.bestiary_legendary_group(p.name, p.source).await)
+    }
+
     #[tool(description = "A cached creature's full 5etools stat block JSON, by hash.")]
     async fn bestiary_get(&self, Parameters(p): Parameters<BestiaryHashParams>) -> ToolResult {
         done(self.svc.bestiary_get(p.hash).await)
@@ -2531,4 +2541,10 @@ pub struct EncounterCreatureCount {
     /// 5etools creature hash, e.g. `goblin_mm`.
     pub hash: String,
     pub count: u32,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct LegendaryGroupParams {
+    pub name: String,
+    pub source: String,
 }

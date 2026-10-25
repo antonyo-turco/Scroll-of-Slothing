@@ -1249,3 +1249,12 @@ pub async fn token_sheet_add_creatures(
 ) -> Res<TokenSheet> {
     svc.token_sheet_add_creatures(items).await
 }
+
+#[tauri::command]
+pub async fn bestiary_legendary_group(
+    svc: Svc<'_>,
+    name: String,
+    source: String,
+) -> Res<Option<Value>> {
+    svc.bestiary_legendary_group(name, source).await
+}

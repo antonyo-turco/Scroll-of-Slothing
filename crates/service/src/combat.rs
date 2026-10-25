@@ -22,6 +22,8 @@ const KEY: &str = "combat.tracker";
 const LOCK_KEY: &str = "_sleuthLocked";
 const ENCOUNTERS_KEY: &str = "combat.encounters";
 const PARTIES_KEY: &str = "combat.parties";
+/// 5etools lair actions and regional effects, synced next to the bestiary files.
+const GROUPS_FILE: &str = "legendarygroups.json";
 /// Homebrew creatures, in `<data dir>/fivetools/` (outside the synced bestiary).
 const HOMEBREW_FILE: &str = "homebrew-bestiary.json";
 
@@ -129,6 +131,8 @@ pub struct EncounterLine {
     pub source: String,
     pub count: u32,
     pub cr: Option<String>,
+    /// The bestiary's CR when the line is scaled (`cr` is then the scaled one).
+    pub base_cr: Option<String>,
     pub known: bool,
 }
 
@@ -142,6 +146,8 @@ pub struct CombatCatalog {
 struct Bestiary {
     files: usize,
     by_hash: HashMap<String, Value>,
+    /// Lair actions and regional effects, by `name|source` lower-cased.
+    groups: HashMap<String, Value>,
     list: Vec<BestiaryEntry>,
 }
 
@@ -254,7 +260,17 @@ fn load_bestiary(dir: &Path, base_url: &str) -> Result<Bestiary> {
     list.sort_by(|a, b| {
         a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.source.cmp(&b.source))
     });
-    Ok(Bestiary { files, by_hash, list })
+    let mut groups = HashMap::new();
+    if let Ok(b) = std::fs::read(dir.join(GROUPS_FILE))
+        && let Ok(v) = serde_json::from_slice::<Value>(&b)
+    {
+        for g in v.get("legendaryGroup").and_then(Value::as_array).into_iter().flatten() {
+            let n = g.get("name").and_then(Value::as_str).unwrap_or("");
+            let s = g.get("source").and_then(Value::as_str).unwrap_or("");
+            groups.insert(format!("{n}|{s}").to_lowercase(), g.clone());
+        }
+    }
+    Ok(Bestiary { files, by_hash, list, groups })
 }
 
 impl Service {
@@ -731,6 +747,11 @@ impl Service {
                 ctx.progress(i as f32 / total as f32, format!("{file} ({}/{total})", i + 1));
                 std::fs::write(tmp.join(file), get(file)?).map_err(io)?;
             }
+            ctx.check()?;
+            // lair actions; an older mirror without the file is fine
+            if let Ok(b) = get(GROUPS_FILE) {
+                std::fs::write(tmp.join(GROUPS_FILE), b).map_err(io)?;
+            }
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::rename(&tmp, &dir).map_err(io)?;
             let b = load_bestiary(&dir, &base)?;
@@ -947,7 +968,24 @@ impl Service {
         let lines: Vec<EncounterLine> = creatures
             .iter()
             .map(|c| {
-                let mon = b.by_hash.get(&c.hash);
+                // a line's stat changes (e.g. a scaled CR) count for its CR and XP
+                let merged: Option<Value> = b.by_hash.get(&c.hash).map(|m| {
+                    let mut m = m.clone();
+                    if let (Some(o), Some(st)) = (m.as_object_mut(), c.stats.as_ref()) {
+                        for (k, v) in st {
+                            o.insert(k.clone(), v.clone());
+                        }
+                    }
+                    m
+                });
+                let mon = merged.as_ref();
+                let base_cr = b
+                    .by_hash
+                    .get(&c.hash)
+                    .and_then(|m| m.get("cr"))
+                    .map(|c| c.get("cr").unwrap_or(c))
+                    .and_then(Value::as_str)
+                    .map(String::from);
                 let x = mon.and_then(creature::cr_to_xp);
                 xp = xp.zip(x).map(|(a, b)| a + b * i64::from(c.count));
                 let (name, source) = c.hash.rsplit_once('_').unwrap_or((&c.hash, ""));
@@ -967,6 +1005,7 @@ impl Service {
                         .map(|c| c.get("cr").unwrap_or(c))
                         .and_then(Value::as_str)
                         .map(Into::into),
+                    base_cr,
                     known: mon.is_some(),
                 }
             })
@@ -1916,6 +1955,22 @@ impl Service {
         self.blocking(move |s| {
             let (_, bytes) = svc.creature_image_bytes(s, &hash, kind)?;
             crate::tokens::store_source(s, &bytes)
+        })
+        .await
+    }
+}
+
+impl Service {
+    /// A creature's lair actions and regional effects (5etools `legendaryGroup`),
+    /// by its `legendaryGroup` name and source. None when the cache has none.
+    pub async fn bestiary_legendary_group(
+        &self,
+        name: String,
+        source: String,
+    ) -> Result<Option<Value>> {
+        let svc = self.clone();
+        self.blocking(move |s| {
+            Ok(svc.bestiary(s)?.groups.get(&format!("{name}|{source}").to_lowercase()).cloned())
         })
         .await
     }

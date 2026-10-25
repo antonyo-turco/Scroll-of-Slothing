@@ -8,6 +8,7 @@
   import Modal from '../../lib/components/Modal.svelte';
   import { app } from '../../lib/state.svelte';
   import { difficulty, RATING_LABEL, xpOf } from '../../lib/difficulty';
+  import { CRS, scaleCreature } from '../../lib/scale';
   import type { BestiaryEntry, CombatImport, EncounterCreature, EncounterSummary, Party } from '../../lib/types';
 
   let { onStarted }: { onStarted: (r: CombatImport) => void } = $props();
@@ -155,7 +156,24 @@
   let editId = $state<string | null>(null);
   let editName = $state('');
   let editNotes = $state('');
-  let editCreatures = $state<(EncounterCreature & { name: string; source: string; cr: string | null })[]>([]);
+  /** A line: `cr` as used for XP (scaled or the bestiary's), `baseCr` the bestiary's. */
+  let editCreatures = $state<(EncounterCreature & { name: string; source: string; cr: string | null; baseCr: string | null })[]>([]);
+  async function scaleLine(c: (typeof editCreatures)[number], cr: string) {
+    if (!cr || cr === c.baseCr) {
+      c.stats = null;
+      c.cr = c.baseCr;
+      return;
+    }
+    try {
+      const base = await api.bestiaryGet(c.hash);
+      const o = base ? scaleCreature(base, cr) : null;
+      if (!o) return;
+      c.stats = { ...(c.stats ?? {}), ...o };
+      c.cr = cr;
+    } catch (e) {
+      app.error('Could not scale', e);
+    }
+  }
   let search = $state('');
   let hits = $state<BestiaryEntry[]>([]);
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -164,7 +182,11 @@
     editId = e?.id ?? null;
     editName = e?.name ?? '';
     editNotes = e?.notes ?? '';
-    editCreatures = (e?.lines ?? []).map((l) => ({ hash: l.hash, count: l.count, name: l.name, source: l.source, cr: l.cr }));
+    editCreatures = (e?.lines ?? []).map((l, i) => {
+      const stats = e?.creatures[i]?.stats ?? null;
+      const scaled = stats && typeof stats.cr === 'string' ? (stats.cr as string) : null;
+      return { hash: l.hash, count: l.count, name: l.name, source: l.source, cr: scaled ?? l.cr, baseCr: l.base_cr ?? l.cr, stats };
+    });
     search = '';
     editOpen = true;
     runSearch();
@@ -181,13 +203,13 @@
     }, 120);
   }
   function addCreature(h: BestiaryEntry) {
-    const c = editCreatures.find((x) => x.hash === h.hash);
+    const c = editCreatures.find((x) => x.hash === h.hash && !x.stats);
     if (c) c.count++;
-    else editCreatures.push({ hash: h.hash, count: 1, name: h.name, source: h.source, cr: h.cr });
+    else editCreatures.push({ hash: h.hash, count: 1, name: h.name, source: h.source, cr: h.cr, baseCr: h.cr, stats: null });
   }
   async function saveEditor() {
     try {
-      const e = await api.encounterSave(editId, editName, editNotes, editCreatures.map(({ hash, count }) => ({ hash, count })));
+      const e = await api.encounterSave(editId, editName, editNotes, editCreatures.map(({ hash, count, stats }) => ({ hash, count, stats: stats ?? null })));
       editOpen = false;
       await load();
       selected = e.id;
@@ -359,10 +381,15 @@
       <section class="ed-col" aria-label="Encounter creatures">
         <div class="col-head"><h3>Creatures ({totalCount})</h3><span class="total">{totalXp.toLocaleString()} XP{unknownXp ? ' +?' : ''}</span></div>
         <ul class="picked">
-          {#each editCreatures as c, i (c.hash)}
+          {#each editCreatures as c, i (i)}
             <li>
               <span class="pname" title={c.hash}>{c.name} <span class="muted">{c.source}</span></span>
-              <span class="pcr">CR {c.cr ?? '—'}</span>
+              <label class="pcr">CR
+                <select class="input compact" aria-label="CR of {c.name}" value={c.cr ?? ''} onchange={(e) => scaleLine(c, e.currentTarget.value)}>
+                  {#if c.baseCr}<option value={c.baseCr}>{c.baseCr}</option>{/if}
+                  {#each CRS.filter((x) => x !== c.baseCr) as x (x)}<option value={x}>{x}{c.baseCr ? ' (scaled)' : ''}</option>{/each}
+                </select>
+              </label>
               <span class="pxp">{xpOf(c.cr) !== null ? `${xpOf(c.cr)!.toLocaleString()} XP each · ${lineXp(c).toLocaleString()}` : 'XP unknown'}</span>
               <span class="stepper">
                 <button class="btn ghost icon" aria-label="One fewer {c.name}" onclick={() => (c.count > 1 ? c.count-- : editCreatures.splice(i, 1))}>−</button>
@@ -609,7 +636,7 @@
   }
   .picked li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 64px auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas: 'name cr step' 'xp xp step';
     gap: 2px var(--space-3);
     align-items: center;
@@ -625,6 +652,9 @@
   }
   .pcr {
     grid-area: cr;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 14px;
   }
   .pxp {

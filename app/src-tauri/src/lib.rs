@@ -206,6 +206,7 @@ pub fn run() {
             commands::bestiary_search,
             commands::bestiary_get,
             commands::bestiary_sync,
+            commands::bestiary_legendary_group,
             commands::image_source_from_creature,
             commands::token_sheet_add_creatures,
             commands::bestiary_save_creature,

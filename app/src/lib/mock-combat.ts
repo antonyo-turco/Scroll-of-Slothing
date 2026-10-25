@@ -124,7 +124,7 @@ export function createCombatMockHandlers(emit: Emit, settings: () => Settings): 
     id: newId(), name: '', display_name: null, custom_name: null, source: null, scaled_cr: null,
     scaled_summon_spell_level: null, scaled_summon_class_level: null, hp_current: null, hp_max: null,
     hp_temp: null, initiative: null, is_active: false, conditions: [], notes: '', is_player_visible: true, ordinal: 1,
-    cells: cellsFor(null), overrides: null, side: null, ...over,
+    cells: cellsFor(null), overrides: null, side: null, usage: null, ...over,
   });
 
   /** Turn/round-start column hooks (forwards only). */
@@ -173,7 +173,7 @@ export function createCombatMockHandlers(emit: Emit, settings: () => Settings): 
   const summarize = (e: EncounterSummary, creatures: EncounterCreature[]): EncounterSummary => {
     const lines = creatures.map((c) => {
       const m = BESTIARY.find((x) => hashOf(x) === c.hash);
-      return { hash: c.hash, name: m?.name ?? c.hash.split('_')[0], source: m?.source ?? '', count: c.count, cr: m?.cr ?? null, known: !!m };
+      return { hash: c.hash, name: m?.name ?? c.hash.split('_')[0], source: m?.source ?? '', count: c.count, cr: m?.cr ?? null, base_cr: m?.cr ?? null, known: !!m };
     });
     const known = lines.every((l) => l.known) && lines.length > 0;
     return {
@@ -457,6 +457,7 @@ export function createCombatMockHandlers(emit: Emit, settings: () => Settings): 
     token_sheet_add_creatures: () => {
       throw { code: 'io', message: 'io error: creature tokens are downloaded in the desktop app' };
     },
+    bestiary_legendary_group: () => null,
     bestiary_get: ({ hash }) => BESTIARY.find((m) => hashOf(m) === hash) ?? null,
     bestiary_sync: () => {
       const id = `mock-job-bestiary-${++seq}`;

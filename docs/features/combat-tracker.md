@@ -102,6 +102,36 @@ Tracker, Encounters and Parties.
 - **Reset** asks in a popup (unless `combat_reset_confirm` is off) with *Keep the party*
   (`combat_reset_keep_players`: remove only creatures) and *Don't ask again*.
 
+## Play aids
+- **Rolls from the stat block.** `{@hit}`, `{@damage}`, `{@dice}` and `{@d20}` tags in the side
+  panel are buttons (`app/src/lib/dice.ts`). To hit: Shift advantage, Ctrl disadvantage; a
+  natural 20 makes that ability's next damage roll a crit (dice doubled), as does Shift on a
+  damage button. The panel keeps a log of the last rolls (crits and natural 1s marked).
+- **Limited uses.** Abilities named "(N/Day)" get N pips; "{@recharge N}" abilities get a
+  Recharge badge. Spent recharges roll a d6 at the start of the creature's turn (a toast says
+  whether it recharged). Legendary actions (`legendaryActions`, else 3) get pips that refill
+  on the creature's turn; after other combatants' turns a toast lists who still has some.
+  All of this lives in the row's `usage` (`_us`).
+- **Lair.** A creature with a `legendaryGroup` that has lair actions offers *Add lair*: a row at
+  initiative 20 that loses ties (`side: lair`, purple edge) whose panel shows the lair actions
+  and regional effects (`legendarygroups.json`, synced with the bestiary;
+  `bestiary_legendary_group`). Sync again to get it on an existing cache.
+- **Death saves.** A hero at 0 HP shows three success and three failure pips instead of the
+  skull; damage while dying adds a failure, healing clears them, three successes read
+  "Stable", three failures bring back the skull. Their turn reminds you to roll.
+- **Undo / redo.** Ctrl+Z / Ctrl+Y (or the toolbar arrows) step through the last 30 saved
+  states of the tracker; changes from elsewhere (MCP) are not undo steps.
+- **CR scaling.** *Scale to CR* in the creature editor, a CR choice in *Add creature*, and a CR
+  per line in the encounter editor scale a creature with the DMG's monster statistics by CR
+  (`app/src/lib/scale.ts`): AC, to-hit, save DCs, saves and skills shift by the table's
+  difference; HP and damage scale by the table's midpoint ratios (dice counts and printed
+  averages adjusted). The result is stored as the creature's stat changes (and `n_scr`), so it
+  can be edited or reset. It approximates, rather than ports, 5etools ScaleCreature.
+- **Group actions.** Shift+click rows to select them; a bar offers an amount with Damage, Heal
+  and Temp HP, a group saving throw (ability and DC; each creature rolls its own save bonus or
+  ability modifier, heroes roll their own), *Half on save* for damage, and a condition for
+  everyone. Esc clears the selection.
+
 ## Encounters
 Saved encounters (workspace `combat.encounters`), pinned first. An encounter is either a
 creature list (`kind: encounter`) or a snapshot of a whole tracker (`kind: combat`, from *Save
@@ -155,8 +185,8 @@ load; they are still written into links so 5etools reads them.
 - Autosaved in the workspace key `combat.tracker`.
 
 ## Intentional changes
-- Creature scaling (`customHashId`, scaled CR, summon levels) is not applied yet: scaled
-  creatures import at their listed stats, and their scale fields are kept on the row.
+- 5etools scaling links (`customHashId`, summon levels) are not applied: such creatures import
+  at their listed stats. CR scaling here uses the DMG table instead (see Play aids).
 - `_copy` `_mod` operations are not applied; the copy takes the base's fields plus its own.
 - Notes are plain text (no inline rolls or tag rendering yet).
 

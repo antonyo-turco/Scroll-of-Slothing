@@ -76,8 +76,12 @@ pub struct Row {
     /// Stat block fields changed for this one creature (5etools JSON keys such
     /// as `ac`, `speed`, `str`), shown over its bestiary entry (`_so`).
     pub overrides: Option<Map<String, Value>>,
-    /// Which side a creature fights on: `ally` or `neutral`; None is an enemy (`_sd`).
+    /// Which side a creature fights on: `ally` or `neutral`; None is an enemy.
+    /// `lair` marks a lair row (initiative 20, loses ties) (`_sd`).
     pub side: Option<String>,
+    /// Play-time bookkeeping (`_us`): spent uses and recharges by ability name,
+    /// legendary actions spent (`__la`), death saves (`__ds`), a lair's creature (`__lair`).
+    pub usage: Option<Map<String, Value>>,
 }
 
 impl Row {
@@ -251,14 +255,19 @@ impl Tracker {
             |a: &Row, b: &Row| mul(a.initiative.unwrap_or(0).cmp(&b.initiative.unwrap_or(0)));
         let ord = |a: &Row, b: &Row| a.ordinal.cmp(&b.ordinal);
         let id = |a: &Row, b: &Row| a.id.cmp(&b.id);
+        // a lair acts on its initiative count but loses ties
+        let lair = |a: &Row, b: &Row| {
+            let l = |r: &Row| r.side.as_deref() == Some("lair");
+            l(a).cmp(&l(b))
+        };
         let mut out = rows.to_vec();
         match self.sort {
             Sort::Alpha => {
                 out.sort_by(|a, b| name(a, b).then(ord(a, b)).then(init(a, b)).then(id(a, b)))
             }
-            Sort::Number => {
-                out.sort_by(|a, b| init(a, b).then(name(a, b)).then(ord(a, b)).then(id(a, b)))
-            }
+            Sort::Number => out.sort_by(|a, b| {
+                init(a, b).then(lair(a, b)).then(name(a, b)).then(ord(a, b)).then(id(a, b))
+            }),
         }
         out
     }
@@ -774,6 +783,7 @@ fn row_to_serial(r: &Row) -> Value {
         "_ht": r.hp_temp,
         "_so": r.overrides,
         "_sd": r.side,
+        "_us": r.usage,
     }))
 }
 
@@ -850,7 +860,8 @@ fn row_from_serial(v: &Value, new_id: NewId) -> Option<Row> {
         cells,
         hp_temp: num_of(v, "_ht"),
         overrides: o.get("_so").and_then(Value::as_object).cloned(),
-        side: str_of(v, "_sd").filter(|s| matches!(s.as_str(), "ally" | "neutral")),
+        side: str_of(v, "_sd").filter(|s| matches!(s.as_str(), "ally" | "neutral" | "lair")),
+        usage: o.get("_us").and_then(Value::as_object).cloned(),
     })
 }
 

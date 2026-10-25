@@ -215,6 +215,7 @@ export const api = {
   bestiaryStatus: () => call<BestiaryStatus>('bestiary_status'),
   bestiarySearch: (query: string, limit?: number) => call<BestiaryEntry[]>('bestiary_search', { query, limit: limit ?? null }),
   bestiarySync: () => call<string>('bestiary_sync'),
+  bestiaryLegendaryGroup: (name: string, source: string) => call<Record<string, unknown> | null>('bestiary_legendary_group', { name, source }),
   imageSourceFromCreature: (hash: string, kind: 'token' | 'art') => call<SourceImage>('image_source_from_creature', { hash, kind }),
   tokenSheetAddCreatures: (items: { hash: string; count: number }[]) => call<TokenSheet>('token_sheet_add_creatures', { items }),
   bestiarySaveCreature: (creature: Record<string, unknown>) => call<BestiaryEntry>('bestiary_save_creature', { creature }),
