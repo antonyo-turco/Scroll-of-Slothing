@@ -23,7 +23,7 @@ use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
     AssetPatch, AssetQuery, AssetSort, CardOptions, ExportWhat, ImportFile, LegacyImportOptions,
-    ObjectItemPatch, Service, ServiceError, SheetItemPatch, TranscribeOptions,
+    ObjectItemPatch, RowPatch, Service, ServiceError, SheetItemPatch, TranscribeOptions,
 };
 
 type ToolResult = Result<CallToolResult, ErrorData>;
@@ -1311,10 +1311,128 @@ impl SleuthServer {
         done(self.svc.aoe_export_png(p.config, PathBuf::from(p.path)).await)
     }
 
+    // ── combat tracker ──
+
+    #[tool(
+        description = "Get the combat (initiative) tracker: rows in turn order (name, source, hp_current/hp_max, initiative, is_active, conditions with turns left, notes, stat cells), round, settings. Same model as the 5etools DM Screen tracker."
+    )]
+    async fn combat_get(&self) -> ToolResult {
+        done(self.svc.combat_get().await)
+    }
+
+    #[tool(
+        description = "Advance to the next turn: ticks down the active rows' timed conditions, wraps to the top and increments the round; rerolls initiative at round start when that setting is on."
+    )]
+    async fn combat_next_turn(&self) -> ToolResult {
+        done(self.svc.combat_next_turn().await)
+    }
+
+    #[tool(description = "Go back one turn (no condition countdown, the round does not change).")]
+    async fn combat_prev_turn(&self) -> ToolResult {
+        done(self.svc.combat_prev_turn().await)
+    }
+
+    #[tool(description = "Add a player row (optionally named).")]
+    async fn combat_add_player(&self, Parameters(p): Parameters<CombatPlayerParams>) -> ToolResult {
+        done(self.svc.combat_add_player(p.name).await)
+    }
+
+    #[tool(
+        description = "Add creatures from the cached 5etools bestiary by hash (e.g. goblin_mm, from bestiary_search). count 1-100; roll_hp rolls the HP formula instead of the average; custom_name renames the copies. Initiative is rolled when the tracker's roll-initiative setting is on."
+    )]
+    async fn combat_add_creature(
+        &self,
+        Parameters(p): Parameters<CombatCreatureParams>,
+    ) -> ToolResult {
+        done(
+            self.svc
+                .combat_add_creature(p.hash, p.count.unwrap_or(1), p.roll_hp, p.custom_name)
+                .await,
+        )
+    }
+
+    #[tool(
+        description = "Change one row: name, custom_name (empty clears), hp_current, hp_max, damage (positive hurts, negative heals), initiative, notes, is_player_visible, remove_conditions (condition ids)."
+    )]
+    async fn combat_update_row(&self, Parameters(p): Parameters<CombatRowParams>) -> ToolResult {
+        let patch = RowPatch {
+            name: p.name,
+            custom_name: p.custom_name,
+            hp_current: p.hp_current,
+            hp_max: p.hp_max,
+            damage: p.damage,
+            initiative: p.initiative,
+            notes: p.notes,
+            is_player_visible: p.is_player_visible,
+            remove_conditions: p.remove_conditions,
+        };
+        done(self.svc.combat_update_row(p.id, patch).await)
+    }
+
+    #[tool(
+        description = "Add a condition to a row. Built-in names (Blinded, Charmed, Concentration, Prone, ...) and saved custom conditions get their colour; turns counts down at the end of the row's turn, omit it for unlimited."
+    )]
+    async fn combat_add_condition(
+        &self,
+        Parameters(p): Parameters<CombatConditionParams>,
+    ) -> ToolResult {
+        done(self.svc.combat_add_condition(p.row_id, p.name, p.color, p.turns).await)
+    }
+
+    #[tool(description = "Delete a row; similar: true deletes every copy of that creature.")]
+    async fn combat_delete_row(&self, Parameters(p): Parameters<CombatDeleteParams>) -> ToolResult {
+        done(self.svc.combat_delete(p.id, p.similar.unwrap_or(false)).await)
+    }
+
+    #[tool(description = "Reset the tracker to the default party at round 1.")]
+    async fn combat_reset(&self) -> ToolResult {
+        done(self.svc.combat_reset().await)
+    }
+
+    #[tool(
+        description = "The 5etools combat link for the current tracker (<mirror>/dmscreen.html#combat=...), which opens the same combat in 5etools or this app."
+    )]
+    async fn combat_link(&self) -> ToolResult {
+        done(self.svc.combat_link().await)
+    }
+
+    #[tool(
+        description = "Open a 5etools #combat= link (replaces the tracker) or roll a Bestiary #encounter= link into it. Accepts the full URL, the hash or the payload. Reports encounter creatures missing from the bestiary cache."
+    )]
+    async fn combat_import_link(&self, Parameters(p): Parameters<CombatLinkParams>) -> ToolResult {
+        done(self.svc.combat_import_link(p.text).await)
+    }
+
+    #[tool(
+        description = "Search the cached 5etools bestiary by name (prefix matches first). Returns hash, name, source, CR, average HP, AC."
+    )]
+    async fn bestiary_search(&self, Parameters(p): Parameters<BestiarySearchParams>) -> ToolResult {
+        done(self.svc.bestiary_search(p.query, p.limit).await)
+    }
+
+    #[tool(description = "A cached creature's full 5etools stat block JSON, by hash.")]
+    async fn bestiary_get(&self, Parameters(p): Parameters<BestiaryHashParams>) -> ToolResult {
+        done(self.svc.bestiary_get(p.hash).await)
+    }
+
+    #[tool(
+        description = "Bestiary cache status: the 5etools mirror URL (setting fivetools_base_url), whether it was synced, file and creature counts."
+    )]
+    async fn bestiary_status(&self) -> ToolResult {
+        done(self.svc.bestiary_status().await)
+    }
+
+    #[tool(
+        description = "Download the mirror's data/bestiary/*.json into the local cache so search and adds work offline (job; result: files, creatures)."
+    )]
+    async fn bestiary_sync(&self) -> ToolResult {
+        done(self.svc.bestiary_sync().await)
+    }
+
     // ── UI remote control (in-app server only) ──
 
     #[tool(
-        description = "Show a view in the desktop app. route: library, tokens.cutter, tokens.sheet, cutouts.cutter, cutouts.sheet, cards, maps.paginator, maps.aoe, music, settings. Works only through the in-app MCP server."
+        description = "Show a view in the desktop app. route: library, tokens.cutter, tokens.sheet, cutouts.cutter, cutouts.sheet, cards, maps.paginator, maps.aoe, music, combat, transcribe.file, settings. Works only through the in-app MCP server."
     )]
     async fn ui_navigate(&self, Parameters(p): Parameters<RouteParams>) -> ToolResult {
         done(self.svc.ui_navigate(p.route).await)
@@ -2083,4 +2201,62 @@ pub struct MusicMixImportParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct RouteParams {
     pub route: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CombatPlayerParams {
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CombatCreatureParams {
+    /// 5etools creature hash, e.g. `goblin_mm`.
+    pub hash: String,
+    pub count: Option<u32>,
+    pub roll_hp: Option<bool>,
+    pub custom_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CombatRowParams {
+    pub id: String,
+    pub name: Option<String>,
+    pub custom_name: Option<String>,
+    pub hp_current: Option<i64>,
+    pub hp_max: Option<i64>,
+    pub damage: Option<i64>,
+    pub initiative: Option<i64>,
+    pub notes: Option<String>,
+    pub is_player_visible: Option<bool>,
+    pub remove_conditions: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CombatConditionParams {
+    pub row_id: String,
+    pub name: String,
+    pub color: Option<String>,
+    pub turns: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CombatDeleteParams {
+    pub id: String,
+    pub similar: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CombatLinkParams {
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct BestiarySearchParams {
+    pub query: String,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct BestiaryHashParams {
+    pub hash: String,
 }

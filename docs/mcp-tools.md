@@ -67,6 +67,10 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `stt_cloud_models_list` / `transcribe_estimate` | 8 | Suggested cloud models with price per minute; time per local model and for the cloud (learned from past runs), cloud cost, and the file's duration |
 | `stt_cloud_key_status` / `stt_cloud_key_test` | 8 | Whether an OpenRouter key is available (never the key itself), and a live check of it. Keys are set in the app's Settings or `sleuth stt key set`, deliberately not over MCP |
 | `transcribe_file` | 8 | Transcribe an audio file, `engine` `local` (Whisper) or `cloud` (OpenRouter) (job; result: engine, model, language, duration, cost, timed segments). Options: model, language, glossary (local), corrections, beam size (local) |
+| `combat_get` / `combat_next_turn` / `combat_prev_turn` / `combat_reset` | 9 | The 5etools-compatible initiative tracker: rows in turn order, round, settings; turns tick conditions down and count rounds |
+| `combat_add_player` / `combat_add_creature` / `combat_update_row` / `combat_add_condition` / `combat_delete_row` | 9 | Rows: creatures by bestiary hash (count, rolled or average HP), HP or damage, initiative, notes, conditions with turns; `similar` deletes every copy |
+| `combat_link` / `combat_import_link` | 9 | 5etools `#combat=` links (export and open) and Bestiary `#encounter=` links rolled into the tracker; missing creatures are reported |
+| `bestiary_status` / `bestiary_sync` / `bestiary_search` / `bestiary_get` | 9 | Local cache of the 5etools mirror's bestiary (setting `fivetools_base_url`): sync (job), search, full stat block |
 | `transcript_export` | 8 | Render segments as txt, md, srt or vtt; optionally write to a path |
 
 Music plays in the desktop app. When the standalone `sleuth-mcp` server changes music state, the change is stored, and the running app applies it to its audio engine.

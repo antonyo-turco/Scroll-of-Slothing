@@ -26,6 +26,7 @@ Global preferences, stored in the `settings` table (key → JSON) with typed def
 | `stt_engine` | `local`\|`cloud` | `local` | must be one of these | transcription (*new*) |
 | `stt_cloud_base_url` | string | `https://openrouter.ai/api/v1` | http(s) URL; trimmed, trailing `/` dropped | transcription, cloud (*new*) |
 | `stt_cloud_model` | string | `openai/whisper-1` | not empty; trimmed | transcription, cloud (*new*) |
+| `fivetools_base_url` | string | `http://localhost:8080` | an http(s) URL; trailing `/` dropped | combat tracker: the 5etools site or mirror creatures are read from (*new*) |
 
 The OpenRouter API key is **not** a setting: it is kept in the Windows Credential Manager (entry `sleuth` / `openrouter_api_key`), see `features/transcribe.md`.
 

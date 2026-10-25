@@ -30,6 +30,8 @@ export interface Settings {
   stt_engine: SttEngine;
   stt_cloud_base_url: string;
   stt_cloud_model: string;
+  /** Root of the 5etools site or mirror the combat tracker reads creatures from. */
+  fivetools_base_url: string;
 }
 
 export interface SettingsUpdate {
@@ -87,6 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
   stt_engine: 'local',
   stt_cloud_base_url: 'https://openrouter.ai/api/v1',
   stt_cloud_model: 'openai/whisper-1',
+  fivetools_base_url: 'http://localhost:8080',
 };
 
 // ── library (crates/store/src/assets.rs) ──
@@ -653,4 +656,144 @@ export interface SaveDetails {
   tags: string[];
   /** overwrite the library asset the item was opened from */
   update: boolean;
+}
+
+// ── combat tracker (crates/core/src/combat) ──
+
+export type CombatSort = 'ALPHA' | 'NUMBER';
+export type CombatDir = 'ASC' | 'DESC';
+
+export interface CombatCondition {
+  id: string;
+  name: string;
+  color: string;
+  /** Turns left; null is unlimited. */
+  turns: number | null;
+}
+
+/** A stat cell: the column id plus value, or current/max, or tokenUrl/imageHref. */
+export interface CombatCell {
+  id: string;
+  value?: string | number | boolean | null;
+  current?: number | null;
+  max?: number | null;
+  tokenUrl?: string | null;
+  imageHref?: string | null;
+  isEditable?: boolean;
+}
+
+export interface CombatRow {
+  id: string;
+  name: string;
+  display_name: string | null;
+  custom_name: string | null;
+  source: string | null;
+  scaled_cr: number | null;
+  scaled_summon_spell_level: number | null;
+  scaled_summon_class_level: number | null;
+  hp_current: number | null;
+  hp_max: number | null;
+  initiative: number | null;
+  is_active: boolean;
+  conditions: CombatCondition[];
+  notes: string;
+  is_player_visible: boolean;
+  ordinal: number;
+  cells: CombatCell[];
+}
+
+export interface CombatColumn {
+  id: string;
+  is_editable: boolean;
+  /** 0 nobody, 1 everyone, 2 player rows only */
+  is_player_visible: number;
+  populate_with: string;
+  abbreviation: string;
+}
+
+export interface CombatCustomCondition {
+  id: string;
+  name: string;
+  color: string;
+  turns: number | null;
+}
+
+export interface Tracker {
+  sort: CombatSort;
+  dir: CombatDir;
+  is_roll_init: boolean;
+  is_roll_hp: boolean;
+  is_roll_groups: boolean;
+  is_reroll_initiative_each_round: boolean;
+  is_invert_wound_direction: boolean;
+  import_is_roll_groups: boolean;
+  import_is_add_players: boolean;
+  import_is_append: boolean;
+  is_stats_add_columns: boolean;
+  player_init_show_exact_player_hp: boolean;
+  player_init_show_exact_monster_hp: boolean;
+  player_init_hide_new_monster: boolean;
+  player_init_show_ordinals: boolean;
+  is_notes_shown: boolean;
+  stats_cols: CombatColumn[];
+  conditions_custom: CombatCustomCondition[];
+  rows: CombatRow[];
+  rows_default_party: CombatRow[];
+  round: number;
+  notes: string;
+  is_locked: boolean;
+  extra: Record<string, unknown>;
+}
+
+export interface ColumnKind {
+  populate_with: string;
+  abbreviation: string;
+  name: string;
+}
+
+export interface CombatCatalog {
+  /** [name, colour] */
+  conditions: [string, string][];
+  columns: ColumnKind[];
+}
+
+export interface BestiaryEntry {
+  hash: string;
+  name: string;
+  source: string;
+  cr: string | null;
+  hp: number | null;
+  ac: unknown;
+  token_url: string | null;
+}
+
+export interface BestiaryStatus {
+  base_url: string;
+  synced: boolean;
+  files: number;
+  creatures: number;
+}
+
+export interface EncounterImport {
+  rows_added: number;
+  missing: string[];
+  unscaled: string[];
+}
+
+export interface CombatImport {
+  kind: 'combat' | 'encounter';
+  tracker: Tracker;
+  encounter: EncounterImport | null;
+}
+
+export interface RowPatch {
+  name?: string;
+  custom_name?: string;
+  hp_current?: number;
+  hp_max?: number;
+  damage?: number;
+  initiative?: number;
+  notes?: string;
+  is_player_visible?: boolean;
+  remove_conditions?: string[];
 }

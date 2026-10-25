@@ -5186,7 +5186,9 @@ name = "sleuth-core"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "base64 0.22.1",
  "fast_image_resize",
+ "flate2",
  "image",
  "proptest",
  "rayon",
@@ -5256,6 +5258,7 @@ dependencies = [
  "image",
  "keyring",
  "rayon",
+ "reqwest",
  "serde",
  "serde_json",
  "sleuth-core",

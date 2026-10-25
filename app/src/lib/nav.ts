@@ -4,7 +4,7 @@
 import type { Component } from 'svelte';
 
 export type IconName =
-  | 'library' | 'token' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'settings'
+  | 'library' | 'token' | 'swords' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'settings'
   | 'search' | 'chevron-left' | 'chevron-right' | 'x' | 'check' | 'loader' | 'command';
 
 export interface View {
@@ -47,6 +47,8 @@ export const DESTINATIONS: Destination[] = [
   ] },
   { id: 'music', label: 'Music', icon: 'music', group: 'During',
     views: [{ id: 'music', label: 'Music', phase: 7, load: () => import('../routes/music/Music.svelte') }] },
+  { id: 'combat', label: 'Combat', icon: 'swords',
+    views: [{ id: 'combat', label: 'Combat', phase: 9, load: () => import('../routes/combat/Combat.svelte') }] },
   { id: 'transcribe', label: 'Transcribe', icon: 'mic', group: 'After', views: [
     { id: 'transcribe.file', label: 'File', phase: 8, load: () => import('../routes/transcribe/TranscribeFile.svelte') },
   ] },

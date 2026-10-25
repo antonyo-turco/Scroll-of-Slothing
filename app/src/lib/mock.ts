@@ -14,6 +14,7 @@ import cardTemplates from '../../../assets/cards/templates.json';
 import { createMusicMockHandlers } from './mock-music';
 import { createMapsMockHandlers, MOCK_TOKEN_FILTER_CATALOG } from './mock-maps';
 import { createSttMockHandlers } from './mock-stt';
+import { createCombatMockHandlers } from './mock-combat';
 
 export interface Backend {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -44,6 +45,7 @@ function validate(key: string, value: unknown): string | null {
   if (key === 'stt_engine') return value === 'local' || value === 'cloud' ? null : 'expected local or cloud';
   if (key === 'stt_cloud_base_url') return /^https?:\/\/.{3,}/.test(String(value).trim()) ? null : 'must be an http(s) URL';
   if (key === 'stt_cloud_model') return String(value).trim() ? null : 'must not be empty';
+  if (key === 'fivetools_base_url') return /^https?:\/\/.{3,}/.test(String(value).trim()) ? null : 'must be an http(s) URL';
   return null;
 }
 
@@ -682,6 +684,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
 
   Object.assign(handlers, createMapsMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
   Object.assign(handlers, createMusicMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
+  Object.assign(handlers, createCombatMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
 
   return {

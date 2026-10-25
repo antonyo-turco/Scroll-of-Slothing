@@ -10,7 +10,10 @@ use serde_json::{Map, Value};
 use crate::units::PageFormat;
 
 /// Navigable views. The string ids are stable and persisted (`start_view`).
-pub const ROUTES: [&str; 11] = [
+/// Default 5etools mirror for the combat tracker (a local copy).
+pub const DEFAULT_FIVETOOLS_BASE_URL: &str = "http://localhost:8080";
+
+pub const ROUTES: [&str; 12] = [
     "library",
     "tokens.cutter",
     "tokens.sheet",
@@ -20,6 +23,7 @@ pub const ROUTES: [&str; 11] = [
     "maps.paginator",
     "maps.aoe",
     "music",
+    "combat",
     "transcribe.file",
     "settings",
 ];
@@ -154,6 +158,9 @@ pub struct Settings {
     /// Base URL of the OpenRouter-format API, without a trailing slash.
     pub stt_cloud_base_url: String,
     pub stt_cloud_model: String,
+    /// Root of the 5etools site or mirror the combat tracker reads creatures
+    /// from, without a trailing slash (e.g. a local copy on `http://localhost:8080`).
+    pub fivetools_base_url: String,
 }
 
 impl Default for Settings {
@@ -180,6 +187,7 @@ impl Default for Settings {
             stt_engine: SttEngine::Local,
             stt_cloud_base_url: DEFAULT_STT_CLOUD_BASE_URL.into(),
             stt_cloud_model: DEFAULT_STT_CLOUD_MODEL.into(),
+            fivetools_base_url: DEFAULT_FIVETOOLS_BASE_URL.into(),
         }
     }
 }
@@ -277,6 +285,14 @@ impl Settings {
             "map_align_to_grid" => set!(map_align_to_grid, bool),
             "mcp_http_enabled" => set!(mcp_http_enabled, bool),
             "stt_engine" => set!(stt_engine, SttEngine),
+            "fivetools_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
+                Some(u)
+                    if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>
+                {
+                    self.fivetools_base_url = u.to_string()
+                }
+                _ => err("must be an http(s) URL".into()),
+            },
             "stt_cloud_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
                 Some(u)
                     if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>

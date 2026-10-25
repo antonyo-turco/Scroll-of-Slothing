@@ -11,6 +11,7 @@ import type {
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
   CloudKeyInfo, CloudKeyStatus, CloudModelSpec, Segment, SttModel, TranscribeEstimate, TranscribeOptions,
   TranscriptFormat,
+  BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CombatSort, RowPatch, Tracker,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -191,6 +192,28 @@ export const api = {
   aoePresetsSave: (name: string, config: AoeConfig, overwrite: boolean) =>
     call<AoePreset>('aoe_presets_save', { name, config, overwrite }),
   aoePresetsDelete: (name: string) => call<void>('aoe_presets_delete', { name }),
+
+  // ── combat tracker ──
+  combatGet: () => call<Tracker>('combat_get'),
+  combatSet: (tracker: Tracker) => call<Tracker>('combat_set', { tracker }),
+  combatNextTurn: () => call<Tracker>('combat_next_turn'),
+  combatPrevTurn: () => call<Tracker>('combat_prev_turn'),
+  combatSort: (sort: CombatSort) => call<Tracker>('combat_sort', { sort }),
+  combatAddPlayer: (name?: string) => call<Tracker>('combat_add_player', { name: name ?? null }),
+  combatAddCreature: (hash: string, count: number, rollHp: boolean | null, customName: string | null) =>
+    call<Tracker>('combat_add_creature', { hash, count, rollHp, customName }),
+  combatDuplicate: (id: string, reroll: boolean) => call<Tracker>('combat_duplicate', { id, reroll }),
+  combatDelete: (id: string, similar: boolean) => call<Tracker>('combat_delete', { id, similar }),
+  combatUpdateRow: (id: string, patch: RowPatch) => call<Tracker>('combat_update_row', { id, patch }),
+  combatAddCondition: (rowId: string, name: string, color: string | null, turns: number | null) =>
+    call<Tracker>('combat_add_condition', { rowId, name, color, turns }),
+  combatReset: () => call<Tracker>('combat_reset'),
+  combatLink: () => call<string>('combat_link'),
+  combatImportLink: (text: string) => call<CombatImport>('combat_import_link', { text }),
+  combatCatalog: () => call<CombatCatalog>('combat_catalog'),
+  bestiaryStatus: () => call<BestiaryStatus>('bestiary_status'),
+  bestiarySearch: (query: string, limit?: number) => call<BestiaryEntry[]>('bestiary_search', { query, limit: limit ?? null }),
+  bestiarySync: () => call<string>('bestiary_sync'),
   aoeRender: async (config: AoeConfig): Promise<Blob> => toBlob(await call<ArrayBuffer | string>('aoe_render', { config })),
   aoeInfo: (config: AoeConfig) => call<AoeInfo>('aoe_info', { config }),
   aoeExportPng: (config: AoeConfig, path: string) => call<string>('aoe_export_png', { config, path }),

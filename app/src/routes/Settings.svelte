@@ -353,6 +353,23 @@
     </section>
 
     <section class="card">
+      <h2>Combat tracker</h2>
+      <div class="field">
+        <div class="label-row">
+          <label for="fivetools_base_url">5etools mirror</label>
+          <InfoTip label="About the 5etools mirror" text="The 5etools site the combat tracker reads creatures from, e.g. your local copy on http://localhost:8080. Paths like /data/bestiary/ are read under it. Sync the bestiary in the Combat view after changing it." />
+        </div>
+        <input
+          id="fivetools_base_url"
+          class="input mono"
+          spellcheck="false"
+          value={app.settings.fivetools_base_url}
+          onchange={(e) => save('fivetools_base_url', e.currentTarget.value.trim())}
+        />
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Data</h2>
       <p class="muted hint">Stored in <code>{dataDir}</code></p>
       <div class="label-row">

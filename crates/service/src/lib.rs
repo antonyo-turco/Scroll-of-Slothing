@@ -6,6 +6,7 @@ mod aoe;
 mod blobs;
 mod cards;
 mod clipboard;
+mod combat;
 mod cutouts;
 mod error;
 mod events;
@@ -33,6 +34,7 @@ use tokio::sync::broadcast;
 
 pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
 pub use cards::{CardOptions, CardSummary};
+pub use combat::{BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, RowPatch};
 pub use cutouts::CutoutDraft;
 pub use error::{ErrorCode, ServiceError};
 pub use events::Event;

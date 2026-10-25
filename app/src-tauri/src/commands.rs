@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use sleuth_core::cards::DeckLayout;
+use sleuth_core::combat::{Sort, Tracker};
 use sleuth_core::cutout::CutoutParams;
 use sleuth_core::pack::shelf::SheetMode;
 use sleuth_core::settings::Settings;
@@ -14,11 +15,12 @@ use sleuth_core::stt::{ExportFormat, Segment};
 use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
-    Asset, AssetPage, AssetPatch, AssetQuery, Border, CardOptions, CardSummary, CloudKeyInfo,
-    CloudKeyStatus, CutoutDraft, Deck, DeckSummary, ExportWhat, ImportFile, ImportReport, JobId,
-    JobStatus, LegacyImportOptions, ObjectItemPatch, ObjectSheet, RenameOutcome, Service,
-    ServiceError, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage, SttModel, TagCount,
-    TokenDraft, TokenSheet, TranscribeOptions,
+    Asset, AssetPage, AssetPatch, AssetQuery, BestiaryEntry, BestiaryStatus, Border, CardOptions,
+    CardSummary, CloudKeyInfo, CloudKeyStatus, CombatCatalog, CombatImport, CutoutDraft, Deck,
+    DeckSummary, ExportWhat, ImportFile, ImportReport, JobId, JobStatus, LegacyImportOptions,
+    ObjectItemPatch, ObjectSheet, RenameOutcome, RowPatch, Service, ServiceError, SettingsUpdate,
+    SheetItemPatch, SheetLayout, SourceImage, SttModel, TagCount, TokenDraft, TokenSheet,
+    TranscribeOptions,
 };
 use tauri::State;
 use tauri::ipc::Response;
@@ -996,4 +998,117 @@ pub async fn transcript_export(
     path: Option<PathBuf>,
 ) -> Res<String> {
     svc.transcript_export(segments, format, title, path).await
+}
+
+// ── combat tracker ──
+
+#[tauri::command]
+pub async fn combat_get(svc: Svc<'_>) -> Res<Tracker> {
+    svc.combat_get().await
+}
+
+#[tauri::command]
+pub async fn combat_set(svc: Svc<'_>, tracker: Tracker) -> Res<Tracker> {
+    svc.combat_set(tracker).await
+}
+
+#[tauri::command]
+pub async fn combat_next_turn(svc: Svc<'_>) -> Res<Tracker> {
+    svc.combat_next_turn().await
+}
+
+#[tauri::command]
+pub async fn combat_prev_turn(svc: Svc<'_>) -> Res<Tracker> {
+    svc.combat_prev_turn().await
+}
+
+#[tauri::command]
+pub async fn combat_sort(svc: Svc<'_>, sort: Sort) -> Res<Tracker> {
+    svc.combat_sort(sort).await
+}
+
+#[tauri::command]
+pub async fn combat_add_player(svc: Svc<'_>, name: Option<String>) -> Res<Tracker> {
+    svc.combat_add_player(name).await
+}
+
+#[tauri::command]
+pub async fn combat_add_creature(
+    svc: Svc<'_>,
+    hash: String,
+    count: u32,
+    roll_hp: Option<bool>,
+    custom_name: Option<String>,
+) -> Res<Tracker> {
+    svc.combat_add_creature(hash, count, roll_hp, custom_name).await
+}
+
+#[tauri::command]
+pub async fn combat_duplicate(svc: Svc<'_>, id: String, reroll: bool) -> Res<Tracker> {
+    svc.combat_duplicate(id, reroll).await
+}
+
+#[tauri::command]
+pub async fn combat_delete(svc: Svc<'_>, id: String, similar: bool) -> Res<Tracker> {
+    svc.combat_delete(id, similar).await
+}
+
+#[tauri::command]
+pub async fn combat_update_row(svc: Svc<'_>, id: String, patch: RowPatch) -> Res<Tracker> {
+    svc.combat_update_row(id, patch).await
+}
+
+#[tauri::command]
+pub async fn combat_add_condition(
+    svc: Svc<'_>,
+    row_id: String,
+    name: String,
+    color: Option<String>,
+    turns: Option<i64>,
+) -> Res<Tracker> {
+    svc.combat_add_condition(row_id, name, color, turns).await
+}
+
+#[tauri::command]
+pub async fn combat_reset(svc: Svc<'_>) -> Res<Tracker> {
+    svc.combat_reset().await
+}
+
+#[tauri::command]
+pub async fn combat_link(svc: Svc<'_>) -> Res<String> {
+    svc.combat_link().await
+}
+
+#[tauri::command]
+pub async fn combat_import_link(svc: Svc<'_>, text: String) -> Res<CombatImport> {
+    svc.combat_import_link(text).await
+}
+
+#[tauri::command]
+pub fn combat_catalog(svc: Svc<'_>) -> CombatCatalog {
+    svc.combat_catalog()
+}
+
+#[tauri::command]
+pub async fn bestiary_status(svc: Svc<'_>) -> Res<BestiaryStatus> {
+    svc.bestiary_status().await
+}
+
+#[tauri::command]
+pub async fn bestiary_search(
+    svc: Svc<'_>,
+    query: String,
+    limit: Option<usize>,
+) -> Res<Vec<BestiaryEntry>> {
+    svc.bestiary_search(query, limit).await
+}
+
+#[tauri::command]
+pub async fn bestiary_get(svc: Svc<'_>, hash: String) -> Res<Value> {
+    svc.bestiary_get(hash).await
+}
+
+#[tauri::command]
+pub async fn bestiary_sync(svc: Svc<'_>) -> Res<JobId> {
+    svc.bestiary_sync().await
 }

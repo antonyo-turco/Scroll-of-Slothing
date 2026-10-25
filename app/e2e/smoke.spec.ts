@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const VIEWS = [
   'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
-  'cards', 'maps.paginator', 'maps.aoe', 'music', 'settings',
+  'cards', 'maps.paginator', 'maps.aoe', 'music', 'combat', 'settings',
 ];
 
 test('every route renders without console errors', async ({ page }) => {
