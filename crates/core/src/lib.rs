@@ -10,6 +10,7 @@ pub mod imaging;
 pub mod maps;
 pub mod music;
 pub mod pack;
+pub mod planner;
 pub mod settings;
 pub mod stt;
 pub mod token;

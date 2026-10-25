@@ -41,6 +41,9 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `token_sheet_export_pdf` | 2 | Export the PDF of tokens and cut-outs (job) |
 | `cutout_create` | 3 | Lasso (polygon points) + outline from a file or library cut-out; optionally save, add to the object sheet, write PNG; returns the image |
 | `object_sheet_list` / `object_sheet_add` / `object_sheet_update` / `object_sheet_remove` / `object_sheet_clear` / `object_sheet_set_options` / `object_sheet_layout` / `object_sheet_export_pdf` | 3 | Cut-outs on the token sheet (flat or standee); layout and export are the token sheet's |
+| `planner_list` / `planner_session_get` / `planner_session_create` / `planner_session_update` / `planner_session_delete` / `planner_set_current` | 10 | Session planner: sessions with notes, date and checklist; one is current, and starred items (pinned assets, encounters, soundscapes, favourite tracks) join it on their own |
+| `planner_items_add` / `planner_item_update` / `planner_item_remove` / `planner_prune` | 10 | Planned items are references (asset, encounter, soundscape, playlist, track, deck), never copies; copies to print for tokens and cut-outs; prune drops deleted ones |
+| `planner_print` | 10 | Print a session into a folder (job): one PDF of its tokens and cut-outs, each map's saved pages, each deck; skipped parts are listed |
 | `cards_templates` / `cards_parse` / `cards_validate` / `cards_export_pdf` | 4 | Cards: format reference + templates, parse, validate (pages, overflow), export (job) |
 | `decks_list` / `decks_get` / `decks_save` / `decks_delete` | 4 | Saved decks |
 | `map_get` / `map_open` / `map_open_asset` / `map_update` | 5 | Map paginator document: read, open from a file/blob or library asset, merge a partial doc |

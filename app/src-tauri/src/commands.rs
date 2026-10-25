@@ -1258,3 +1258,84 @@ pub async fn bestiary_legendary_group(
 ) -> Res<Option<Value>> {
     svc.bestiary_legendary_group(name, source).await
 }
+
+// ── session planner ──
+
+#[tauri::command]
+pub async fn planner_list(svc: Svc<'_>) -> Res<sleuth_service::PlannerSummary> {
+    svc.planner_list().await
+}
+
+#[tauri::command]
+pub async fn planner_session_get(svc: Svc<'_>, id: String) -> Res<sleuth_service::SessionView> {
+    svc.planner_session_get(id).await
+}
+
+#[tauri::command]
+pub async fn planner_session_create(
+    svc: Svc<'_>,
+    name: Option<String>,
+    current: Option<bool>,
+) -> Res<sleuth_service::SessionView> {
+    svc.planner_session_create(name, current).await
+}
+
+#[tauri::command]
+pub async fn planner_session_update(
+    svc: Svc<'_>,
+    id: String,
+    patch: sleuth_service::SessionPatch,
+) -> Res<sleuth_service::SessionView> {
+    svc.planner_session_update(id, patch).await
+}
+
+#[tauri::command]
+pub async fn planner_session_delete(
+    svc: Svc<'_>,
+    id: String,
+) -> Res<sleuth_service::PlannerSummary> {
+    svc.planner_session_delete(id).await
+}
+
+#[tauri::command]
+pub async fn planner_set_current(svc: Svc<'_>, id: String) -> Res<sleuth_service::SessionView> {
+    svc.planner_set_current(id).await
+}
+
+#[tauri::command]
+pub async fn planner_items_add(
+    svc: Svc<'_>,
+    session: String,
+    items: Vec<sleuth_service::PlanRef>,
+) -> Res<sleuth_service::SessionView> {
+    svc.planner_items_add(session, items).await
+}
+
+#[tauri::command]
+pub async fn planner_item_update(
+    svc: Svc<'_>,
+    session: String,
+    item: String,
+    copies: u32,
+) -> Res<sleuth_service::SessionView> {
+    svc.planner_item_update(session, item, copies).await
+}
+
+#[tauri::command]
+pub async fn planner_item_remove(
+    svc: Svc<'_>,
+    session: String,
+    item: String,
+) -> Res<sleuth_service::SessionView> {
+    svc.planner_item_remove(session, item).await
+}
+
+#[tauri::command]
+pub async fn planner_prune(svc: Svc<'_>, session: String) -> Res<usize> {
+    svc.planner_prune(session).await
+}
+
+#[tauri::command]
+pub fn planner_print(svc: Svc<'_>, session: String, dir: PathBuf) -> JobId {
+    svc.planner_print(session, dir)
+}

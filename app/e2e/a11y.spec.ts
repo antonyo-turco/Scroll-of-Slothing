@@ -7,6 +7,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const ROUTES = [
   'library',
+  'planner',
   'tokens.cutter',
   'tokens.sheet',
   'cutouts.cutter',

@@ -399,53 +399,103 @@ impl Service {
             if sheet.items.is_empty() && objects.items.is_empty() {
                 return Err(ServiceError::InvalidInput("the token sheet is empty".into()));
             }
-            let (layout, view) = compute_layout(&sheet, &objects);
-            if !view.skipped.is_empty() {
-                return Err(ServiceError::InvalidInput(format!(
-                    "{} item(s) cannot fit on a page",
-                    view.skipped.len()
-                )));
-            }
-            ctx.progress(0.02, "reading images");
-            let mut images = sheet
-                .items
-                .iter()
-                .map(|i| png_bytes(&store, &i.image))
-                .collect::<Result<Vec<_>>>()?;
-            for i in &objects.items {
-                images.push(match objects.mode {
-                    SheetMode::Flat => png_bytes(&store, &i.image)?,
-                    SheetMode::Standee => {
-                        let img = imaging::decode(&store.read_blob(&i.image)?)
-                            .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
-                        imaging::encode_png(&standee_block(&img.to_rgba8()))
-                            .map_err(|e| ServiceError::Internal(e.to_string()))?
-                    }
-                });
-            }
-            let cut = sheet
-                .cut_border
-                .then(|| CutLine::from_settings(&store.load_settings().unwrap_or_default()));
-            // Tokens get their outline; cut-outs have no cut line (as on the old object sheet).
-            let shapes: Vec<Option<TokenShape>> = sheet
-                .items
-                .iter()
-                .map(|i| Some(i.shape))
-                .chain(objects.items.iter().map(|_| None))
-                .collect();
-            let cut = cut.as_ref().map(|c| (c, shapes.as_slice()));
-            let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut, &mut |p| {
-                ctx.progress(0.05 + 0.9 * p, "rendering pages");
-                !ctx.is_cancelled()
-            })
-            .map_err(|e| match e {
-                PdfError::Cancelled => ServiceError::Cancelled,
-                other => ServiceError::Internal(other.to_string()),
-            })?;
+            let (bytes, pages) = render_sheet(&store, &sheet, &objects, &ctx, (0.0, 1.0))?;
             std::fs::write(&path, bytes)?;
-            Ok(serde_json::json!({ "path": path, "pages": layout.pages.len() }))
+            Ok(serde_json::json!({ "path": path, "pages": pages }))
         })
     }
+}
+
+/// Library assets as sheet items: tokens go to `sheet`, cut-outs to `objects`
+/// (any other kind is ignored), `copies` each.
+pub(crate) fn add_assets_to(
+    s: &Store,
+    assets: &[(sleuth_store::Asset, u32)],
+    sheet: &mut TokenSheet,
+    objects: &mut ObjectSheet,
+) -> Result<()> {
+    for (a, copies) in assets {
+        let size = SizeLabel::parse(&a.size_label).unwrap_or_default().as_str().to_string();
+        match a.kind.as_str() {
+            "token" => {
+                let thumb = match &a.thumb_blob {
+                    Some(t) => t.clone(),
+                    None => thumb_of(s, &a.rendered_blob)?,
+                };
+                let mut item =
+                    new_item(s, a.name.clone(), size, a.rendered_blob.clone(), thumb, Some(a.id))?;
+                item.copies = *copies;
+                sheet.items.push(item);
+            }
+            "cutout" => {
+                let mut item = object_sheet::new_item(
+                    s,
+                    a.name.clone(),
+                    size,
+                    a.rendered_blob.clone(),
+                    Some(a.id),
+                )?;
+                item.copies = *copies;
+                objects.items.push(item);
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// Renders tokens and cut-outs as one PDF (bytes, pages). Progress is
+/// reported within `range` (start, span) of the job. Items that cannot fit a
+/// page fail the export (no silent drops).
+pub(crate) fn render_sheet(
+    store: &Store,
+    sheet: &TokenSheet,
+    objects: &ObjectSheet,
+    ctx: &crate::JobCtx,
+    range: (f32, f32),
+) -> Result<(Vec<u8>, usize)> {
+    let (layout, view) = compute_layout(sheet, objects);
+    if !view.skipped.is_empty() {
+        return Err(ServiceError::InvalidInput(format!(
+            "{} item(s) cannot fit on a page",
+            view.skipped.len()
+        )));
+    }
+    let (start, span) = range;
+    ctx.progress(start + 0.02 * span, "reading images");
+    let mut images =
+        sheet.items.iter().map(|i| png_bytes(store, &i.image)).collect::<Result<Vec<_>>>()?;
+    for i in &objects.items {
+        images.push(match objects.mode {
+            SheetMode::Flat => png_bytes(store, &i.image)?,
+            SheetMode::Standee => {
+                let img = imaging::decode(&store.read_blob(&i.image)?)
+                    .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+                imaging::encode_png(&standee_block(&img.to_rgba8()))
+                    .map_err(|e| ServiceError::Internal(e.to_string()))?
+            }
+        });
+    }
+    let cut = sheet
+        .cut_border
+        .then(|| CutLine::from_settings(&store.load_settings().unwrap_or_default()));
+    // Tokens get their outline; cut-outs have no cut line (as on the old object sheet).
+    let shapes: Vec<Option<TokenShape>> = sheet
+        .items
+        .iter()
+        .map(|i| Some(i.shape))
+        .chain(objects.items.iter().map(|_| None))
+        .collect();
+    let cut = cut.as_ref().map(|c| (c, shapes.as_slice()));
+    let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut, &mut |p| {
+        ctx.progress(start + span * (0.05 + 0.9 * p), "rendering pages");
+        !ctx.is_cancelled()
+    })
+    .map_err(|e| match e {
+        PdfError::Cancelled => ServiceError::Cancelled,
+        other => ServiceError::Internal(other.to_string()),
+    })?;
+    Ok((bytes, layout.pages.len()))
 }
 
 /// The PDF writer embeds PNG; other stored formats are converted.

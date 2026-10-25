@@ -14,11 +14,12 @@
 ## Navigation
 Campaigns and sessions (the Python "Manage Campaigns" tab, the top-bar campaign picker, and every campaign or session filter) were removed at the user's request on 2026-10-11. Most material is reused across sessions; tags and the ★ Pinned star organise it instead. See `features/campaigns-sessions.md`.
 
-The left rail has 7 destinations instead of Python's 16 tabs, in three headed groups (`Destination.group` in `nav.ts`) that follow the game: Library on top, then **Before** the session, the print tools (Tokens to Maps); **During**, Music and Combat; **After**, Transcribe. Collapsed, the headings become separators. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
+The left rail has 8 destinations instead of Python's 16 tabs, in three headed groups (`Destination.group` in `nav.ts`) that follow the game: Library on top, then **Before** the session, the Planner and the print tools (Tokens to Maps); **During**, Music and Combat; **After**, Transcribe. Collapsed, the headings become separators. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
 
 | Route | Python tabs it replaces |
 |---|---|
 | `library` | Assets, Tagged Assets |
+| `planner` | (new: the session planner) |
 | `tokens.cutter`, `cutouts.cutter`, `tokens.sheet` | Token Cutter, Object Cutter, Token Sheet and Object Sheet (one sheet since 2026-10-25; `cutouts.sheet` is an alias of `tokens.sheet`) |
 | `cards` | Card Printer |
 | `maps.paginator`, `maps.aoe` | Map Paginator, AoE Templates |

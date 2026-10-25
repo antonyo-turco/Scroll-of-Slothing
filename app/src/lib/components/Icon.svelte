@@ -22,6 +22,7 @@
     wind: 'M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7',
     bell: 'M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21a2 2 0 0 0 4 0',
     grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    calendar: 'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4M8 14h3v3H8z',
     list: 'M4 5h2v2H4zM9 6h11M4 11h2v2H4zM9 12h11M4 17h2v2H4zM9 18h11',
     pills: 'M3 4h5v5H3zM9.5 4h5v5h-5zM16 4h5v5h-5zM3 11h5v5H3zM9.5 11h5v5h-5zM16 11h5v5h-5zM3 18h5v2H3zM9.5 18h5v2h-5z',
     cpu: 'M7 7h10v10H7zM9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4',

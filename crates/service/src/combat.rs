@@ -912,7 +912,7 @@ fn apply_settings(t: &mut Tracker, st: &sleuth_core::settings::Settings) {
 
 // ── saved encounters ──
 
-fn load_encounters(s: &Store) -> Result<Vec<SavedEncounter>> {
+pub(crate) fn load_encounters(s: &Store) -> Result<Vec<SavedEncounter>> {
     Ok(s.workspace_get::<Vec<SavedEncounter>>(ENCOUNTERS_KEY)?.unwrap_or_default())
 }
 

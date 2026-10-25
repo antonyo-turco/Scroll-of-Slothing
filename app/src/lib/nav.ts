@@ -1,11 +1,11 @@
-// Navigation model: 7 rail destinations (+ settings) with optional sub-views.
+// Navigation model: 8 rail destinations (+ settings) with optional sub-views.
 // Route ids are persisted (settings.start_view) — never rename them; a retired
 // view keeps its id as an alias (ROUTE_ALIASES).
 
 import type { Component } from 'svelte';
 
 export type IconName =
-  | 'library' | 'token' | 'swords' | 'skull' | 'pencil' | 'copy' | 'braces' | 'undo' | 'trash' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'settings'
+  | 'library' | 'calendar' | 'token' | 'swords' | 'skull' | 'pencil' | 'copy' | 'braces' | 'undo' | 'trash' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'settings'
   | 'search' | 'chevron-left' | 'chevron-right' | 'x' | 'check' | 'loader' | 'command';
 
 export interface View {
@@ -32,8 +32,10 @@ const placeholder = () => import('../routes/Placeholder.svelte');
 export const DESTINATIONS: Destination[] = [
   { id: 'library', label: 'Library', icon: 'library',
     views: [{ id: 'library', label: 'Library', phase: 1, load: () => import('../routes/library/Library.svelte') }] },
+  { id: 'planner', label: 'Planner', icon: 'calendar', group: 'Before',
+    views: [{ id: 'planner', label: 'Planner', phase: 10, load: () => import('../routes/planner/Planner.svelte') }] },
   // Tokens and cut-outs print on one sheet; the cut-out cutter keeps its old id.
-  { id: 'tokens', label: 'Tokens', icon: 'token', group: 'Before', views: [
+  { id: 'tokens', label: 'Tokens', icon: 'token', views: [
     { id: 'tokens.cutter', label: 'Token cutter', phase: 2, load: () => import('../routes/tokens/TokenCutter.svelte') },
     { id: 'cutouts.cutter', label: 'Cut-out cutter', phase: 3, load: () => import('../routes/cutouts/ObjectCutter.svelte') },
     { id: 'tokens.sheet', label: 'Sheet', phase: 2, load: () => import('../routes/tokens/TokenSheet.svelte') },

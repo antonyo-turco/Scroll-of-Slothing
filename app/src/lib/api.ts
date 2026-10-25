@@ -8,6 +8,7 @@ import type {
   SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenParams, TokenSheet,
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
+  PlannerSummary, PlanRef, SessionPatch, SessionView,
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
   CloudKeyInfo, CloudKeyStatus, CloudModelSpec, Segment, SttModel, TranscribeEstimate, TranscribeOptions,
   TranscriptFormat,
@@ -222,6 +223,19 @@ export const api = {
   bestiaryHomebrew: () => call<Record<string, unknown>[]>('bestiary_homebrew'),
   bestiaryDeleteCreature: (hash: string) => call<void>('bestiary_delete_creature', { hash }),
   bestiaryGet: (hash: string) => call<Record<string, unknown> | null>('bestiary_get', { hash }),
+  plannerList: () => call<PlannerSummary>('planner_list'),
+  plannerSessionGet: (id: string) => call<SessionView>('planner_session_get', { id }),
+  plannerSessionCreate: (name: string | null, current: boolean | null = null) =>
+    call<SessionView>('planner_session_create', { name, current }),
+  plannerSessionUpdate: (id: string, patch: SessionPatch) => call<SessionView>('planner_session_update', { id, patch }),
+  plannerSessionDelete: (id: string) => call<PlannerSummary>('planner_session_delete', { id }),
+  plannerSetCurrent: (id: string) => call<SessionView>('planner_set_current', { id }),
+  plannerItemsAdd: (session: string, items: PlanRef[]) => call<SessionView>('planner_items_add', { session, items }),
+  plannerItemUpdate: (session: string, item: string, copies: number) =>
+    call<SessionView>('planner_item_update', { session, item, copies }),
+  plannerItemRemove: (session: string, item: string) => call<SessionView>('planner_item_remove', { session, item }),
+  plannerPrune: (session: string) => call<number>('planner_prune', { session }),
+  plannerPrint: (session: string, dir: string) => call<string>('planner_print', { session, dir }),
   encountersList: () => call<EncounterSummary[]>('encounters_list'),
   encounterSave: (id: string | null, name: string, notes: string, creatures: EncounterCreature[]) =>
     call<EncounterSummary>('encounter_save', { id, name, notes, creatures }),

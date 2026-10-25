@@ -7,12 +7,7 @@ and After.
 ## Planned ideas
 
 ### Session planner (Before)
-One place for everything the next session needs: music soundscapes and playlists, saved
-encounters, tokens and token sheets, maps, handouts, notes and a prep checklist.
-- Gather items from the existing tools by reference (no copies), and print everything for the
-  session in one go.
-- Favourites: a starred (★ pinned) asset, track, soundscape or encounter could show up in the
-  current session's planner automatically, so starring becomes "use this next session".
+Picked up 2026-10-25: spec in `features/session-planner.md` (Phase 10).
 
 ### Tables: findables and shops (During)
 A single During page for what players find and buy, quick to use mid-session.

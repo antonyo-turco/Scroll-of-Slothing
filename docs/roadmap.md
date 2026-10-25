@@ -19,6 +19,7 @@ Phases are **not** promoted individually. `master` receives the rewrite only onc
 | 7 | Music (requested by the user; spec in `features/music/`) | done (pending review; alpha testing pending) |
 | 8 | Transcribe: speech to text from files and live, local Whisper by default plus an OpenRouter-format cloud engine (requested 2026-10-18; spec in `features/transcribe.md`) | in progress (file transcription done; live and the Transcripts tab to do) |
 | 9 | Combat tracker: a port of the 5etools DM Screen Initiative Tracker with 5etools combat/encounter links and a cached bestiary from a 5etools mirror (requested 2026-10-25; spec in `features/combat-tracker.md`) | in progress (v1 core tracker and links) |
+| 10 | Session planner: sessions gathering music, encounters, tokens, maps and decks by reference, starred items joining the next session, notes, checklist, print all (requested 2026-10-25; spec in `features/session-planner.md`) | in progress (v1 done, untested) |
 
 ## Out of scope
 The features on the old repo's `feature/dnd-integration` and `dev-dnd-legacy` branches: LAN multiplayer, character sheets, encounters. Their combat tracker is replaced by Phase 9, a 5etools-compatible tracker requested on 2026-10-25 (not a port of those branches).

@@ -65,7 +65,7 @@ fn save(s: &Store, sheet: &ObjectSheet) -> Result<()> {
     Ok(())
 }
 
-fn new_item(
+pub(crate) fn new_item(
     s: &Store,
     label: String,
     size: String,

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const VIEWS = [
-  'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
+  'library', 'planner', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
   'cards', 'maps.paginator', 'maps.aoe', 'music', 'combat', 'settings',
 ];
 

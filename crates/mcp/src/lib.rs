@@ -149,6 +149,74 @@ pub struct StrIdParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerCreateParams {
+    /// Session name (default `Session N`).
+    pub name: Option<String>,
+    /// Make it the current session (the first session always is).
+    pub current: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerCheckItem {
+    /// Keep an existing item's id; leave empty for a new one.
+    #[serde(default)]
+    pub id: String,
+    pub text: String,
+    #[serde(default)]
+    pub done: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerUpdateParams {
+    pub id: String,
+    pub name: Option<String>,
+    /// Usually YYYY-MM-DD; empty clears it.
+    pub date: Option<String>,
+    pub notes: Option<String>,
+    /// Replaces the whole checklist.
+    pub checklist: Option<Vec<PlannerCheckItem>>,
+    /// Also print the Token Sheet's current contents with the session.
+    pub include_token_sheet: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerRef {
+    /// asset | encounter | soundscape | playlist | track | deck
+    pub kind: String,
+    /// The item's id in its tool (asset and deck ids as text).
+    pub ref_id: String,
+    /// Copies to print (tokens and cut-outs, 1-99), default 1.
+    pub copies: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerAddParams {
+    pub session: String,
+    pub items: Vec<PlannerRef>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerItemParams {
+    pub session: String,
+    /// The planned item's id (`item_id` in planner_session_get).
+    pub item: String,
+    /// New copy count (planner_item_update only).
+    pub copies: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerSessionParams {
+    pub session: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PlannerPrintParams {
+    pub session: String,
+    /// Absolute output folder (created if needed).
+    pub dir: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MusicTagsItem {
     pub track_id: String,
     /// Tags to add.
@@ -1482,6 +1550,111 @@ impl SleuthServer {
     )]
     async fn bestiary_sync(&self) -> ToolResult {
         done(self.svc.bestiary_sync().await)
+    }
+
+    #[tool(
+        description = "Session planner: the sessions (id, name, date, item count, checklist done/total) and which one is current. Starred items (pinned assets, encounters and soundscapes, favourite tracks) join the current session on their own."
+    )]
+    async fn planner_list(&self) -> ToolResult {
+        done(self.svc.planner_list().await)
+    }
+
+    #[tool(
+        description = "One planned session with its items resolved: entries with item_id (null for a starred item that joined on its own), kind, ref_id, section (music|encounters|tokens|maps|handouts), name, detail, asset_kind, copies, starred, missing (deleted in its tool); plus notes, checklist and include_token_sheet."
+    )]
+    async fn planner_session_get(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.planner_session_get(p.id).await)
+    }
+
+    #[tool(description = "Create a planned session (the first one becomes current).")]
+    async fn planner_session_create(
+        &self,
+        Parameters(p): Parameters<PlannerCreateParams>,
+    ) -> ToolResult {
+        done(self.svc.planner_session_create(p.name, p.current).await)
+    }
+
+    #[tool(
+        description = "Change a planned session: name, date, notes (markdown), checklist (replaces it: [{id?, text, done}]) or include_token_sheet."
+    )]
+    async fn planner_session_update(
+        &self,
+        Parameters(p): Parameters<PlannerUpdateParams>,
+    ) -> ToolResult {
+        let patch = sleuth_service::SessionPatch {
+            name: p.name,
+            date: p.date,
+            notes: p.notes,
+            checklist: p.checklist.map(|l| {
+                l.into_iter()
+                    .map(|c| sleuth_service::CheckItem { id: c.id, text: c.text, done: c.done })
+                    .collect()
+            }),
+            include_token_sheet: p.include_token_sheet,
+        };
+        done(self.svc.planner_session_update(p.id, patch).await)
+    }
+
+    #[tool(description = "Delete a planned session (the items it references stay in their tools).")]
+    async fn planner_session_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.planner_session_delete(p.id).await)
+    }
+
+    #[tool(description = "Make a planned session the current one (starred items join it).")]
+    async fn planner_set_current(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.planner_set_current(p.id).await)
+    }
+
+    #[tool(
+        description = "Add references to a planned session: items [{kind: asset|encounter|soundscape|playlist|track|deck, ref_id, copies?}]. Ids come from library_search, encounters_list, the music tools and decks_list. Nothing is copied; re-adding an item is a no-op; unknown ids are refused."
+    )]
+    async fn planner_items_add(&self, Parameters(p): Parameters<PlannerAddParams>) -> ToolResult {
+        let mut items = vec![];
+        for r in p.items {
+            let kind = match serde_json::from_value(serde_json::Value::String(r.kind.clone())) {
+                Ok(k) => k,
+                Err(_) => {
+                    return fail(&ServiceError::InvalidInput(format!(
+                        "unknown kind {}: use asset, encounter, soundscape, playlist, track or deck",
+                        r.kind
+                    )));
+                }
+            };
+            items.push(sleuth_service::PlanRef { kind, ref_id: r.ref_id, copies: r.copies });
+        }
+        done(self.svc.planner_items_add(p.session, items).await)
+    }
+
+    #[tool(description = "Set how many copies of a planned token or cut-out print (1-99).")]
+    async fn planner_item_update(
+        &self,
+        Parameters(p): Parameters<PlannerItemParams>,
+    ) -> ToolResult {
+        done(self.svc.planner_item_update(p.session, p.item, p.copies.unwrap_or(1)).await)
+    }
+
+    #[tool(description = "Remove an item from a planned session (it stays in its tool).")]
+    async fn planner_item_remove(
+        &self,
+        Parameters(p): Parameters<PlannerItemParams>,
+    ) -> ToolResult {
+        done(self.svc.planner_item_remove(p.session, p.item).await)
+    }
+
+    #[tool(
+        description = "Drop a session's references to items that were deleted in their tools. Returns how many."
+    )]
+    async fn planner_prune(&self, Parameters(p): Parameters<PlannerSessionParams>) -> ToolResult {
+        done(self.svc.planner_prune(p.session).await)
+    }
+
+    #[tool(
+        description = "Print everything printable of a session into folder `dir`: one PDF of its tokens and cut-outs (plus the Token Sheet if include_token_sheet), each map's saved pages, each card deck. Returns a job_id; the job result lists the files and anything skipped."
+    )]
+    async fn planner_print(&self, Parameters(p): Parameters<PlannerPrintParams>) -> ToolResult {
+        ok(
+            &serde_json::json!({ "job_id": self.svc.planner_print(p.session, PathBuf::from(p.dir)) }),
+        )
     }
 
     #[tool(

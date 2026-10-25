@@ -900,3 +900,72 @@ export interface Party {
   heroes: Hero[];
   updated: string;
 }
+
+// ── session planner (crates/core/src/planner.rs, crates/service/src/planner.rs) ──
+
+export type PlanRefKind = 'asset' | 'encounter' | 'soundscape' | 'playlist' | 'track' | 'deck';
+export type PlanSection = 'music' | 'encounters' | 'tokens' | 'maps' | 'handouts';
+
+export interface PlanCheckItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+export interface PlanEntry {
+  /** The planned item; null for a starred item that joined on its own. */
+  item_id: string | null;
+  kind: PlanRefKind;
+  ref_id: string;
+  section: PlanSection;
+  name: string;
+  detail: string;
+  thumb: string | null;
+  asset_kind: string | null;
+  copies: number;
+  starred: boolean;
+  missing: boolean;
+}
+
+export interface SessionView {
+  id: string;
+  name: string;
+  date: string | null;
+  notes: string;
+  checklist: PlanCheckItem[];
+  items: { id: string; kind: PlanRefKind; ref_id: string; copies: number }[];
+  include_token_sheet: boolean;
+  created: string;
+  updated: string;
+  current: boolean;
+  entries: PlanEntry[];
+}
+
+export interface SessionSummary {
+  id: string;
+  name: string;
+  date: string | null;
+  items: number;
+  done: number;
+  total: number;
+  updated: string;
+}
+
+export interface PlannerSummary {
+  sessions: SessionSummary[];
+  current: string | null;
+}
+
+export interface SessionPatch {
+  name?: string | null;
+  date?: string | null;
+  notes?: string | null;
+  checklist?: PlanCheckItem[] | null;
+  include_token_sheet?: boolean | null;
+}
+
+export interface PlanRef {
+  kind: PlanRefKind;
+  ref_id: string;
+  copies?: number | null;
+}

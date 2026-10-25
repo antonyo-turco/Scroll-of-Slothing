@@ -44,6 +44,42 @@ impl From<&DeckLayout> for CardSummary {
     }
 }
 
+/// A deck's saved settings (`{format, double_sided, flip}`), Letter when unreadable.
+pub(crate) fn deck_options(settings_json: &str) -> CardOptions {
+    serde_json::from_str(settings_json).unwrap_or(CardOptions {
+        format: PageFormat::Letter,
+        double_sided: false,
+        flip: Flip::default(),
+    })
+}
+
+/// Renders a deck as a PDF (bytes and layout), reporting progress within
+/// `range` (start, span) of the job.
+pub(crate) fn render_deck(
+    markdown: &str,
+    opts: CardOptions,
+    ctx: &crate::JobCtx,
+    range: (f32, f32),
+) -> Result<(Vec<u8>, DeckLayout)> {
+    check_sheet_format(opts.format)?;
+    let cards = parse(markdown);
+    if cards.is_empty() {
+        return Err(ServiceError::InvalidInput("the deck has no cards".into()));
+    }
+    let (start, span) = range;
+    ctx.progress(start + 0.05 * span, "laying out cards");
+    let l = layout(&cards, opts.format, opts.double_sided, opts.flip);
+    let bytes = sleuth_pdf::cards::render(&l, &mut |p| {
+        ctx.progress(start + span * (0.1 + 0.85 * p), "rendering pages");
+        !ctx.is_cancelled()
+    })
+    .map_err(|e| match e {
+        PdfError::Cancelled => ServiceError::Cancelled,
+        other => ServiceError::Internal(other.to_string()),
+    })?;
+    Ok((bytes, l))
+}
+
 impl Service {
     /// `{templates: {Spell, Feat, Item, Ability}, reference}`.
     pub fn cards_templates(&self) -> Value {
@@ -72,21 +108,7 @@ impl Service {
     /// Exports the deck as a PDF (job result: `{path, pages, cards, overflow}`).
     pub fn cards_export_pdf(&self, markdown: String, opts: CardOptions, path: PathBuf) -> JobId {
         self.spawn_job("card export", move |ctx| {
-            check_sheet_format(opts.format)?;
-            let cards = parse(&markdown);
-            if cards.is_empty() {
-                return Err(ServiceError::InvalidInput("the deck has no cards".into()));
-            }
-            ctx.progress(0.05, "laying out cards");
-            let l = layout(&cards, opts.format, opts.double_sided, opts.flip);
-            let bytes = sleuth_pdf::cards::render(&l, &mut |p| {
-                ctx.progress(0.1 + 0.85 * p, "rendering pages");
-                !ctx.is_cancelled()
-            })
-            .map_err(|e| match e {
-                PdfError::Cancelled => ServiceError::Cancelled,
-                other => ServiceError::Internal(other.to_string()),
-            })?;
+            let (bytes, l) = render_deck(&markdown, opts, &ctx, (0.0, 1.0))?;
             std::fs::write(&path, bytes)?;
             Ok(serde_json::json!({ "path": path, "pages": l.pages.len(), "cards": l.cards, "overflow": l.overflow }))
         })

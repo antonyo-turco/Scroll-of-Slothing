@@ -811,7 +811,7 @@ impl Service {
         Ok(tiles)
     }
 
-    fn render_map_pdf(
+    pub(crate) fn render_map_pdf(
         &self,
         s: &Store,
         doc: &MapDoc,

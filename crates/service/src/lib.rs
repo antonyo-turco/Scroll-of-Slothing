@@ -18,6 +18,7 @@ mod maps;
 mod music;
 mod object_sheet;
 mod organize;
+mod planner;
 mod secrets;
 mod settings;
 mod stt;
@@ -51,7 +52,9 @@ pub use music::{
     TagSuggestion as MusicTagSuggestion, TrackInput, TrackMeta, media_mime,
 };
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
+pub use planner::{PlanEntry, PlanRef, PlannerSummary, SessionPatch, SessionSummary, SessionView};
 pub use settings::SettingsUpdate;
+pub use sleuth_core::planner::{CheckItem, RefKind, Section};
 pub use sleuth_store::{
     Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome,
     Session, TagCount,
