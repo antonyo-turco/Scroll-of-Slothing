@@ -97,10 +97,10 @@
       if (tokens.length) await api.tokenSheetAddAssets(tokens);
       if (cutouts.length) await api.objectSheetAddAssets(cutouts);
       const parts = [
-        tokens.length ? `${tokens.length} to the token sheet` : '',
-        cutouts.length ? `${cutouts.length} to the object sheet` : '',
+        tokens.length ? `${tokens.length} token(s)` : '',
+        cutouts.length ? `${cutouts.length} cut-out(s)` : '',
       ].filter(Boolean);
-      app.toast('success', `Added ${parts.join(' and ')}` + (skipped ? ` · skipped ${skipped} map(s)` : ''));
+      app.toast('success', `Added ${parts.join(' and ')} to the sheet` + (skipped ? ` · skipped ${skipped} map(s)` : ''));
     } catch (e) {
       app.error('Could not add to sheet', e);
     }

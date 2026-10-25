@@ -1,5 +1,6 @@
 // Navigation model: 7 rail destinations (+ settings) with optional sub-views.
-// Route ids are persisted (settings.start_view) — never rename them.
+// Route ids are persisted (settings.start_view) — never rename them; a retired
+// view keeps its id as an alias (ROUTE_ALIASES).
 
 import type { Component } from 'svelte';
 
@@ -31,13 +32,11 @@ const placeholder = () => import('../routes/Placeholder.svelte');
 export const DESTINATIONS: Destination[] = [
   { id: 'library', label: 'Library', icon: 'library',
     views: [{ id: 'library', label: 'Library', phase: 1, load: () => import('../routes/library/Library.svelte') }] },
+  // Tokens and cut-outs print on one sheet; the cut-out cutter keeps its old id.
   { id: 'tokens', label: 'Tokens', icon: 'token', group: 'Before', views: [
-    { id: 'tokens.cutter', label: 'Cutter', phase: 2, load: () => import('../routes/tokens/TokenCutter.svelte') },
+    { id: 'tokens.cutter', label: 'Token cutter', phase: 2, load: () => import('../routes/tokens/TokenCutter.svelte') },
+    { id: 'cutouts.cutter', label: 'Cut-out cutter', phase: 3, load: () => import('../routes/cutouts/ObjectCutter.svelte') },
     { id: 'tokens.sheet', label: 'Sheet', phase: 2, load: () => import('../routes/tokens/TokenSheet.svelte') },
-  ] },
-  { id: 'cutouts', label: 'Cut-outs', icon: 'scissors', views: [
-    { id: 'cutouts.cutter', label: 'Cutter', phase: 3, load: () => import('../routes/cutouts/ObjectCutter.svelte') },
-    { id: 'cutouts.sheet', label: 'Sheet', phase: 3, load: () => import('../routes/cutouts/ObjectSheet.svelte') },
   ] },
   { id: 'cards', label: 'Cards', icon: 'cards',
     views: [{ id: 'cards', label: 'Cards', phase: 4, load: () => import('../routes/cards/Cards.svelte') }] },
@@ -61,7 +60,14 @@ export const SETTINGS_DEST: Destination = {
 
 export const ALL_VIEWS: View[] = [...DESTINATIONS, SETTINGS_DEST].flatMap((d) => d.views);
 
+/** Retired route ids (still valid in links and the start-view setting) and where they lead. */
+export const ROUTE_ALIASES: Record<string, string> = { 'cutouts.sheet': 'tokens.sheet' };
+
+/** The view a route id opens (aliases followed). */
+export const resolveRoute = (id: string): string => ROUTE_ALIASES[id] ?? id;
+
 export function findView(id: string): { dest: Destination; view: View } | undefined {
+  id = resolveRoute(id);
   for (const dest of [...DESTINATIONS, SETTINGS_DEST]) {
     const view = dest.views.find((v) => v.id === id);
     if (view) return { dest, view };
@@ -69,4 +75,4 @@ export function findView(id: string): { dest: Destination; view: View } | undefi
   return undefined;
 }
 
-export const isRoute = (id: string): boolean => ALL_VIEWS.some((v) => v.id === id);
+export const isRoute = (id: string): boolean => ALL_VIEWS.some((v) => v.id === resolveRoute(id));

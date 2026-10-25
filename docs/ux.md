@@ -14,13 +14,12 @@
 ## Navigation
 Campaigns and sessions (the Python "Manage Campaigns" tab, the top-bar campaign picker, and every campaign or session filter) were removed at the user's request on 2026-10-11. Most material is reused across sessions; tags and the ★ Pinned star organise it instead. See `features/campaigns-sessions.md`.
 
-The left rail has 8 destinations instead of Python's 16 tabs, in three headed groups (`Destination.group` in `nav.ts`) that follow the game: Library on top, then **Before** the session, the print tools (Tokens to Maps); **During**, Music and Combat; **After**, Transcribe. Collapsed, the headings become separators. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
+The left rail has 7 destinations instead of Python's 16 tabs, in three headed groups (`Destination.group` in `nav.ts`) that follow the game: Library on top, then **Before** the session, the print tools (Tokens to Maps); **During**, Music and Combat; **After**, Transcribe. Collapsed, the headings become separators. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
 
 | Route | Python tabs it replaces |
 |---|---|
 | `library` | Assets, Tagged Assets |
-| `tokens.cutter`, `tokens.sheet` | Token Cutter, Token Sheet |
-| `cutouts.cutter`, `cutouts.sheet` | Object Cutter, Object Sheet |
+| `tokens.cutter`, `cutouts.cutter`, `tokens.sheet` | Token Cutter, Object Cutter, Token Sheet and Object Sheet (one sheet since 2026-10-25; `cutouts.sheet` is an alias of `tokens.sheet`) |
 | `cards` | Card Printer |
 | `maps.paginator`, `maps.aoe` | Map Paginator, AoE Templates |
 | `music` (tabs inside the view) | Library, Mixer, Soundscapes, Playlists, Soundboard |
@@ -35,7 +34,7 @@ Built from shared pieces: classes in `app/src/app.css` and two components.
 
 | Part | Where | What goes in it |
 |---|---|---|
-| Top bar | `TopBar.svelte` | Destination title, sub-view tabs (Tokens: Cutter/Sheet; Music: its five tabs), then the view's **file actions**: open, paste, save, export. The primary action is last and the only filled button. Views put them there with `<ViewActions>`; `<ViewActions slot="nav">` adds view tabs next to the title. Below 980 px the command-palette button shrinks to its icon. |
+| Top bar | `TopBar.svelte` | Destination title, sub-view tabs (Tokens: Token cutter/Cut-out cutter/Sheet; Music: its five tabs), then the view's **file actions**: open, paste, save, export. The primary action is last and the only filled button. Views put them there with `<ViewActions>`; `<ViewActions slot="nav">` adds view tabs next to the title. Below 980 px the command-palette button shrinks to its icon. |
 | Toolbar band | `.view-toolbar` | Tools and view options that change what the canvas shows: canvas tools, paper format, preview mode, filters, a pager. Nothing that writes files. |
 | Canvas | `.stage-area` | The thing being edited or previewed. Zoomable canvases have their zoom cluster (− % + Fit) floating in the bottom-right corner (`.canvas-controls`). A tool's instructions float at its top-left. With nothing loaded it shows a drop zone (`.drop-zone`) or an empty state (`.empty-state`) that says what to do next. |
 | Status line | `.statusbar` | Size, counts, page summary, gesture hints, warnings. |

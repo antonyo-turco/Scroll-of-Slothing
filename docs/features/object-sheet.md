@@ -2,6 +2,8 @@
 
 Lays cut-outs out on pages, either flat or as fold-over standees, and exports a PDF.
 
+**Merged into the Token Sheet (2026-10-25).** Cut-outs print on the Token Sheet, on the same pages as the tokens (token-sheet.md, "Packing with cut-outs"). This page still describes the cut-out items, the modes and the shelf packer, which is used when the sheet holds only cut-outs. The page format is the token sheet's; the `object_page_format` setting is no longer used.
+
 ## Items
 Each item has:
 - an image or asset;
@@ -17,7 +19,7 @@ You can change size, scale and copies, remove an item, or Clear all (with confir
 The sheet is autosaved in `workspaces` under the key `object_sheet`.
 
 ## Options
-- **Format:** Letter or A4. The default comes from the `object_page_format` setting.
+- **Format:** Letter or A4, shared with the Token Sheet (`token_page_format`).
 - **Mode:** Flat (default) or Standee.
 
 ## Sizing (core::pack::shelf)
@@ -36,10 +38,11 @@ The sheet is autosaved in `workspaces` under the key `object_sheet`.
 
 ## MCP
 - `object_sheet_list`, `object_sheet_add`, `object_sheet_update`, `object_sheet_remove`, `object_sheet_clear`
-- `object_sheet_layout`
-- `object_sheet_export_pdf {path, format?, mode?}`
+- `object_sheet_set_options {format?, mode?}`: the format is the shared sheet's.
+- `object_sheet_layout` and `object_sheet_export_pdf {path}`: the same as `token_sheet_layout` and `token_sheet_export_pdf` (tokens and cut-outs).
 
 ## Intentional changes
+- Cut-outs print on the Token Sheet with the tokens, in one PDF (2026-10-25); there is no separate Sheet view under Cut-outs any more. Python had a separate object sheet.
 - UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of cut-outs on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.
 - The page format default now comes from a setting. Python hard-coded Letter.
 - Items that are too large are reported instead of silently dropped.

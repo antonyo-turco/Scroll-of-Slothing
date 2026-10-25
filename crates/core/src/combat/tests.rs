@@ -246,6 +246,7 @@ fn serial_round_trip_matches_5etools_keys() {
         name: "Prone".into(),
         color: "#5e60a0".into(),
         turns: None,
+        elapsed: 0,
     }];
     t.rows[1].cells =
         vec![Cell { id: "x".into(), entity: json!({"value": 15}).as_object().unwrap().clone() }];

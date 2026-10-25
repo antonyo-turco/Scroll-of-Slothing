@@ -12,7 +12,7 @@
 
   // vertical tabs: one functionality per tab
   const TABS = [
-    ['general', 'General'], ['printing', 'Cut guides'], ['tokens', 'Tokens'], ['cutouts', 'Cut-outs & cards'],
+    ['general', 'General'], ['printing', 'Cut guides'], ['tokens', 'Tokens & cut-outs'], ['cutouts', 'Cards'],
     ['maps', 'Maps'], ['transcription', 'Transcription'], ['combat', 'Combat'], ['data', 'Data'],
   ] as const;
   let tab = $state<(typeof TABS)[number][0]>('general');
@@ -248,14 +248,13 @@
     </section>
     {:else if tab === 'tokens'}
     <section class="card">
-      <h2>Tokens</h2>
-      <div class="field"><span class="label">Page format</span>{@render formatPicker('token_page_format')}</div>
+      <h2>Tokens &amp; cut-outs</h2>
+      <div class="field"><span class="label">Sheet page format</span>{@render formatPicker('token_page_format')}</div>
       {@render toggle('token_cut_border', 'Cut border on by default')}
     </section>
     {:else if tab === 'cutouts'}
     <section class="card">
-      <h2>Cut-outs &amp; cards</h2>
-      <div class="field"><span class="label">Object sheet page format</span>{@render formatPicker('object_page_format')}</div>
+      <h2>Cards</h2>
       <div class="field"><span class="label">Card page format</span>{@render formatPicker('card_page_format')}</div>
     </section>
     {:else if tab === 'maps'}

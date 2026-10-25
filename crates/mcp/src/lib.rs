@@ -786,14 +786,14 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Compute the token sheet pages: placements in PDF points (bottom-left origin) and skipped items."
+        description = "Compute the token sheet pages (tokens and cut-outs together): placements in PDF points (bottom-left origin) and skipped items."
     )]
     async fn token_sheet_layout(&self) -> ToolResult {
         done(self.svc.token_sheet_layout().await)
     }
 
     #[tool(
-        description = "Export the token sheet as a PDF to `path`. Returns a job_id (poll jobs_status)."
+        description = "Export the token sheet (tokens and cut-outs) as a PDF to `path`. Returns a job_id (poll jobs_status)."
     )]
     async fn token_sheet_export_pdf(&self, Parameters(p): Parameters<PathParams>) -> ToolResult {
         ok(&serde_json::json!({ "job_id": self.svc.token_sheet_export_pdf(PathBuf::from(p.path)) }))
@@ -818,14 +818,14 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Get the object sheet: items (id, label, size, scale %, copies), page format and mode (flat|standee)."
+        description = "Get the cut-outs of the token sheet: items (id, label, size, scale %, copies), page format (the token sheet's) and mode (flat|standee)."
     )]
     async fn object_sheet_list(&self) -> ToolResult {
         done(self.svc.object_sheet_get().await)
     }
 
     #[tool(
-        description = "Add library assets (asset_ids) and/or image files (paths) to the object sheet."
+        description = "Add library assets (asset_ids) and/or image files (paths) as cut-outs on the token sheet."
     )]
     async fn object_sheet_add(&self, Parameters(p): Parameters<SheetAddParams>) -> ToolResult {
         if !p.asset_ids.is_empty()
@@ -869,7 +869,7 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Set the object sheet page format (Letter|A4) and/or mode (flat|standee: fold-over, mirrored copy on top)."
+        description = "Set the shared sheet page format (Letter|A4) and/or the cut-out mode (flat|standee: fold-over, mirrored copy on top)."
     )]
     async fn object_sheet_set_options(
         &self,
@@ -896,14 +896,14 @@ impl SleuthServer {
     }
 
     #[tool(
-        description = "Compute the object sheet pages: placements in PDF points (bottom-left origin) and skipped items."
+        description = "Same as token_sheet_layout: the pages of tokens and cut-outs, placements in PDF points (bottom-left origin) and skipped items."
     )]
     async fn object_sheet_layout(&self) -> ToolResult {
         done(self.svc.object_sheet_layout().await)
     }
 
     #[tool(
-        description = "Export the object sheet as a PDF to `path`. Returns a job_id (poll jobs_status)."
+        description = "Same as token_sheet_export_pdf: one PDF of tokens and cut-outs to `path`. Returns a job_id (poll jobs_status)."
     )]
     async fn object_sheet_export_pdf(&self, Parameters(p): Parameters<PathParams>) -> ToolResult {
         ok(

@@ -48,6 +48,9 @@ Saved at the user's request on 2026-10-25; not to be built until asked:
 - **Player view** and the per-row "visible to players" toggle: the tracker is for the DM only.
 - **Custom conditions** (removed 2026-10-25).
 
+### Future ideas
+Unscheduled ideas, deferred items and declined ones are listed in `future-features.md`.
+
 ### Removed
 - Campaigns and sessions (2026-10-11, at the user's request): UI, filters, links, commands and MCP/CLI tools are gone; the tables stay, unused. See `features/campaigns-sessions.md`.
 

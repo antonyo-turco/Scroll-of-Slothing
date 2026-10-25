@@ -1,7 +1,7 @@
 // Global reactive app state (Svelte 5 runes): current route, settings, jobs, toasts.
 
 import { api } from './api';
-import { isRoute } from './nav';
+import { isRoute, resolveRoute } from './nav';
 import type { JobStatus, ServiceError, ServiceEvent, Settings } from './types';
 import { DEFAULT_SETTINGS } from './types';
 
@@ -36,13 +36,13 @@ class AppState {
     }
     this.sidebarCollapsed = this.settings.sidebar_collapsed;
     const fromHash = location.hash.replace(/^#\/?/, '');
-    this.route = isRoute(fromHash) ? fromHash : isRoute(this.settings.start_view) ? this.settings.start_view : 'tokens.sheet';
+    this.route = resolveRoute(isRoute(fromHash) ? fromHash : isRoute(this.settings.start_view) ? this.settings.start_view : 'tokens.sheet');
     this.applyTheme();
     this.#unlisten = await api.onEvent((e) => this.onEvent(e));
     this.jobs = await api.jobsList().catch(() => []);
     window.addEventListener('hashchange', () => {
       const id = location.hash.replace(/^#\/?/, '');
-      if (isRoute(id)) this.route = id;
+      if (isRoute(id)) this.route = resolveRoute(id);
     });
     this.ready = true;
   }
@@ -53,6 +53,7 @@ class AppState {
 
   navigate(id: string): void {
     if (!isRoute(id)) return;
+    id = resolveRoute(id);
     this.route = id;
     if (location.hash !== `#/${id}`) history.replaceState(null, '', `#/${id}`);
   }

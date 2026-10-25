@@ -193,12 +193,12 @@ fn load_bestiary(dir: &Path, base_url: &str) -> Result<Bestiary> {
     }
     // homebrew creatures (made here or over MCP) live next to the synced copy
     let homebrew = dir.parent().map(|d| d.join(HOMEBREW_FILE));
-    if let Some(Ok(b)) = homebrew.map(std::fs::read) {
-        if let Ok(v) = serde_json::from_slice::<Value>(&b) {
-            files += 1;
-            if let Some(Value::Array(a)) = v.get("monster") {
-                mons.extend(a.iter().cloned());
-            }
+    if let Some(Ok(b)) = homebrew.map(std::fs::read)
+        && let Ok(v) = serde_json::from_slice::<Value>(&b)
+    {
+        files += 1;
+        if let Some(Value::Array(a)) = v.get("monster") {
+            mons.extend(a.iter().cloned());
         }
     }
     let hash_of = |m: &Value| {

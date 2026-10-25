@@ -1,19 +1,19 @@
 //! Object Sheet service: cut-outs laid out flat or as fold-over standees.
 //! Spec: docs/features/object-sheet.md. Autosaved in the `object_sheet` workspace.
+//! The cut-outs print on the Token Sheet: they share its page format, layout
+//! and PDF (see `token_sheet.rs`).
 
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use sleuth_core::cutout::{CutoutParams, standee_block};
+use sleuth_core::cutout::CutoutParams;
 use sleuth_core::imaging;
-use sleuth_core::pack::Layout;
-use sleuth_core::pack::shelf::{SheetMode, ShelfItem, pack};
+use sleuth_core::pack::shelf::SheetMode;
 use sleuth_core::units::{PageFormat, SizeLabel};
-use sleuth_pdf::PdfError;
 use sleuth_store::Store;
 
 use crate::library::check_size;
-use crate::token_sheet::{PlacedItem, SheetLayout, png_bytes, thumb_of};
+use crate::token_sheet::{self, SheetLayout, thumb_of};
 use crate::tokens::store_source;
 use crate::{JobId, Result, Service, ServiceError};
 
@@ -37,6 +37,7 @@ pub struct ObjectItem {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ObjectSheet {
     pub items: Vec<ObjectItem>,
+    /// The Token Sheet's page format (one sheet, one format).
     pub format: PageFormat,
     pub mode: SheetMode,
 }
@@ -49,15 +50,13 @@ pub struct ObjectItemPatch {
     pub copies: Option<u32>,
 }
 
-fn load(s: &Store) -> Result<ObjectSheet> {
-    if let Some(sheet) = s.workspace_get::<ObjectSheet>(KEY)? {
+pub(crate) fn load(s: &Store) -> Result<ObjectSheet> {
+    let format = token_sheet::load(s)?.format;
+    if let Some(mut sheet) = s.workspace_get::<ObjectSheet>(KEY)? {
+        sheet.format = format;
         return Ok(sheet);
     }
-    Ok(ObjectSheet {
-        items: vec![],
-        format: s.load_settings()?.object_page_format,
-        mode: SheetMode::Flat,
-    })
+    Ok(ObjectSheet { items: vec![], format, mode: SheetMode::Flat })
 }
 
 fn save(s: &Store, sheet: &ObjectSheet) -> Result<()> {
@@ -87,42 +86,6 @@ fn new_item(
         h_px,
         asset_id,
     })
-}
-
-fn compute(sheet: &ObjectSheet) -> (Layout, SheetLayout) {
-    let items: Vec<ShelfItem> = sheet
-        .items
-        .iter()
-        .map(|i| ShelfItem {
-            w_px: i.w_px,
-            h_px: i.h_px,
-            size_pt: SizeLabel::parse(&i.size).unwrap_or_default().points(),
-            scale_pct: f64::from(i.scale),
-            copies: i.copies,
-        })
-        .collect();
-    let layout = pack(&items, sheet.format, sheet.mode);
-    let view = SheetLayout {
-        page_w: layout.page_w,
-        page_h: layout.page_h,
-        pages: layout
-            .pages
-            .iter()
-            .map(|p| {
-                p.iter()
-                    .map(|pl| PlacedItem {
-                        id: sheet.items[pl.item].id.clone(),
-                        x: pl.x,
-                        y: pl.y,
-                        w: pl.w,
-                        h: pl.h,
-                    })
-                    .collect()
-            })
-            .collect(),
-        skipped: layout.skipped.iter().map(|&i| sheet.items[i].id.clone()).collect(),
-    };
-    (layout, view)
 }
 
 impl Service {
@@ -252,9 +215,13 @@ impl Service {
         format: Option<PageFormat>,
         mode: Option<SheetMode>,
     ) -> Result<ObjectSheet> {
-        format.map(crate::token_sheet::check_sheet_format).transpose()?;
-        self.object_mutate(move |_, sheet| {
+        format.map(token_sheet::check_sheet_format).transpose()?;
+        self.object_mutate(move |s, sheet| {
+            // The format belongs to the shared sheet.
             if let Some(f) = format {
+                let mut tokens = token_sheet::load(s)?;
+                tokens.format = f;
+                token_sheet::save(s, &tokens)?;
                 sheet.format = f;
             }
             if let Some(m) = mode {
@@ -265,52 +232,14 @@ impl Service {
         .await
     }
 
+    /// Same as `token_sheet_layout`: tokens and cut-outs share the sheet.
     pub async fn object_sheet_layout(&self) -> Result<SheetLayout> {
-        self.blocking(|s| Ok(compute(&load(s)?).1)).await
+        self.token_sheet_layout().await
     }
 
-    /// Exports the object sheet as a background job (result: `{path, pages}`).
+    /// Same as `token_sheet_export_pdf`: one PDF with tokens and cut-outs.
     pub fn object_sheet_export_pdf(&self, path: PathBuf) -> JobId {
-        self.spawn_job("object sheet export", move |ctx| {
-            let store = ctx.service().store();
-            let sheet = load(&store)?;
-            if sheet.items.is_empty() {
-                return Err(ServiceError::InvalidInput("the object sheet is empty".into()));
-            }
-            let (layout, view) = compute(&sheet);
-            if !view.skipped.is_empty() {
-                return Err(ServiceError::InvalidInput(format!(
-                    "{} item(s) cannot fit on a page",
-                    view.skipped.len()
-                )));
-            }
-            ctx.progress(0.02, "preparing images");
-            let images = sheet
-                .items
-                .iter()
-                .map(|i| match sheet.mode {
-                    SheetMode::Flat => png_bytes(&store, &i.image),
-                    SheetMode::Standee => {
-                        let img = imaging::decode(&store.read_blob(&i.image)?)
-                            .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
-                        imaging::encode_png(&standee_block(&img.to_rgba8()))
-                            .map_err(|e| ServiceError::Internal(e.to_string()))
-                    }
-                })
-                .collect::<Result<Vec<_>>>()?;
-            // Placements already have the item's aspect, so the shared sheet writer
-            // draws them at exact size (no cut circles on object sheets).
-            let bytes = sleuth_pdf::token_sheet::render(&layout, &images, None, &mut |p| {
-                ctx.progress(0.05 + 0.9 * p, "rendering pages");
-                !ctx.is_cancelled()
-            })
-            .map_err(|e| match e {
-                PdfError::Cancelled => ServiceError::Cancelled,
-                other => ServiceError::Internal(other.to_string()),
-            })?;
-            std::fs::write(&path, bytes)?;
-            Ok(serde_json::json!({ "path": path, "pages": layout.pages.len() }))
-        })
+        self.token_sheet_export_pdf(path)
     }
 }
 
@@ -325,7 +254,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn add_update_layout_modes_and_export() {
         let (d, svc) = temp_service();
-        let patch = serde_json::json!({"object_page_format": "A4"});
+        let patch = serde_json::json!({"token_page_format": "A4"});
         svc.settings_set(patch.as_object().unwrap().clone()).await.unwrap();
         let p = write_test_png(d.path(), "Lamp.png", 100, 200);
         let sheet =

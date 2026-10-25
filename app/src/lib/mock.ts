@@ -350,6 +350,12 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     }
     return { page_w: pw, page_h: ph, pages, skipped };
   };
+  /** Tokens and cut-outs of the shared sheet (the mock puts cut-outs on pages after the tokens). */
+  const layoutBoth = (): SheetLayout => {
+    const t = layoutSheet();
+    const o = layoutObjects();
+    return { ...t, pages: [...t.pages, ...o.pages], skipped: [...t.skipped, ...o.skipped] };
+  };
 
   Object.assign(handlers, {
     token_borders_list: () => borders,
@@ -452,11 +458,11 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
       if (cutBorder != null) s.cut_border = cutBorder as boolean;
       return s;
     },
-    token_sheet_layout: () => layoutSheet(),
+    token_sheet_layout: () => layoutBoth(),
     token_sheet_export_pdf: () => {
-      if (!getSheet().items.length) throw invalid('the token sheet is empty');
+      if (!getSheet().items.length && !getObjects().items.length) throw invalid('the token sheet is empty');
       const id = `mock-job-${++seq}`;
-      const job = { id, kind: 'token sheet export', state: 'done' as const, progress: 1, message: '', result: { pages: layoutSheet().pages.length }, error: null };
+      const job = { id, kind: 'token sheet export', state: 'done' as const, progress: 1, message: '', result: { pages: layoutBoth().pages.length }, error: null };
       setTimeout(() => listeners.forEach((l) => l({ type: 'job', ...job })), 10);
       return id;
     },
@@ -465,7 +471,12 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
   // ── cut-outs & object sheet ──
   const cutoutParams = new Map<number, CutoutParams>();
   let objects: ObjectSheet | null = null;
-  const getObjects = () => (objects ??= { items: [], format: settings.object_page_format, mode: 'flat' });
+  // cut-outs share the token sheet's page format
+  const getObjects = () => {
+    objects ??= { items: [], format: getSheet().format, mode: 'flat' };
+    objects.format = getSheet().format;
+    return objects;
+  };
   const objectItem = (label: string, size: string, image: string, asset_id: number | null): ObjectItem => ({
     id: `mock-obj-${++seq}`, label: label.trim() || 'Cut-Out', size, scale: 100, copies: 1, image, thumb: image,
     w_px: 120, h_px: 200, asset_id,
@@ -593,15 +604,15 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     },
     object_sheet_set_options: ({ format, mode }: Record<string, unknown>) => {
       const s = getObjects();
-      if (format != null) s.format = format as PageFormat;
+      if (format != null) s.format = getSheet().format = format as PageFormat;
       if (mode != null) s.mode = mode as SheetMode;
       return s;
     },
-    object_sheet_layout: () => layoutObjects(),
+    object_sheet_layout: () => layoutBoth(),
     object_sheet_export_pdf: () => {
-      if (!getObjects().items.length) throw invalid('the object sheet is empty');
+      if (!getSheet().items.length && !getObjects().items.length) throw invalid('the token sheet is empty');
       const id = `mock-job-${++seq}`;
-      const job = { id, kind: 'object sheet export', state: 'done' as const, progress: 1, message: '', result: { pages: layoutObjects().pages.length }, error: null };
+      const job = { id, kind: 'object sheet export', state: 'done' as const, progress: 1, message: '', result: { pages: layoutBoth().pages.length }, error: null };
       setTimeout(() => listeners.forEach((l) => l({ type: 'job', ...job })), 10);
       return id;
     },

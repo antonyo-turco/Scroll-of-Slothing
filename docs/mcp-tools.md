@@ -37,10 +37,10 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `token_filter_catalog` | 2 | Filters a token can use (9 colour/tone map filters, on the image only) and the 8 map presets built from them |
 | `token_compose` | 2 | Make a token from a file or library asset, with optional `filter_preset` or `filters` pipeline (optionally save, add to sheet, write PNG); returns the image |
 | `token_sheet_list` / `token_sheet_add` / `token_sheet_update` / `token_sheet_remove` / `token_sheet_clear` / `token_sheet_set_options` | 2 | Token sheet items and options |
-| `token_sheet_layout` | 2 | Pages + placements + skipped |
-| `token_sheet_export_pdf` | 2 | Export the PDF (job) |
+| `token_sheet_layout` | 2 | Pages + placements + skipped, tokens and cut-outs |
+| `token_sheet_export_pdf` | 2 | Export the PDF of tokens and cut-outs (job) |
 | `cutout_create` | 3 | Lasso (polygon points) + outline from a file or library cut-out; optionally save, add to the object sheet, write PNG; returns the image |
-| `object_sheet_list` / `object_sheet_add` / `object_sheet_update` / `object_sheet_remove` / `object_sheet_clear` / `object_sheet_set_options` / `object_sheet_layout` / `object_sheet_export_pdf` | 3 | Object sheet (flat or standee) |
+| `object_sheet_list` / `object_sheet_add` / `object_sheet_update` / `object_sheet_remove` / `object_sheet_clear` / `object_sheet_set_options` / `object_sheet_layout` / `object_sheet_export_pdf` | 3 | Cut-outs on the token sheet (flat or standee); layout and export are the token sheet's |
 | `cards_templates` / `cards_parse` / `cards_validate` / `cards_export_pdf` | 4 | Cards: format reference + templates, parse, validate (pages, overflow), export (job) |
 | `decks_list` / `decks_get` / `decks_save` / `decks_delete` | 4 | Saved decks |
 | `map_get` / `map_open` / `map_open_asset` / `map_update` | 5 | Map paginator document: read, open from a file/blob or library asset, merge a partial doc |

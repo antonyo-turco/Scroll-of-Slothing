@@ -11,12 +11,12 @@ use crate::{CutLine, PdfError, Progress, Result, circle, draw_image, png_image, 
 
 /// Renders a packed token layout. `images[i]` is the PNG for layout item `i`.
 /// With `cut`, each token's outline is stroked: `shapes[i]` (circle when
-/// missing). A circle has radius `min(w, h) / 2`; a polygon is the largest one
+/// missing; `None` for items without a cut line, like cut-outs). A circle has radius `min(w, h) / 2`; a polygon is the largest one
 /// that fits the drawn image's box.
 pub fn render(
     layout: &Layout,
     images: &[Vec<u8>],
-    cut: Option<(&CutLine, &[TokenShape])>,
+    cut: Option<(&CutLine, &[Option<TokenShape>])>,
     progress: Progress<'_>,
 ) -> Result<Vec<u8>> {
     // One embedded image per item, reused for every copy.
@@ -52,7 +52,8 @@ pub fn render(
                 fh as f32,
             );
             if let Some((cut, shapes)) = cut {
-                let shape = shapes.get(pl.item).copied().unwrap_or_default();
+                let shape = shapes.get(pl.item).copied().unwrap_or(Some(TokenShape::default()));
+                let Some(shape) = shape else { continue };
                 let (cx, cy) = (pl.x as f32 + pl.w as f32 / 2.0, y + pl.h as f32 / 2.0);
                 if let Some(path) = outline(shape, cx, cy, pl.w.min(pl.h), fw, fh) {
                     stroke_path(&mut surface, &path, cut.stroke());
@@ -184,8 +185,10 @@ mod tests {
             (TokenShape::Decagon, 9),
         ] {
             let bytes =
-                render(&layout, &[png([0, 0, 0, 255])], Some((&cut, &[shape])), &mut |_| true)
-                    .unwrap();
+                render(&layout, &[png([0, 0, 0, 255])], Some((&cut, &[Some(shape)])), &mut |_| {
+                    true
+                })
+                .unwrap();
             let c = content(&bytes);
             assert_eq!(strokes(&c), 3);
             assert_eq!(c.matches(" l\n").count() + c.matches(" l ").count(), 3 * lines, "{c}");

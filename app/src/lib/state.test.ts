@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { setBackend } from './api';
 import { createMockBackend } from './mock';
-import { ALL_VIEWS, DESTINATIONS, findView, isRoute } from './nav';
+import { ALL_VIEWS, DESTINATIONS, ROUTE_ALIASES, findView, isRoute } from './nav';
 import { app } from './state.svelte';
 import { DEFAULT_SETTINGS } from './types';
 
 describe('navigation model', () => {
-  it('exposes the 8 rail destinations, all enabled', () => {
+  it('exposes the 7 rail destinations, all enabled', () => {
     expect(DESTINATIONS.map((d) => d.id)).toEqual([
-      'library', 'tokens', 'cutouts', 'cards', 'maps', 'music', 'combat', 'transcribe',
+      'library', 'tokens', 'cards', 'maps', 'music', 'combat', 'transcribe',
     ]);
     expect(DESTINATIONS.filter((d) => d.disabled)).toEqual([]);
   });
 
   it('has route ids identical to the Rust ROUTES list', () => {
     // Keep in sync with crates/core/src/settings.rs::ROUTES (persisted ids).
-    expect(ALL_VIEWS.map((v) => v.id).sort()).toEqual(
+    expect([...ALL_VIEWS.map((v) => v.id), ...Object.keys(ROUTE_ALIASES)].sort()).toEqual(
       [
         'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
         'cards', 'maps.paginator', 'maps.aoe', 'music', 'combat', 'transcribe.file', 'settings',
@@ -27,6 +27,9 @@ describe('navigation model', () => {
     expect(findView('maps.aoe')?.dest.id).toBe('maps');
     expect(findView('music')?.dest.id).toBe('music');
     expect(isRoute('dnd.combat')).toBe(false);
+    // cut-outs live under Tokens; the old sheet id opens the shared sheet
+    expect(findView('cutouts.cutter')?.dest.id).toBe('tokens');
+    expect(findView('cutouts.sheet')?.view.id).toBe('tokens.sheet');
   });
 });
 

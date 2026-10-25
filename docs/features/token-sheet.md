@@ -1,6 +1,11 @@
 # Token Sheet
 
-Collects tokens, packs them onto Letter or A4 pages, previews the pages, and exports a PDF.
+Collects tokens and cut-outs, packs them onto Letter or A4 pages, previews the pages, and exports one PDF.
+
+**Tokens and cut-outs share this sheet (2026-10-25).** The cut-outs of the Object Sheet (object-sheet.md) print on the same pages as the tokens, so both come out of one PDF. In the app the Cut-outs rail entry is gone: Tokens has three views, Token cutter (`tokens.cutter`), Cut-out cutter (`cutouts.cutter`) and Sheet (`tokens.sheet`). The old `cutouts.sheet` route id stays valid (links, the start-view setting) and opens the Sheet.
+- The Sheet lists Tokens and Cut-outs in two inspector sections; the toolbar has the page format, Cut border (tokens only) and the cut-out mode (Flat or Standee).
+- Add tokens…, Add cut-outs…, From 5etools… and Export PDF are in the top bar. Dropped files become tokens. Clear all empties both lists.
+- The page format is one for the whole sheet: `token_page_format`. `object_sheet_set_options {format}` sets it too.
 
 ## Size labels
 1 in = 72 pt. These are shared by the whole app.
@@ -47,6 +52,12 @@ The sheet is autosaved to the `workspaces` table under `token_sheet`. Python los
   - The outline is `SheetItem.shape`, detected from the image when the item is added (`token::detect_shape`, see token-cutter.md "Shapes"). Items saved before shapes existed are circles. A fully opaque picture added to the sheet counts as a square, so its cut line no longer crosses the picture.
   - When off, the preview shows a light grey `#cccccc` cell outline instead. The outline is not printed.
 
+## Packing with cut-outs (core::pack::mixed)
+- Only tokens: the token grid below, unchanged. Only cut-outs: the shelf packer of object-sheet.md, unchanged.
+- Both: every copy becomes a box of its printed size (a token: a square of its size; a cut-out: `shelf::ShelfItem::printed`, standees at double height) and the boxes go through MaxRects (`pack::maxrects`, as for AoE templates): largest area first, best short side fit, every open page tried before a new one, so tokens fill the space beside tall cut-outs.
+- Margin 18 pt, gap 6 pt between boxes. Boxes larger than a page are reported once per item, as skipped.
+- Layout item `i` is token `i`, or cut-out `i − tokens`; the view layout refers to items by id, so the preview and `token_sheet_layout` don't change shape.
+
 ## Packing algorithm (core::pack::token_grid)
 Reference: Python `pdf_generator.py`, `utils.py`.
 
@@ -81,6 +92,7 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 ## PDF
 - Images are embedded directly as PNG, with alpha flattened on white. **Python wrote a temporary JPEG for each token.**
 - The cut circle uses the cut-line style.
+- Cut-outs are drawn at their exact box (standees as the mirrored block with its fold line) and get no cut line, as on the old object sheet.
 - Export runs as a Job with progress, so the UI never blocks.
 
 ## Preview
@@ -94,8 +106,9 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 - `token_sheet_update {index, size?, copies?}`
 - `token_sheet_remove {index}`
 - `token_sheet_clear`
-- `token_sheet_layout` returns pages and placements, plus any skipped items.
-- `token_sheet_export_pdf {path, format?, cut_border?}`
+- `token_sheet_layout` returns pages and placements of tokens and cut-outs, plus any skipped items.
+- `token_sheet_export_pdf {path, format?, cut_border?}` exports tokens and cut-outs.
+- Cut-outs are added and changed with the `object_sheet_*` tools; `object_sheet_layout` and `object_sheet_export_pdf` are the same as the token ones.
 
 ## Parity checklist (Python `ui/token_sheet_panel.py`, `pdf_generator.py`, `image_manager.py`)
 - [x] Upload, list, thumbnails, size, copies, remove, clear (clear asks for confirmation)
@@ -107,6 +120,7 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 - [x] Add from Cutter and Library, single and batch (`app.py:518-534`)
 
 ## Intentional changes
+- Tokens and cut-outs print on the same pages and in one PDF (2026-10-25, see the top of this page). Python had two sheets and two PDFs. A sheet with only tokens packs exactly as before.
 - UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of tokens on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.
 - Half-inch packing grid: Tiny and Small print at their true size (see "Size change from Python" above).
 - Justified pages: spare space is spread between tokens so they are easy to cut (see "Justification" above). Python packed them edge to edge.

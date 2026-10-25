@@ -2,6 +2,7 @@
 //! (like ReportLab), unless stated otherwise.
 
 pub mod maxrects;
+pub mod mixed;
 pub mod shelf;
 pub mod token_grid;
 

@@ -14,7 +14,7 @@ under Combat.
 | `start_view` | route id | `tokens.sheet` | must be a known route | app start |
 | `sidebar_collapsed` | bool | false | | shell |
 | `token_page_format` | `Letter`\|`A4` | `Letter` | | token sheet |
-| `object_page_format` | `Letter`\|`A4` | `Letter` | | object sheet (*new key*; Python hardcoded Letter) |
+| `object_page_format` | `Letter`\|`A4` | `Letter` | | unused since cut-outs print on the token sheet (2026-10-25), which uses `token_page_format`; kept so saved settings still load |
 | `card_page_format` | `Letter`\|`A4` | `A4` | | cards (*new key*; Python hardcoded A4) |
 | `map_page_format` | `Letter`\|`A4`\|`A3` | `A4` | | map paginator, AoE (A3 is new; the other `*_page_format` keys refuse it) |
 | `token_cut_border` | bool | false | | token sheet |

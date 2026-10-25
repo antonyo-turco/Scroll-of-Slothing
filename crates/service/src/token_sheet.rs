@@ -1,11 +1,16 @@
 //! Token Sheet service. Spec: docs/features/token-sheet.md.
 //! The sheet is autosaved in the `token_sheet` workspace (survives restarts).
+//! Cut-outs (`object_sheet.rs`) print on the same sheet: the layout and the
+//! PDF pack tokens and cut-outs together on the token sheet's page format.
 
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use sleuth_core::cutout::standee_block;
 use sleuth_core::imaging;
 use sleuth_core::pack::Layout;
+use sleuth_core::pack::mixed::{self, MixedItem};
+use sleuth_core::pack::shelf::{self, SheetMode, ShelfItem};
 use sleuth_core::pack::token_grid::{GridMode, TokenItem, justify, pack};
 use sleuth_core::token::{TokenParams, TokenShape, detect_shape};
 use sleuth_core::units::{PageFormat, SizeLabel};
@@ -13,6 +18,7 @@ use sleuth_pdf::{CutLine, PdfError};
 use sleuth_store::Store;
 
 use crate::library::check_size;
+use crate::object_sheet::{self, ObjectSheet};
 use crate::tokens::store_source;
 use crate::{JobId, Result, Service, ServiceError};
 
@@ -70,7 +76,7 @@ pub struct SheetItemPatch {
     pub copies: Option<u32>,
 }
 
-fn load(s: &Store) -> Result<TokenSheet> {
+pub(crate) fn load(s: &Store) -> Result<TokenSheet> {
     if let Some(sheet) = s.workspace_get::<TokenSheet>(KEY)? {
         return Ok(sheet);
     }
@@ -78,7 +84,7 @@ fn load(s: &Store) -> Result<TokenSheet> {
     Ok(TokenSheet { items: vec![], format: st.token_page_format, cut_border: st.token_cut_border })
 }
 
-fn save(s: &Store, sheet: &TokenSheet) -> Result<()> {
+pub(crate) fn save(s: &Store, sheet: &TokenSheet) -> Result<()> {
     s.workspace_set(KEY, sheet)?;
     s.record_change("token_sheet", KEY, "update")?;
     Ok(())
@@ -132,18 +138,50 @@ fn new_item(
     })
 }
 
-fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
-    let items: Vec<TokenItem> = sheet
-        .items
-        .iter()
-        .map(|i| TokenItem {
-            size_pt: SizeLabel::parse(&i.size).unwrap_or_default().points(),
-            copies: i.copies,
-        })
-        .collect();
-    let mut layout = pack(&items, sheet.format, GridMode::HalfInch);
-    // Spread the tokens into the page's spare space so they're easy to cut apart.
-    justify(&mut layout, GridMode::HalfInch);
+/// Printed box of a cut-out, standees at double height.
+fn shelf_item(i: &object_sheet::ObjectItem) -> ShelfItem {
+    ShelfItem {
+        w_px: i.w_px,
+        h_px: i.h_px,
+        size_pt: SizeLabel::parse(&i.size).unwrap_or_default().points(),
+        scale_pct: f64::from(i.scale),
+        copies: i.copies,
+    }
+}
+
+/// Packs the sheet: tokens first, then cut-outs (layout item `i` is token `i`,
+/// or cut-out `i - tokens`). Tokens alone keep their half-inch grid and cut-outs
+/// alone their shelves, as before; both together share pages through MaxRects.
+fn compute_layout(sheet: &TokenSheet, objects: &ObjectSheet) -> (Layout, SheetLayout) {
+    let ids: Vec<&String> =
+        sheet.items.iter().map(|i| &i.id).chain(objects.items.iter().map(|i| &i.id)).collect();
+    let layout = if objects.items.is_empty() {
+        let items: Vec<TokenItem> = sheet
+            .items
+            .iter()
+            .map(|i| TokenItem {
+                size_pt: SizeLabel::parse(&i.size).unwrap_or_default().points(),
+                copies: i.copies,
+            })
+            .collect();
+        let mut layout = pack(&items, sheet.format, GridMode::HalfInch);
+        // Spread the tokens into the page's spare space so they're easy to cut apart.
+        justify(&mut layout, GridMode::HalfInch);
+        layout
+    } else if sheet.items.is_empty() {
+        let items: Vec<ShelfItem> = objects.items.iter().map(shelf_item).collect();
+        shelf::pack(&items, sheet.format, objects.mode)
+    } else {
+        let tokens = sheet.items.iter().map(|i| {
+            let pt = SizeLabel::parse(&i.size).unwrap_or_default().points();
+            MixedItem { w: pt, h: pt, copies: i.copies }
+        });
+        let cutouts = objects.items.iter().map(|i| {
+            let (w, h) = shelf_item(i).printed(objects.mode);
+            MixedItem { w, h, copies: i.copies }
+        });
+        mixed::pack(&tokens.chain(cutouts).collect::<Vec<_>>(), sheet.format)
+    };
     let view = SheetLayout {
         page_w: layout.page_w,
         page_h: layout.page_h,
@@ -153,7 +191,7 @@ fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
             .map(|p| {
                 p.iter()
                     .map(|pl| PlacedItem {
-                        id: sheet.items[pl.item].id.clone(),
+                        id: ids[pl.item].clone(),
                         x: pl.x,
                         y: pl.y,
                         w: pl.w,
@@ -162,7 +200,7 @@ fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
                     .collect()
             })
             .collect(),
-        skipped: layout.skipped.iter().map(|&i| sheet.items[i].id.clone()).collect(),
+        skipped: layout.skipped.iter().map(|&i| ids[i].clone()).collect(),
     };
     (layout, view)
 }
@@ -346,19 +384,22 @@ impl Service {
         .await
     }
 
+    /// Layout of the whole sheet, tokens and cut-outs.
     pub async fn token_sheet_layout(&self) -> Result<SheetLayout> {
-        self.blocking(|s| Ok(compute_layout(&load(s)?).1)).await
+        self.blocking(|s| Ok(compute_layout(&load(s)?, &object_sheet::load(s)?).1)).await
     }
 
-    /// Exports the sheet to `path` as a background job (result: `{path, pages}`).
+    /// Exports the sheet, tokens and cut-outs, to `path` as a background job
+    /// (result: `{path, pages}`).
     pub fn token_sheet_export_pdf(&self, path: PathBuf) -> JobId {
         self.spawn_job("token sheet export", move |ctx| {
             let store = ctx.service().store();
             let sheet = load(&store)?;
-            if sheet.items.is_empty() {
+            let objects = object_sheet::load(&store)?;
+            if sheet.items.is_empty() && objects.items.is_empty() {
                 return Err(ServiceError::InvalidInput("the token sheet is empty".into()));
             }
-            let (layout, view) = compute_layout(&sheet);
+            let (layout, view) = compute_layout(&sheet, &objects);
             if !view.skipped.is_empty() {
                 return Err(ServiceError::InvalidInput(format!(
                     "{} item(s) cannot fit on a page",
@@ -366,15 +407,32 @@ impl Service {
                 )));
             }
             ctx.progress(0.02, "reading images");
-            let images = sheet
+            let mut images = sheet
                 .items
                 .iter()
                 .map(|i| png_bytes(&store, &i.image))
                 .collect::<Result<Vec<_>>>()?;
+            for i in &objects.items {
+                images.push(match objects.mode {
+                    SheetMode::Flat => png_bytes(&store, &i.image)?,
+                    SheetMode::Standee => {
+                        let img = imaging::decode(&store.read_blob(&i.image)?)
+                            .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+                        imaging::encode_png(&standee_block(&img.to_rgba8()))
+                            .map_err(|e| ServiceError::Internal(e.to_string()))?
+                    }
+                });
+            }
             let cut = sheet
                 .cut_border
                 .then(|| CutLine::from_settings(&store.load_settings().unwrap_or_default()));
-            let shapes: Vec<TokenShape> = sheet.items.iter().map(|i| i.shape).collect();
+            // Tokens get their outline; cut-outs have no cut line (as on the old object sheet).
+            let shapes: Vec<Option<TokenShape>> = sheet
+                .items
+                .iter()
+                .map(|i| Some(i.shape))
+                .chain(objects.items.iter().map(|_| None))
+                .collect();
             let cut = cut.as_ref().map(|c| (c, shapes.as_slice()));
             let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut, &mut |p| {
                 ctx.progress(0.05 + 0.9 * p, "rendering pages");
@@ -528,6 +586,26 @@ mod tests {
         );
         let bytes = std::fs::read(out).unwrap();
         assert!(bytes.starts_with(b"%PDF"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn tokens_and_cutouts_print_on_the_same_pages() {
+        let (d, svc) = temp_service();
+        let t = write_test_png(d.path(), "Rat.png", 40, 40);
+        let c = write_test_png(d.path(), "Lamp.png", 100, 200);
+        let sheet = svc.token_sheet_add_files(vec![t], None).await.unwrap();
+        let objects = svc.object_sheet_add_files(vec![c], Some("Large".into())).await.unwrap();
+        svc.object_sheet_set_options(Some(PageFormat::A4), Some(SheetMode::Standee)).await.unwrap();
+        assert_eq!(svc.token_sheet_get().await.unwrap().format, PageFormat::A4, "one format");
+        let layout = svc.token_sheet_layout().await.unwrap();
+        assert_eq!(layout.pages.len(), 1);
+        let ids: Vec<&str> = layout.pages[0].iter().map(|p| p.id.as_str()).collect();
+        assert!(ids.contains(&sheet.items[0].id.as_str()));
+        assert!(ids.contains(&objects.items[0].id.as_str()));
+        let out = d.path().join("both.pdf");
+        let st = wait(&svc, &svc.token_sheet_export_pdf(out.clone())).await;
+        assert_eq!(st.state, JobState::Done, "{:?}", st.error);
+        assert_eq!(st.result.unwrap()["pages"], 1);
     }
 
     #[tokio::test(flavor = "multi_thread")]

@@ -333,7 +333,7 @@
     busy = true;
     try {
       await api.objectSheetAddComposed(d.source.hash, params(), d.name, d.size);
-      app.toast('success', `“${d.name || 'Cut-Out'}” added to the object sheet`);
+      app.toast('success', `“${d.name || 'Cut-Out'}” added to the sheet`);
     } catch (e) {
       app.error('Could not add to sheet', e);
     } finally {
@@ -359,7 +359,7 @@
   <button class="btn" onclick={browse} title="Load an image from disk">Open image…</button>
   <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
   <button class="btn" disabled={!canCut} onclick={exportPng} title="Write the cut-out as a PNG file">Save PNG…</button>
-  <button class="btn" disabled={!canCut || busy} onclick={addToSheet} title="Put the cut-out on the object sheet">Add to sheet</button>
+  <button class="btn" disabled={!canCut || busy} onclick={addToSheet} title="Put the cut-out on the token sheet, next to the tokens">Add to sheet</button>
   <button class="btn primary" disabled={!canCut || busy} onclick={() => (saveChoice = true)} title="Store the cut-out in the Library">Save to library…</button>
 </ViewActions>
 

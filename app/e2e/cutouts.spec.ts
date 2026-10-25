@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Object Cutter + Object Sheet against the in-memory mock backend.
+// Object Cutter + the shared token sheet against the in-memory mock backend.
 
 async function openInCutter(page: Page, name: string) {
   await page.goto('/#/library');
@@ -85,16 +85,16 @@ test('cutter → object sheet: scale, copies, standee mode, clear', async ({ pag
   await page.getByTestId('cutter-stage').dblclick({ position: { x: 5, y: 5 } }).catch(() => {});
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Add to sheet', exact: true }).click();
-  await expect(page.getByText('added to the object sheet')).toBeVisible();
+  await expect(page.getByText('added to the sheet')).toBeVisible();
 
   await page.getByRole('tab', { name: 'Sheet' }).click();
   await expect(page.getByTestId('object-item')).toHaveCount(1);
   await page.getByLabel('Copies of Brazier').fill('6');
   await page.getByLabel('Copies of Brazier').press('Enter');
-  const svg = page.getByTestId('object-page');
+  const svg = page.getByTestId('sheet-page');
   await expect(svg.locator('image')).toHaveCount(6);
 
-  await page.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Standee' }).click();
+  await page.getByRole('group', { name: 'Cut-out mode' }).getByRole('button', { name: 'Standee' }).click();
   await expect(svg.locator('image')).toHaveCount(12, { timeout: 5000 });
   await expect(svg.locator('line.fold')).toHaveCount(6);
 
@@ -113,5 +113,5 @@ test('library bulk "Add to sheets" routes by kind and skips maps', async ({ page
   await page.getByRole('button', { name: 'Zombie (Token)' }).click();
   await page.getByRole('button', { name: 'Forest Road (Map)' }).click();
   await page.getByRole('toolbar', { name: 'Bulk actions' }).getByRole('button', { name: 'Add to sheets' }).click();
-  await expect(page.getByText('Added 1 to the token sheet and 1 to the object sheet · skipped 1 map(s)')).toBeVisible();
+  await expect(page.getByText('Added 1 token(s) and 1 cut-out(s) to the sheet · skipped 1 map(s)')).toBeVisible();
 });
