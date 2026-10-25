@@ -394,6 +394,16 @@ pub fn roll(formula: &str, rng: &mut dyn FnMut(u32) -> u32) -> Option<i64> {
     Some(total)
 }
 
+/// Passive initiative adjustment: +5 with advantage on initiative, −5 with
+/// disadvantage (5etools `initiative.advantageMode`).
+pub fn initiative_advantage(mon: &Value) -> i64 {
+    match mon.get("initiative").and_then(|i| i.get("advantageMode")).and_then(Value::as_str) {
+        Some("adv") => 5,
+        Some("dis") => -5,
+        _ => 0,
+    }
+}
+
 /// Initiative for a creature: `1d20 + bonus` (5etools `pGetRollInitiative`).
 pub fn roll_initiative(bonus: i64, rng: &mut dyn FnMut(u32) -> u32) -> i64 {
     i64::from(rng(20)) + 1 + bonus

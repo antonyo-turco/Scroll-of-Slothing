@@ -44,6 +44,7 @@ export interface Settings {
   combat_reset_confirm: boolean;
   combat_reset_keep_players: boolean;
   combat_turn_popup: boolean;
+  combat_passive_initiative: boolean;
 }
 
 export interface SettingsUpdate {
@@ -114,6 +115,7 @@ export const DEFAULT_SETTINGS: Settings = {
   combat_reset_confirm: true,
   combat_reset_keep_players: false,
   combat_turn_popup: true,
+  combat_passive_initiative: false,
 };
 
 // ── library (crates/store/src/assets.rs) ──
@@ -693,6 +695,8 @@ export interface CombatCondition {
   color: string;
   /** Turns left; null is unlimited. */
   turns: number | null;
+  /** Turns spent under it so far. */
+  elapsed: number;
 }
 
 /** A stat cell: the column id plus value, or current/max, or tokenUrl/imageHref. */
@@ -757,6 +761,8 @@ export interface Tracker {
   is_roll_hp: boolean;
   is_roll_groups: boolean;
   is_reroll_initiative_each_round: boolean;
+  /** Passive initiative (10 + bonus) instead of rolling. */
+  is_passive_init: boolean;
   is_invert_wound_direction: boolean;
   import_is_roll_groups: boolean;
   import_is_add_players: boolean;

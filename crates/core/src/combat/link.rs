@@ -209,7 +209,7 @@ pub fn import_encounter(
         }
         let bonus = creature::initiative_bonus(&mon).unwrap_or(0);
         let group_init = (t.import_is_roll_groups && t.is_roll_init)
-            .then(|| creature::roll_initiative(bonus, rng));
+            .then(|| t.initiative_of(bonus, creature::initiative_advantage(&mon), rng));
         let group_hp =
             t.import_is_roll_groups.then(|| creature::hp_for(&mon, t.is_roll_hp, rng)).flatten();
         for _ in 0..item.count {
@@ -223,7 +223,7 @@ pub fn import_encounter(
             } else if t.import_is_roll_groups {
                 group_init
             } else {
-                Some(creature::roll_initiative(bonus, rng))
+                Some(t.initiative_of(bonus, creature::initiative_advantage(&mon), rng))
             };
             let all: Vec<Row> = if t.import_is_append {
                 t.rows.iter().chain(&rows).cloned().collect()

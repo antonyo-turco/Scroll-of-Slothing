@@ -199,17 +199,56 @@
   // ── concentration reminder ──
   let concAlerts = $state<{ id: number; who: string; damage: number; dc: number }[]>([]);
   let concSeq = 0;
+  /** Damage taken in quick steps (−10, −10, −3) is one hit: it is added up and the
+   *  reminder comes once, when the steps stop (a pause, the strip closing, the
+   *  window losing focus), with the total and its DC. */
+  const pendingDamage = new Map<string, { who: string; total: number }>();
+  let damageTimer: ReturnType<typeof setTimeout> | null = null;
   /** A concentrating combatant took damage: remind the DM to roll the save. */
   function tookDamage(r: CombatRow, damage: number) {
     if (!r.conditions.some((c) => c.name.trim().toLowerCase() === 'concentration')) return;
-    const id = ++concSeq;
-    concAlerts = [...concAlerts.filter((a) => a.who !== label(r)), { id, who: label(r), damage, dc: concentrationDc(damage) }];
-    setTimeout(() => (concAlerts = concAlerts.filter((a) => a.id !== id)), 12000);
+    const p = pendingDamage.get(r.id);
+    pendingDamage.set(r.id, { who: label(r), total: (p?.total ?? 0) + damage });
+    if (damageTimer) clearTimeout(damageTimer);
+    damageTimer = setTimeout(flushDamage, 1500);
   }
+  function flushDamage() {
+    if (damageTimer) clearTimeout(damageTimer);
+    damageTimer = null;
+    for (const { who, total } of pendingDamage.values()) {
+      const id = ++concSeq;
+      concAlerts = [...concAlerts.filter((a) => a.who !== who), { id, who, damage: total, dc: concentrationDc(total) }];
+      setTimeout(() => (concAlerts = concAlerts.filter((a) => a.id !== id)), 12000);
+    }
+    pendingDamage.clear();
+  }
+  // closing the ± strip or leaving the window ends a burst of damage
+  $effect(() => {
+    if (!steps && pendingDamage.size) flushDamage();
+  });
+  $effect(() => {
+    const blur = () => pendingDamage.size && flushDamage();
+    window.addEventListener('blur', blur);
+    return () => window.removeEventListener('blur', blur);
+  });
 
   // ── rolls from the stat block ──
   type RollLine = { id: number; who: string; entry: string; kind: 'hit' | 'damage'; total: number; detail: string; tag: string };
   let rolls = $state<RollLine[]>([]);
+  let rollsOpen = $state(true);
+  try {
+    rollsOpen = localStorage.getItem('combat.rollsOpen') !== '0';
+  } catch {
+    /* storage unavailable */
+  }
+  function setRollsOpen(v: boolean) {
+    rollsOpen = v;
+    try {
+      localStorage.setItem('combat.rollsOpen', v ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
   let rollSeq = 0;
   /** Abilities whose last attack was a natural 20: their next damage roll is a crit. */
   const critNext = new Set<string>();
@@ -271,10 +310,14 @@
 
   /** At the start of a creature's turn: legendary actions refill, spent recharges roll a d6. */
   function startOfTurn(rows: CombatRow[]) {
-    const notes: string[] = [];
+    const notes: RechargeNote[] = [];
+    let refilled = false;
     for (const r of rows) {
       if (!r.source || !r.usage) continue;
-      if (r.usage.__la) setUsage(r, '__la', null);
+      if (r.usage.__la) {
+        setUsage(r, '__la', null);
+        refilled = true;
+      }
       const m = merged(r);
       for (const key of Object.keys(r.usage)) {
         if (key.startsWith('__')) continue;
@@ -283,16 +326,53 @@
           .find((b) => String(b.name ?? '').replace(/\s*\{@recharge[^}]*\}|\s*\((?:Recharge[^)]*)\)/gi, '').trim() === key)?.name;
         const rc = raw?.match(/\{@recharge\s*(\d*)\}/) ?? raw?.match(/\(Recharge (\d)/i);
         if (!rc) continue;
-        const need = Number(rc[1]) || 6;
-        const d6 = 1 + Math.floor(Math.random() * 6);
-        if (d6 >= need) setUsage(r, key, null);
-        notes.push(`${label(r)}: ${key} ${d6 >= need ? 'recharged' : 'not recharged'} (rolled ${d6}, needs ${need})`);
+        // a reminder only: the DM rolls and clicks the badge when it recharges
+        notes.push({ rowId: r.id, who: label(r), ability: key, need: Number(rc[1]) || 6 });
       }
     }
-    if (notes.length) {
+    if (refilled) commit();
+    if (notes.length) showRecharge(notes);
+  }
+  // ── recharge notice: a reminder to roll for spent recharge abilities at turn start ──
+  type RechargeNote = { rowId: string; who: string; ability: string; need: number };
+  let rechargeNotice = $state<{ id: number; items: RechargeNote[] } | null>(null);
+  let rechargeSeq = 0;
+  function showRecharge(items: RechargeNote[]) {
+    const id = ++rechargeSeq;
+    setTimeout(() => {
+      if (rechargeSeq !== id) return;
+      rechargeNotice = { id, items };
+      setTimeout(() => {
+        if (rechargeNotice?.id === id) rechargeNotice = null;
+      }, 15000);
+    }, legendDelay);
+  }
+
+  /** ✓ in the notice: the roll hit, the ability is available again. */
+  function markRecharged(it: RechargeNote) {
+    const r = t?.rows.find((x) => x.id === it.rowId);
+    if (r) {
+      setUsage(r, it.ability, null);
       commit();
-      for (const n of notes) app.toast('info', n);
     }
+    if (!rechargeNotice) return;
+    const items = rechargeNotice.items.filter((x) => x !== it);
+    rechargeNotice = items.length ? { ...rechargeNotice, items } : null;
+  }
+
+  // ── legendary actions notice: just above the turn card, on the same timing ──
+  let legendNotice = $state<{ id: number; items: { who: string; left: number }[] } | null>(null);
+  let legendSeq = 0;
+  let legendDelay = 0;
+  function showLegend(items: { who: string; left: number }[]) {
+    const id = ++legendSeq;
+    setTimeout(() => {
+      if (legendSeq !== id) return;
+      legendNotice = { id, items };
+      setTimeout(() => {
+        if (legendNotice?.id === id) legendNotice = null;
+      }, 4000);
+    }, legendDelay);
   }
   /** After another combatant's turn: who still has legendary actions; dying heroes roll death saves. */
   function afterTurn(started: CombatRow[]) {
@@ -306,7 +386,7 @@
         return { r, left: max - (Number(r.usage?.__la) || 0) };
       })
       .filter((x) => x.left > 0);
-    if (legend.length) app.toast('info', `Legendary actions: ${legend.map((x) => `${label(x.r)} (${x.left} left)`).join(', ')}`);
+    if (legend.length) showLegend(legend.map((x) => ({ who: label(x.r), left: x.left })));
     for (const r of started) if (isDying(r) && deathSaves(r).s < 3) app.toast('info', `${label(r)} is dying: roll a death saving throw`);
   }
 
@@ -597,6 +677,7 @@
   // ── conditions ──
   let condRow = $state<CombatRow | null>(null);
   let condTurns = $state<number | null>(null);
+  let condHint = $state<string | null>(null);
   const condOpen = {
     get value() {
       return condRow !== null;
@@ -684,6 +765,11 @@
     condRow = selRows[0];
     condTurns = null;
   }
+  /** Short chip label when a row has more than two conditions: "Prone" → "Pro". */
+  const abbr = (name: string) => {
+    const letters = name.replace(/[^A-Za-z]/g, '');
+    return letters.slice(0, 3) || name.slice(0, 3);
+  };
   function removeCondition(r: CombatRow, id: string) {
     void op(api.combatUpdateRow(r.id, { remove_conditions: [id] }));
   }
@@ -774,7 +860,7 @@
     const w0 = panelW;
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) => (panelW = Math.min(1000, Math.max(300, w0 + (x0 - ev.clientX))));
+    const move = (ev: PointerEvent) => (panelW = Math.min(panelMax, Math.max(300, w0 + (x0 - ev.clientX))));
     const up = () => {
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
@@ -802,8 +888,11 @@
       /* ignore */
     }
   }
+  /** At most 40% of the window (and 1000 px), so the tracker keeps its room. */
+  let winW = $state(typeof window === 'undefined' ? 1600 : window.innerWidth);
+  const panelMax = $derived(Math.max(300, Math.min(1000, Math.round(winW * 0.4))));
   function resizeKey(e: KeyboardEvent) {
-    if (e.key === 'ArrowLeft') panelW = Math.min(1000, panelW + 20);
+    if (e.key === 'ArrowLeft') panelW = Math.min(panelMax, panelW + 20);
     else if (e.key === 'ArrowRight') panelW = Math.max(300, panelW - 20);
   }
 
@@ -991,6 +1080,7 @@
       splashTimer = setTimeout(() => (splash = null), 1700);
     }
     showTurnCard(newRound ? 1700 : 0);
+    legendDelay = newRound ? 1700 : 0;
     const started = t?.rows.filter((r) => r.is_active) ?? [];
     startOfTurn(started);
     afterTurn(started);
@@ -1038,7 +1128,7 @@
   const sortLabel = (s: CombatSort) => (t?.sort === s ? (t.dir === 'ASC' ? ' ↑' : ' ↓') : '');
 </script>
 
-<svelte:window onkeydown={undoKeys} />
+<svelte:window onkeydown={undoKeys} bind:innerWidth={winW} />
 
 <ViewActions slot="nav">
   <div class="segmented" role="tablist" aria-label="Combat views">
@@ -1060,7 +1150,7 @@
 {:else if tab === 'parties'}
   <Parties onAdded={(x) => { setTracker(x); tab = 'tracker'; }} />
 {:else}
-<div class="view" style:--inspector-w="{panelMin ? 44 : panelW}px">
+<div class="view" style:--inspector-w="{panelMin ? 44 : Math.min(panelW, panelMax)}px">
   <section class="work" aria-label="Combat tracker">
     <div class="view-toolbar">
       <button class="btn" onclick={() => op(api.combatPrevTurn())} disabled={!t?.rows.length} aria-label="Previous turn">◀ Prev</button>
@@ -1124,18 +1214,20 @@
         <table class="tracker" data-testid="combat-table">
           <thead>
             <tr>
+              <th class="init-th">Init</th>
               <th class="name">Name</th>
               <th>Conditions</th>
               {#each t.stats_cols as c (c.id)}<th title={catalog.columns.find((k) => k.populate_with === c.populate_with)?.name}>{c.abbreviation || '·'}</th>{/each}
               <th>HP</th>
-              <th>Init</th>
               <th><span class="sr">Actions</span></th>
             </tr>
           </thead>
           <tbody>
             {#each t.rows as r (r.id)}
               {@const w = wound(r)}
-              <tr onclick={(e) => rowClick(r, e)} class:selected={selected.has(r.id)} class:active={r.is_active} class:defeated={w.text === 'Defeated'} class:hero={isHero(r)} class:monster={!!r.source && !r.side} class:ally={r.side === 'ally'} class:neutral={r.side === 'neutral'} class:lair={r.side === 'lair'} data-testid="combat-row">
+              <tr onclick={(e) => rowClick(r, e)} onmousedown={(e) => e.shiftKey && !(e.target as HTMLElement).closest('input, textarea') && e.preventDefault()} class:selected={selected.has(r.id)} class:active={r.is_active} class:defeated={w.text === 'Defeated'} class:hero={isHero(r)} class:monster={!!r.source && !r.side} class:ally={r.side === 'ally'} class:neutral={r.side === 'neutral'} class:lair={r.side === 'lair'} data-testid="combat-row">
+                <td class="init-td"><input class="init-in" inputmode="numeric" aria-label="Initiative of {label(r)}" value={r.initiative ?? ''}
+                  onchange={(e) => setInit(r, e.currentTarget.value)} disabled={locked} /></td>
                 <td class="name">
                   {#if editing.has(r.id) && !locked}
                     {#if r.source}
@@ -1148,26 +1240,26 @@
                     <button class="cname" class:inspected={inspectId === r.id} onclick={(e) => { if (!e.shiftKey) inspectId = inspectId === r.id ? null : r.id; }}
                       title="Show in the side panel">{label(r)}</button>
                     {#if r.source}<span class="src">{r.source}</span>{/if}
+                    <button type="button" class="info" aria-label="Details of {label(r)}" onmouseenter={() => fetchMon(r)} onfocus={() => fetchMon(r)}>
+                      i
+                      <span class="info-pop">{#each infoLines(r) as l, i (i)}<span class:first={i === 0}>{l}</span>{:else}<span>No details</span>{/each}</span>
+                    </button>
                     {#if saveResults[r.id]}
                       {@const sr = saveResults[r.id]}
                       <span class="save-badge" class:pass={sr !== 'self' && sr.pass} class:fail={sr !== 'self' && !sr.pass && !!saveDc}>
                         {sr === 'self' ? 'rolls own save' : `${sr.total}${saveDc ? (sr.pass ? ' ✓' : ' ✗') : ''}`}
                       </span>
                     {/if}
-                    <button type="button" class="info" aria-label="Details of {label(r)}" onmouseenter={() => fetchMon(r)} onfocus={() => fetchMon(r)}>
-                      i
-                      <span class="info-pop">{#each infoLines(r) as l, i (i)}<span class:first={i === 0}>{l}</span>{:else}<span>No details</span>{/each}</span>
-                    </button>
                   {/if}
                 </td>
                 <td class="conds-td"><div class="conds">
                   {#each r.conditions as c (c.id)}
                     <span class="chip-wrap">
                       <button class="chip" style="--c: {c.color}" aria-label="Remove {c.name}" onclick={() => removeCondition(r, c.id)} disabled={locked}>
-                        {c.name}{c.turns !== null ? ` (${c.turns})` : ''}
+                        {r.conditions.length > 2 ? abbr(c.name) : c.name} ({c.turns !== null ? `${c.elapsed ?? 0}/${(c.elapsed ?? 0) + c.turns}` : c.elapsed ?? 0})
                       </button>
                       <span class="tip" role="tooltip">
-                        <b>{c.name}</b>{c.turns !== null ? ` · ${c.turns} turn(s) left` : ''}
+                        <b>{c.name}</b> · {c.elapsed ?? 0} turn(s) so far{c.turns !== null ? `, ${c.turns} left` : ''}
                         {#if conditionTip(c.name)}<span>{conditionTip(c.name)}</span>{/if}
                         <small>Click to remove</small>
                       </span>
@@ -1246,7 +1338,6 @@
                     </div>
                   </div>
                 </td>
-                <td><input class="input num" aria-label="Initiative of {label(r)}" value={r.initiative ?? ''} onchange={(e) => setInit(r, e.currentTarget.value)} disabled={locked} /></td>
                 <td class="acts">
                   <button class="btn ghost icon" class:on={!!r.notes} aria-pressed={editing.has(r.id)} aria-label="Edit {label(r)}" title="Edit name and max HP" onclick={() => toggleEdit(r.id)} disabled={locked}><Icon name="pencil" size={17} /></button>
                   {#if r.source}
@@ -1316,7 +1407,8 @@
     {:else}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div class="resizer" role="separator" aria-orientation="vertical" aria-label="Resize the stat block panel" aria-valuenow={Math.round(panelW)}
-        aria-valuemin={300} aria-valuemax={1000} tabindex="0" onpointerdown={startResize} onkeydown={resizeKey}></div>
+        aria-valuemin={300} aria-valuemax={panelMax} tabindex="0" onpointerdown={startResize} onkeydown={resizeKey}></div>
+      <div class="panel-body">
       <div class="panel-head">
         <span class="panel-title">{inspecting ? 'Selected' : 'Current turn'}</span>
         {#if inspecting}<button class="btn ghost" onclick={() => (inspectId = null)} title="Back to whoever's turn it is">Current turn</button>{/if}
@@ -1333,16 +1425,6 @@
         {#if focus.source && groupOf(focus) && lairGroups[lairKey(groupOf(focus)!)]?.lairActions && !hasLairRow(groupOf(focus)!)}
           <button class="btn lair-btn" onclick={() => addLair(focus!)} disabled={locked}>+ Add lair (initiative 20)</button>
         {/if}
-        {#if rolls.length}
-          <ol class="roll-log" aria-label="Recent rolls" aria-live="polite">
-            {#each rolls as l, i (l.id)}
-              <li class:latest={i === 0} class:crit={l.tag === 'CRIT'} class:miss={l.tag === 'MISS'}>
-                <span class="rl-total">{l.total}</span>
-                <span class="rl-what">{l.entry} {l.kind === 'hit' ? 'to hit' : 'damage'}{l.tag ? ` · ${l.tag}` : ''}<small>{l.who} · {l.detail}</small></span>
-              </li>
-            {/each}
-          </ol>
-        {/if}
         <StatBlock mon={focus.side === 'lair' ? null : merged(focus)} hero={heroOf(focus)} name={label(focus)} sub={focus.display_name ?? undefined}
           lair={focus.side === 'lair' ? lairOf(focus) : null} usage={focus.usage}
           onRoll={(q) => doRoll(focus!, q)} onUse={(key, n) => { setUsage(focus!, key, Math.max(0, n)); commit(); }} />
@@ -1350,6 +1432,31 @@
       {:else}
         <p class="note">The stat block of whoever's turn it is shows here. Press <b>Next turn</b> to start.</p>
       {/if}
+      {#if rolls.length}
+        <section class="roll-win" class:open={rollsOpen} aria-label="Rolls">
+          <header>
+            <button class="rw-toggle" onclick={() => setRollsOpen(!rollsOpen)} aria-expanded={rollsOpen}>
+              <span class="rw-caret" aria-hidden="true">{rollsOpen ? '▾' : '▸'}</span> Rolls
+              {#if !rollsOpen}
+                {@const l = rolls[0]}
+                <span class="rw-last" class:crit={l.tag === 'CRIT' || l.tag === 'SAVED'} class:miss={l.tag === 'MISS' || l.tag === 'FAILED'}>{l.total} · {l.entry}</span>
+              {/if}
+            </button>
+            <button class="btn ghost rw-clear" onclick={() => (rolls = [])} title="Clear the rolls">Clear</button>
+          </header>
+          {#if rollsOpen}
+            <ol class="roll-log" aria-live="polite">
+              {#each rolls as l, i (l.id)}
+                <li class:latest={i === 0} class:crit={l.tag === 'CRIT' || l.tag === 'SAVED'} class:miss={l.tag === 'MISS' || l.tag === 'FAILED'}>
+                  <span class="rl-total">{l.total}</span>
+                  <span class="rl-what">{l.entry} {l.kind === 'hit' ? (l.entry.endsWith('save') ? '' : 'to hit') : 'damage'}{l.tag ? ` · ${l.tag}` : ''}<small>{l.who} · {l.detail}</small></span>
+                </li>
+              {/each}
+            </ol>
+          {/if}
+        </section>
+      {/if}
+      </div>
     {/if}
   </aside>
 </div>
@@ -1379,13 +1486,37 @@
   <div class="conc-stack" role="alert" aria-live="assertive">
     {#each concAlerts as a (a.id)}
       <div class="conc" data-testid="concentration-alert">
-        <span class="conc-icon" aria-hidden="true">🎯</span>
         <span class="conc-text"><b>{a.who}</b> is concentrating and took {a.damage} damage.<br />Constitution save, <b>DC {a.dc}</b>.</span>
         <button class="btn ghost icon" aria-label="Dismiss" onclick={() => (concAlerts = concAlerts.filter((x) => x.id !== a.id))}>✕</button>
       </div>
     {/each}
   </div>
 {/if}
+
+<div class="notices">
+  <div class="notice-row">
+  {#if rechargeNotice}
+    <div class="note-card recharge-notice" role="status" aria-live="polite" data-testid="recharge-notice">
+      <span class="ln-label">Recharge</span>
+      {#each rechargeNotice.items as it (it.who + it.ability)}
+        <span class="ln-item"><b>{it.who}</b> {it.ability}
+          <span class="rc-res">{it.need}{it.need < 6 ? '–6' : ''}</span>
+          <button class="rc-ok" onclick={() => markRecharged(it)} aria-label="{it.ability} recharged" title="It recharged">✓</button>
+        </span>
+      {/each}
+    </div>
+  {/if}
+{#if legendNotice}
+  <div class="note-card legend-notice" role="status" aria-live="polite" data-testid="legendary-notice">
+    <span class="ln-label">Legendary actions</span>
+    {#each legendNotice.items as it (it.who)}
+      <span class="ln-item"><b>{it.who}</b>
+        <span class="ln-pips" aria-label="{it.left} left">{#each Array(it.left) as _, i (i)}<span class="ln-pip"></span>{/each}</span>
+      </span>
+    {/each}
+  </div>
+{/if}
+  </div>
 
 {#if turnCard}
   {@const c = turnCard}
@@ -1402,6 +1533,7 @@
     {/if}
   </div>
 {/if}
+</div>
 
 {#if splash !== null}
   <div class="splash" aria-live="polite" data-testid="round-splash"><span class="splash-label">Round</span><span class="splash-num">{splash}</span></div>
@@ -1459,7 +1591,7 @@
           <button class="side-{id}" aria-pressed={side === id} onclick={() => (side = id)}>{l}</button>
         {/each}
       </div>
-      <label class="check"><input type="checkbox" bind:checked={rollHp} /> Roll HP</label>
+      <label class="check nowrap-label"><input type="checkbox" bind:checked={rollHp} /> Roll HP</label>
       <label class="cr-pick">CR
         <select class="input compact" aria-label="Scale to CR" bind:value={addCr} disabled={!pickMon}>
           <option value="">{pickMon ? `${crOfMon(pickMon) ?? '—'} (as is)` : 'as is'}</option>
@@ -1545,17 +1677,16 @@
   <label class="field">Turns <span class="muted">(empty: until removed)</span>
     <input class="input num" type="number" min="1" aria-label="Turns" bind:value={condTurns} />
   </label>
-  <div class="cond-grid">
+  <div class="cond-grid" role="group" aria-label="Conditions" onmouseleave={() => (condHint = null)}>
     {#each catalog.conditions as [name, color] (name)}
-      <span class="chip-wrap">
-        <button class="chip" style="--c: {color}" onclick={() => addCondition(name, color, condTurns)}>{name}</button>
-        {#if conditionTip(name)}<span class="tip" role="tooltip"><b>{name}</b><span>{conditionTip(name)}</span></span>{/if}
-      </span>
-    {/each}
-    {#each t?.conditions_custom ?? [] as c (c.id)}
-      <button class="chip" style="--c: {c.color}" onclick={() => addCondition(c.name, c.color, condTurns ?? c.turns)}>{c.name}</button>
+      <button class="chip" style="--c: {color}" onclick={() => addCondition(name, color, condTurns)}
+        onmouseenter={() => (condHint = name)} onfocus={() => (condHint = name)}>{name}</button>
     {/each}
   </div>
+  <!-- the tip of the chip under the pointer, in a box that never moves the chips -->
+  <p class="cond-hint" aria-live="polite">
+    {#if condHint}<b>{condHint}</b>{conditionTip(condHint) ? ` — ${conditionTip(condHint)}` : ''}{:else}<span class="muted">Point at a condition to see what it does.</span>{/if}
+  </p>
 </Modal>
 
 <Modal title="Open a 5etools link" bind:open={linkOpen} width={560}>
@@ -1714,6 +1845,60 @@
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
+  /* side colour: heroes blue, enemies red, allies white, neutral grey, lair purple */
+  .tracker tr {
+    --side: var(--text);
+  }
+  .tracker tr.hero {
+    --side: #4aa3ff;
+  }
+  .tracker tr.monster {
+    --side: #e5533d;
+  }
+  .tracker tr.ally {
+    --side: #f2f2f2;
+  }
+  /* white is invisible on a light background */
+  :global(html[data-theme='light']) .tracker tr.ally {
+    --side: #64748b;
+  }
+  @media (prefers-color-scheme: light) {
+    :global(html:not([data-theme])) .tracker tr.ally {
+      --side: #64748b;
+    }
+  }
+  .tracker tr.neutral {
+    --side: #9a9a9a;
+  }
+  .tracker tr.lair {
+    --side: #a78bfa;
+  }
+  .init-th {
+    width: 64px;
+    text-align: center;
+  }
+  .init-in {
+    width: 56px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--side);
+    font: inherit;
+    font-size: 24px;
+    font-weight: 800;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .init-in:hover:not(:disabled) {
+    border-color: var(--border);
+  }
+  .init-in:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--surface-2);
+  }
   /* left edge: heroes blue; creatures by side: enemies red, allies white, neutral black */
   .tracker tr.hero td:first-child {
     box-shadow: inset 4px 0 0 #4aa3ff;
@@ -1722,7 +1907,7 @@
     box-shadow: inset 4px 0 0 #d9381e;
   }
   .tracker tr.ally td:first-child {
-    box-shadow: inset 4px 0 0 #f2f2f2;
+    box-shadow: inset 4px 0 0 var(--side);
   }
   .tracker tr.neutral td:first-child {
     box-shadow: inset 4px 0 0 #000, inset 5px 0 0 #6b6b6b;
@@ -1747,6 +1932,13 @@
   }
   .panel {
     position: relative;
+    padding: 0;
+    overflow: hidden;
+  }
+  .panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) + 4px);
   }
   .resizer {
@@ -1910,7 +2102,13 @@
     margin-bottom: var(--space-3);
     font-size: 15px;
   }
+  .nowrap-label {
+    white-space: nowrap;
+    flex: none;
+  }
   .cr-pick {
+    white-space: nowrap;
+    flex: none;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -2045,6 +2243,9 @@
     margin: var(--space-2) 0 0;
     font-size: 13px;
   }
+  .tracker tbody tr {
+    user-select: none;
+  }
   .tracker tr.selected td {
     background: color-mix(in srgb, var(--accent) 16%, transparent);
   }
@@ -2152,12 +2353,57 @@
     margin-bottom: var(--space-3);
     border-color: #8b5cf6;
   }
+  .roll-win {
+    position: sticky;
+    bottom: calc(-1 * var(--space-4));
+    z-index: 2;
+    margin: var(--space-3) calc(-1 * var(--space-2)) calc(-1 * var(--space-4));
+    border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+    background: var(--surface);
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.3);
+  }
+  .roll-win header {
+    display: flex;
+    align-items: center;
+  }
+  .rw-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-weight: 700;
+    font-size: 15px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .rw-last {
+    margin-left: auto;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .rw-last.crit {
+    color: #2fb344;
+  }
+  .rw-last.miss {
+    color: #e5533d;
+  }
+  .rw-clear {
+    margin-right: 6px;
+  }
   .roll-log {
     list-style: none;
-    margin: 0 0 var(--space-3);
-    padding: 0;
+    margin: 0;
+    padding: 0 8px 8px;
     display: grid;
     gap: 4px;
+    max-height: 32vh;
+    overflow: auto;
   }
   .roll-log li {
     display: flex;
@@ -2233,7 +2479,7 @@
   }
   .conc-stack {
     position: fixed;
-    top: 72px;
+    top: 136px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 90;
@@ -2253,9 +2499,6 @@
     font-size: 16px;
     animation: conc-in 0.25s ease-out;
   }
-  .conc-icon {
-    font-size: 26px;
-  }
   .conc-text {
     flex: 1;
   }
@@ -2263,11 +2506,112 @@
     from { transform: translateY(-12px); opacity: 0; }
     to { transform: none; opacity: 1; }
   }
-  .turn-card {
+  .notices {
     position: fixed;
-    top: 64px;
+    top: 72px;
     left: 50%;
-    z-index: 85;
+    z-index: 86;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .notice-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .notice-row:empty {
+    display: none;
+  }
+  .recharge-notice {
+    border-color: #e5533d !important;
+    pointer-events: auto;
+    animation-duration: 15s !important;
+  }
+  .rc-ok {
+    width: 30px;
+    height: 30px;
+    margin-left: 4px;
+    border: 1px solid #e5533d;
+    border-radius: 8px;
+    background: color-mix(in srgb, #e5533d 18%, transparent);
+    color: #e5533d;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .rc-ok:hover {
+    background: color-mix(in srgb, #e5533d 32%, transparent);
+  }
+  .recharge-notice .ln-label {
+    color: #e5533d;
+  }
+  .rc-res {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .legend-notice {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    max-width: 80vw;
+    padding: 10px 18px;
+    border: 1px solid #e0a400;
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 0.35);
+    pointer-events: none;
+    font-size: 15px;
+    animation: note-life 4s ease forwards;
+  }
+  .ln-label {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #e0a400;
+  }
+  .ln-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ln-pips {
+    display: inline-flex;
+    gap: 3px;
+  }
+  .ln-pip {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #e0a400;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .note-card {
+      animation: none;
+    }
+  }
+  .note-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    max-width: 80vw;
+    padding: 10px 18px;
+    border: 1px solid #e0a400;
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 0.35);
+    font-size: 15px;
+    animation: note-life 5s ease forwards;
+  }
+  .turn-card {
     display: flex;
     align-items: stretch;
     min-width: 440px;
@@ -2277,7 +2621,7 @@
     box-shadow: 0 16px 48px rgb(0 0 0 / 0.4);
     overflow: hidden;
     pointer-events: none;
-    animation: tc-life 3.2s ease forwards;
+    animation: note-life 3.2s ease forwards;
   }
   .tc-now,
   .tc-next {
@@ -2323,16 +2667,15 @@
     font-size: 19px;
     font-weight: 700;
   }
-  @keyframes tc-life {
-    0% { opacity: 0; transform: translate(-50%, -10px); }
-    8% { opacity: 1; transform: translate(-50%, 0); }
-    85% { opacity: 1; transform: translate(-50%, 0); }
-    100% { opacity: 0; transform: translate(-50%, -6px); }
+  @keyframes note-life {
+    0% { opacity: 0; transform: translateY(-10px); }
+    8% { opacity: 1; transform: none; }
+    85% { opacity: 1; transform: none; }
+    100% { opacity: 0; transform: translateY(-6px); }
   }
   @media (prefers-reduced-motion: reduce) {
     .turn-card {
       animation: none;
-      transform: translateX(-50%);
     }
   }
   .splash {
@@ -2506,7 +2849,7 @@
   .hpbar {
     height: 4px;
     border-radius: 999px;
-    background: var(--surface-2);
+    background: transparent;
     overflow: hidden;
   }
   .hpbar > span {
@@ -2609,6 +2952,15 @@
     flex-wrap: wrap;
     gap: 6px;
     margin-top: var(--space-3);
+  }
+  .cond-hint {
+    min-height: 4.5em;
+    margin: var(--space-3) 0 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    font-size: 14px;
+    line-height: 1.45;
   }
   .cond-grid .chip {
     font-size: 12px;

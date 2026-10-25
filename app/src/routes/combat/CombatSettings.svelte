@@ -79,17 +79,11 @@
     void saveTracker();
   }
 
-  // ── custom conditions ──
-  let cond = $state({ name: '', color: '#8a2be2', turns: null as number | null });
-  function addCondition() {
-    if (!t || !cond.name.trim()) return;
-    t.conditions_custom.push({ id: crypto.randomUUID(), name: cond.name.trim(), color: cond.color, turns: cond.turns || null });
-    cond = { name: '', color: '#8a2be2', turns: null };
-    void saveTracker();
-  }
+
 
   const ROLLING: [keyof Settings, string][] = [
     ['combat_roll_init', 'Roll initiative for creatures'],
+    ['combat_passive_initiative', 'Passive initiative: take 10 + bonus instead of rolling'],
     ['combat_roll_groups', 'Copies of the same creature share one initiative roll'],
     ['combat_roll_hp', 'Roll creature hit points (otherwise the average)'],
     ['combat_reroll_each_round', 'Reroll initiative at the start of each round'],
@@ -157,23 +151,6 @@
     </select>
   </section>
 
-  <section class="card">
-    <h2>Custom conditions</h2>
-    {#each t.conditions_custom as c (c.id)}
-      <div class="col-row">
-        <span class="chip" style="--c: {c.color}">{c.name}{c.turns ? ` (${c.turns})` : ''}</span>
-        <span class="grow"></span>
-        <button class="btn ghost icon danger" aria-label="Delete condition {c.name}"
-          onclick={() => { t!.conditions_custom = t!.conditions_custom.filter((x) => x.id !== c.id); void saveTracker(); }}>✕</button>
-      </div>
-    {/each}
-    <div class="col-row">
-      <input class="input grow" aria-label="Condition name" placeholder="Name" bind:value={cond.name} />
-      <input type="color" class="swatch-sm" aria-label="Condition colour" bind:value={cond.color} />
-      <input class="input num" type="number" min="1" aria-label="Condition turns" placeholder="∞" bind:value={cond.turns} />
-      <button class="btn" onclick={addCondition} disabled={!cond.name.trim()}>Add</button>
-    </div>
-  </section>
 {/if}
 
 <style>
@@ -220,26 +197,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .grow {
-    flex: 1;
-  }
-  .num {
-    width: 56px;
-  }
-  .swatch-sm {
-    width: 32px;
-    height: 28px;
-    padding: 0;
-    border: 1px solid var(--border);
-    background: none;
-  }
-  .chip {
-    border: 1px solid var(--c);
-    background: color-mix(in srgb, var(--c) 22%, transparent);
-    border-radius: 999px;
-    padding: 1px 8px;
-    font-size: 12px;
   }
   details.sub {
     display: grid;

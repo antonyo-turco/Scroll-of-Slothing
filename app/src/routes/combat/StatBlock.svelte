@@ -70,6 +70,13 @@
       if (tag === 'h') return 'Hit: ';
       if (tag === 'atk' || tag === 'atkr') return ({ mw: 'Melee Weapon Attack:', rw: 'Ranged Weapon Attack:', 'mw,rw': 'Melee or Ranged Weapon Attack:', ms: 'Melee Spell Attack:', rs: 'Ranged Spell Attack:', m: 'Melee Attack Roll:', r: 'Ranged Attack Roll:' } as Record<string, string>)[text] ?? '';
       if (tag === 'recharge') return `(Recharge ${text || 6}${text && text !== '6' ? '–6' : ''})`;
+      // 2024 stat blocks: saving throw effects
+      if (tag === 'actSave') return `${({ str: 'Strength', dex: 'Dexterity', con: 'Constitution', int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma' } as Record<string, string>)[text] ?? text} Saving Throw:`;
+      if (tag === 'actSaveFail') return text ? `${text === '1' ? 'First' : text === '2' ? 'Second' : text} Failure:` : 'Failure:';
+      if (tag === 'actSaveSuccess') return 'Success:';
+      if (tag === 'actSaveSuccessOrFail') return 'Failure or Success:';
+      if (tag === 'actTrigger') return 'Trigger:';
+      if (tag === 'actResponse') return 'Response:';
       if (tag === 'dc') return `DC ${text}`;
       return text;
     });
@@ -163,17 +170,17 @@
     <b>{b.name}.</b>
     {#if b.recharge && onUse}
       <button class="recharge" class:used={spent(b.key) > 0} onclick={() => onUse!(b.key, spent(b.key) ? 0 : 1)}
-        title={spent(b.key) ? 'Spent: rolls to recharge at the start of its turn (click to recharge now)' : 'Available (click when used)'}>
+        title={spent(b.key) ? 'Spent: roll a d6 at the start of its turn; click when it recharges' : 'Available (click when used)'}>
         Recharge {b.recharge}{b.recharge < 6 ? '–6' : ''} {spent(b.key) ? '✗' : '✓'}
       </button>
     {:else if b.recharge}<span class="muted">(Recharge {b.recharge}{b.recharge < 6 ? '–6' : ''})</span>{/if}
     {#if b.uses && onUse}
-      <span class="pips" role="group" aria-label="{b.name}: {b.uses - spent(b.key)} of {b.uses} uses left today">
+      <span class="pips use-pill" role="group" aria-label="{b.name}: {b.uses - spent(b.key)} of {b.uses} uses left today">
         {#each Array(b.uses) as _, i (i)}
           <button class="pip" class:used={i >= b.uses - spent(b.key)} aria-label="Use {i + 1}"
             onclick={() => onUse!(b.key, i >= b.uses - spent(b.key) ? spent(b.key) - 1 : spent(b.key) + 1)}></button>
         {/each}
-        <span class="muted">{b.uses}/day</span>
+        <span class="pips-label">{b.uses - spent(b.key)}/{b.uses} per day</span>
       </span>
     {:else if b.uses}<span class="muted">({b.uses}/Day)</span>{/if}
     {' '}{#each b.text as line, i (i)}{@render text(line)}{' '}{/each}
@@ -342,14 +349,32 @@
     align-items: center;
     gap: 4px;
     margin-left: 8px;
-    vertical-align: middle;
+    vertical-align: 1px;
     font-size: 12px;
     font-variant: normal;
     font-weight: 400;
+    line-height: 1;
+  }
+  /* uses: a small pill on the text line, with room before the description */
+  .use-pill {
+    margin: 0 6px 0 6px;
+    padding: 3px 8px 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+    vertical-align: 2px;
+  }
+  .pips-label {
+    margin-left: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
   }
   .pip {
-    width: 14px;
-    height: 14px;
+    flex: none;
+    width: 12px;
+    height: 12px;
     padding: 0;
     border: 2px solid var(--accent);
     border-radius: 50%;
@@ -361,7 +386,9 @@
     border-color: var(--text-muted);
   }
   .recharge {
-    margin-left: 6px;
+    margin: 0 6px;
+    vertical-align: 1px;
+    line-height: 1.3;
     padding: 1px 8px;
     border: 1px solid #2fb344;
     border-radius: 999px;

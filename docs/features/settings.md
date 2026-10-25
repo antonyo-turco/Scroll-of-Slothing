@@ -41,6 +41,7 @@ under Combat.
 | `combat_import_roll_groups` | bool | `true` | | combat tracker: encounter import: one roll per creature type (*new*) |
 | `combat_import_add_players` | bool | `true` | | combat tracker: encounter import: add the default party (*new*) |
 | `combat_xp_multiplier_2014` | bool | `false` | | encounter difficulty: apply the 2014 multiplier for the number of enemies (*new*) |
+| `combat_passive_initiative` | bool | `false` | | combat tracker: initiative is 10 + bonus (+5 advantage, −5 disadvantage) instead of a roll (*new*) |
 | `combat_turn_popup` | bool | `true` | | combat tracker: a card with whose turn it is and who is next, on each turn (*new*) |
 | `combat_reset_confirm` | bool | `true` | | combat tracker: ask before Reset (*new*) |
 | `combat_reset_keep_players` | bool | `false` | | combat tracker: Reset removes only creatures and keeps the players (*new*) |

@@ -903,6 +903,7 @@ fn apply_settings(t: &mut Tracker, st: &sleuth_core::settings::Settings) {
     t.is_roll_hp = st.combat_roll_hp;
     t.is_roll_groups = st.combat_roll_groups;
     t.is_reroll_initiative_each_round = st.combat_reroll_each_round;
+    t.is_passive_init = st.combat_passive_initiative;
     t.is_invert_wound_direction = st.combat_hp_as_damage;
     t.import_is_roll_groups = st.combat_import_roll_groups;
     t.import_is_add_players = st.combat_import_add_players;
@@ -1441,8 +1442,7 @@ fn hero_row(t: &Tracker, h: &Hero, roll: bool) -> Row {
     row.name = h.name.clone();
     row.hp_max = h.hp_max;
     row.hp_current = if t.is_invert_wound_direction { h.hp_max.map(|_| 0) } else { h.hp_max };
-    row.initiative =
-        roll.then(|| creature::roll_initiative(h.initiative_bonus.unwrap_or(0), &mut rng));
+    row.initiative = roll.then(|| t.initiative_of(h.initiative_bonus.unwrap_or(0), 0, &mut rng));
     let mut sub: Vec<String> = vec![];
     for x in [&h.species, &h.class, &h.subclass] {
         if !x.trim().is_empty() {

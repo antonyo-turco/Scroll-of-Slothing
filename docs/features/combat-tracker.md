@@ -41,13 +41,15 @@ so state and links stay compatible with 5etools. Route `combat`, in the rail's *
 - **Wound levels** from `round(clamp(hp/max·100, 0, 100))`: 100 Healthy, >50 Hurt, >0 Bloodied,
   0 Defeated, no HP Unknown. *Track HP as damage* inverts it (`(max − hp)/max`).
 - **Conditions:** the 5etools list (Blinded … Unconscious, Concentration, Drunk, !!On Fire!!)
-  with their colours, plus saved custom conditions; turns or unlimited.
+  with their colours; turns or unlimited.
 - **Stat columns:** `populateWith` ids as 5etools: `hpFormula armorClass passivePerception speed
   spellDc initiative cr xp legendaryActions image`, `<abv>Save`, `<abv>Bonus`, `<abv>Score`,
   skills in camelCase, `cbNeutral cbAutoLow cbAutoHigh cbAutoRoundLow cbAutoRoundHigh`, and
   `""` for custom. Cells fill from the stat block when a creature is added. Checkbox-auto columns
   set their value on turn/round start (forwards only); legendary actions refill each round.
-- **HP and initiative:** average HP or rolled from the formula; initiative `1d20 + bonus`
+- **HP and initiative:** average HP or rolled from the formula; initiative `1d20 + bonus`, or with
+  *Passive initiative* (`combat_passive_initiative`) `10 + bonus`, +5 with advantage on initiative
+  and −5 with disadvantage (5etools `initiative.advantageMode`), for creatures and heroes alike
   (5etools `getInitiativeBonusNumber`). *Roll groups together* shares one roll per add.
 - **Default party** rows are put back on Reset and optionally added on encounter import.
 - **Lock** disables every editing control.
@@ -71,8 +73,13 @@ Tracker, Encounters and Parties.
   below), a blue one under the temp box shows temporary HP (`hp_temp`).
 - **Concentration.** When a combatant with the Concentration condition takes damage, a popup
   gives the Constitution save DC (10 or half the damage, at most 30).
-- **Conditions.** Chips show turns left; hovering one shows a short rules reminder (2024,
-  paraphrased in `app/src/lib/conditions.ts`); clicking removes it.
+- **Conditions.** Chips count the turns spent under the condition, "Prone (2)", or for a timed
+  one turns spent of its total, "Blinded (1/3)"; the count rises at the end of the creature's
+  turn (`elapsed`, stored as `el` in the condition, which 5etools ignores). With three or more
+  conditions the chips shorten to three letters. Hovering one shows a short rules reminder
+  (2024, paraphrased in `app/src/lib/conditions.ts`); clicking removes it. The picker shows
+  the reminder in a box under the chips. Custom conditions are not offered (removed at the
+  user's request on 2026-10-25); any saved ones stay in the data for 5etools round-trips.
 - **Defeated.** A red skull before the HP appears at 0 HP or below (or, tracking damage, at the
   max); clicking it moves the row to a *Defeated* accordion at the bottom (`defeated`, out of
   the turn order; Restore puts it back). If it was that row's turn, the turn moves on first.
@@ -108,8 +115,8 @@ Tracker, Encounters and Parties.
   natural 20 makes that ability's next damage roll a crit (dice doubled), as does Shift on a
   damage button. The panel keeps a log of the last rolls (crits and natural 1s marked).
 - **Limited uses.** Abilities named "(N/Day)" get N pips; "{@recharge N}" abilities get a
-  Recharge badge. Spent recharges roll a d6 at the start of the creature's turn (a toast says
-  whether it recharged). Legendary actions (`legendaryActions`, else 3) get pips that refill
+  Recharge badge. At the start of the creature's turn a notice reminds you to roll a d6 for each
+  spent recharge (the app does not roll); click the badge when it recharges. Legendary actions (`legendaryActions`, else 3) get pips that refill
   on the creature's turn; after other combatants' turns a toast lists who still has some.
   All of this lives in the row's `usage` (`_us`).
 - **Lair.** A creature with a `legendaryGroup` that has lair actions offers *Add lair*: a row at
@@ -167,8 +174,7 @@ and source replace it.
 Settings → Combat (a vertical tab) holds the 5etools mirror and bestiary sync, the rolling
 options (`combat_roll_init`, `combat_roll_groups` (on: copies of a creature share one roll),
 `combat_roll_hp`, `combat_reroll_each_round`, `combat_hp_as_damage`), the encounter import
-options in an accordion (`combat_import_*`), and the tracker's stat columns and custom
-conditions. The rolling and import options are app settings applied to the tracker on every
+options in an accordion (`combat_import_*`), and the tracker's stat columns. The rolling and import options are app settings applied to the tracker on every
 load; they are still written into links so 5etools reads them.
 
 ## Links and state

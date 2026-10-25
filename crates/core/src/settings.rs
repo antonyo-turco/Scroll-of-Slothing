@@ -185,6 +185,8 @@ pub struct Settings {
     pub combat_reset_keep_players: bool,
     /// Show a card with whose turn it is and who is next on each turn.
     pub combat_turn_popup: bool,
+    /// Initiative is 10 + bonus (passive) instead of a d20 roll.
+    pub combat_passive_initiative: bool,
 }
 
 impl Default for Settings {
@@ -224,6 +226,7 @@ impl Default for Settings {
             combat_reset_confirm: true,
             combat_reset_keep_players: false,
             combat_turn_popup: true,
+            combat_passive_initiative: false,
         }
     }
 }
@@ -333,6 +336,7 @@ impl Settings {
             "combat_reset_confirm" => set!(combat_reset_confirm, bool),
             "combat_reset_keep_players" => set!(combat_reset_keep_players, bool),
             "combat_turn_popup" => set!(combat_turn_popup, bool),
+            "combat_passive_initiative" => set!(combat_passive_initiative, bool),
             "fivetools_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
                 Some(u)
                     if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>

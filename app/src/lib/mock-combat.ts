@@ -49,7 +49,7 @@ const crNumber = (cr: string) => {
 export function defaultTracker(): Tracker {
   return {
     sort: 'NUMBER', dir: 'DESC', is_roll_init: true, is_roll_hp: false, is_roll_groups: false,
-    is_reroll_initiative_each_round: false, is_invert_wound_direction: false, import_is_roll_groups: true,
+    is_reroll_initiative_each_round: false, is_passive_init: false, is_invert_wound_direction: false, import_is_roll_groups: true,
     import_is_add_players: true, import_is_append: false, is_stats_add_columns: false,
     player_init_show_exact_player_hp: false, player_init_show_exact_monster_hp: false,
     player_init_hide_new_monster: true, player_init_show_ordinals: false, is_notes_shown: false,
@@ -80,7 +80,7 @@ export function createCombatMockHandlers(emit: Emit, settings: () => Settings): 
   let synced = false;
   let seq = 0;
   const newId = () => `mock-row-${++seq}`;
-  const d20 = () => 1 + Math.floor(Math.random() * 20);
+  const d20 = () => (settings().combat_passive_initiative ? 10 : 1 + Math.floor(Math.random() * 20));
   const changed = () => emit({ type: 'store_changed', entity: 'combat', entity_id: 'tracker', op: 'update' });
   /** The rolling and import options come from the app settings (as the service). */
   const syncSettings = () => {
@@ -155,6 +155,7 @@ export function createCombatMockHandlers(emit: Emit, settings: () => Settings): 
     const order = forwards ? t.rows : [...t.rows].reverse();
     if (forwards) {
       for (const r of order.filter((r) => r.is_active)) {
+        for (const c of r.conditions) c.elapsed = (c.elapsed ?? 0) + 1;
         r.conditions = r.conditions.filter((c) => c.turns === null || --c.turns > 0);
       }
     }
@@ -408,7 +409,7 @@ export function createCombatMockHandlers(emit: Emit, settings: () => Settings): 
       const custom = t.conditions_custom.find((c) => c.name.toLowerCase() === n.toLowerCase())?.color;
       row(rowId).conditions.push({
         id: newId(), name: n, color: (color as string | null) ?? builtin ?? custom ?? '#888888',
-        turns: typeof turns === 'number' && turns > 0 ? turns : null,
+        turns: typeof turns === 'number' && turns > 0 ? turns : null, elapsed: 0,
       });
       return save();
     },

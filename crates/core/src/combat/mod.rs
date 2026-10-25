@@ -39,6 +39,9 @@ pub struct Condition {
     pub color: String,
     /// Turns left; None is unlimited.
     pub turns: Option<i64>,
+    /// Turns the creature has spent under it (this app's extension, `el`).
+    #[serde(default)]
+    pub elapsed: i64,
 }
 
 /// One stat cell: the column id plus its fields (`value`, or `current`/`max`,
@@ -134,6 +137,8 @@ pub struct Tracker {
     pub is_roll_hp: bool,
     pub is_roll_groups: bool,
     pub is_reroll_initiative_each_round: bool,
+    /// Take 10 + bonus (passive initiative) instead of rolling (app setting, not in links).
+    pub is_passive_init: bool,
     pub is_invert_wound_direction: bool,
     pub import_is_roll_groups: bool,
     pub import_is_add_players: bool,
@@ -168,6 +173,7 @@ impl Default for Tracker {
             is_roll_hp: false,
             is_roll_groups: false,
             is_reroll_initiative_each_round: false,
+            is_passive_init: false,
             is_invert_wound_direction: false,
             import_is_roll_groups: true,
             import_is_add_players: true,
@@ -290,6 +296,12 @@ impl Tracker {
 
     // ── rows ──
 
+    /// Initiative from a bonus: rolled `1d20 + bonus`, or with passive
+    /// initiative `10 + bonus + adv` (adv: +5 advantage, −5 disadvantage).
+    pub fn initiative_of(&self, bonus: i64, adv: i64, rng: Rng) -> i64 {
+        if self.is_passive_init { 10 + bonus + adv } else { creature::roll_initiative(bonus, rng) }
+    }
+
     /// Ordinal for a new copy: `similar rows + 1`.
     pub fn next_ordinal(rows: &[Row], like: &Row) -> i64 {
         let key = like.similar_key();
@@ -373,7 +385,8 @@ impl Tracker {
     ) -> Vec<String> {
         let bonus = creature::initiative_bonus(mon).unwrap_or(0);
         let group = count > 1 && self.is_roll_groups;
-        let group_init = self.is_roll_init.then(|| creature::roll_initiative(bonus, rng));
+        let adv = creature::initiative_advantage(mon);
+        let group_init = self.is_roll_init.then(|| self.initiative_of(bonus, adv, rng));
         let group_hp = creature::hp_for(mon, roll_hp, rng);
         let mut ids = vec![];
         for i in 0..count.max(1) {
@@ -382,7 +395,7 @@ impl Tracker {
             } else if group || i == 0 {
                 group_init
             } else {
-                Some(creature::roll_initiative(bonus, rng))
+                Some(self.initiative_of(bonus, adv, rng))
             };
             let hp = if group || i == 0 { group_hp } else { creature::hp_for(mon, roll_hp, rng) };
             let row =
@@ -408,7 +421,8 @@ impl Tracker {
         let mut row = Row { id: new_id(), is_active: false, conditions: vec![], ..src };
         if let Some(mon) = reroll {
             let bonus = creature::initiative_bonus(mon).unwrap_or(0);
-            row.initiative = Some(creature::roll_initiative(bonus, rng));
+            row.initiative =
+                Some(self.initiative_of(bonus, creature::initiative_advantage(mon), rng));
             let hp = creature::hp_for(mon, true, rng).or(row.hp_max);
             row.hp_max = hp;
             row.hp_current = if self.is_invert_wound_direction { hp.map(|_| 0) } else { hp };
@@ -535,12 +549,15 @@ impl Tracker {
         }
         if direction == DIR_FORWARDS {
             for r in self.rows.iter_mut().filter(|r| r.is_active) {
-                r.conditions.retain_mut(|c| match c.turns.as_mut() {
-                    Some(t) => {
-                        *t -= 1;
-                        *t > 0
+                r.conditions.retain_mut(|c| {
+                    c.elapsed += 1;
+                    match c.turns.as_mut() {
+                        Some(t) => {
+                            *t -= 1;
+                            *t > 0
+                        }
+                        None => true,
                     }
-                    None => true,
                 });
             }
         }
@@ -559,10 +576,12 @@ impl Tracker {
             self.set_active(next, direction, false)
         };
         self.sort_rows();
+        let passive = self.is_passive_init;
         if direction == DIR_FORWARDS && round_start && self.is_reroll_initiative_each_round {
             for r in &mut self.rows {
                 if let Some(b) = bonus(r) {
-                    r.initiative = Some(creature::roll_initiative(b, rng));
+                    r.initiative =
+                        Some(if passive { 10 + b } else { creature::roll_initiative(b, rng) });
                 }
                 r.is_active = false;
             }
@@ -586,6 +605,7 @@ impl Tracker {
             name: name.into(),
             color: color.into(),
             turns: turns.filter(|t| *t > 0),
+            elapsed: 0,
         });
         true
     }
@@ -748,7 +768,10 @@ fn row_to_serial(r: &Row) -> Value {
     let conds: Vec<Value> = r
         .conditions
         .iter()
-        .map(|c| json!({"id": c.id, "entity": strip_nulls(json!({"name": c.name, "color": c.color, "turns": c.turns}))}))
+        .map(|c| {
+            let el = (c.elapsed > 0).then_some(c.elapsed);
+            json!({"id": c.id, "entity": strip_nulls(json!({"name": c.name, "color": c.color, "turns": c.turns, "el": el}))})
+        })
         .collect();
     let cells: Vec<Value> = r
         .cells
@@ -813,6 +836,7 @@ fn row_from_serial(v: &Value, new_id: NewId) -> Option<Row> {
                 name: str_of(e, "name").unwrap_or_default(),
                 color: str_of(e, "color").unwrap_or_else(|| "#888888".into()),
                 turns: num_of(e, "turns"),
+                elapsed: num_of(e, "el").unwrap_or(0),
             }
         })
         .collect();
