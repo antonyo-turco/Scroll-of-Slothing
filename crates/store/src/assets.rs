@@ -90,6 +90,8 @@ pub struct AssetQuery {
     pub kinds: Vec<String>,
     /// Tag names; an asset must carry *all* of them.
     pub tags: Vec<String>,
+    /// Restrict to these size labels, e.g. `Medium`, `Large` (empty = all).
+    pub sizes: Vec<String>,
     /// Direct campaign link **or** via any session of the campaign.
     pub campaign_id: Option<String>,
     pub session_id: Option<String>,
@@ -258,6 +260,13 @@ impl Store {
         if !q.kinds.is_empty() {
             wh.push(format!("a.kind IN ({})", vec!["?"; q.kinds.len()].join(",")));
             args.extend(q.kinds.iter().cloned().map(SqlValue::from));
+        }
+        if !q.sizes.is_empty() {
+            wh.push(format!(
+                "a.size_label COLLATE NOCASE IN ({})",
+                vec!["?"; q.sizes.len()].join(",")
+            ));
+            args.extend(q.sizes.iter().cloned().map(SqlValue::from));
         }
         for t in &q.tags {
             wh.push(
@@ -600,6 +609,11 @@ pub(crate) mod tests {
             "tags are AND-ed and case-insensitive"
         );
         assert_eq!(names(&run(AssetQuery { pinned_only: true, ..Default::default() })), ["gamma"]);
+        assert_eq!(
+            names(&run(AssetQuery { sizes: vec!["tiny".into()], ..Default::default() })),
+            ["Alpha"],
+            "sizes match case-insensitively"
+        );
         assert_eq!(names(&run(AssetQuery::default())), ["gamma", "Alpha", "beta"], "newest first");
         assert_eq!(
             names(&run(AssetQuery { sort: AssetSort::NameAsc, ..Default::default() })),

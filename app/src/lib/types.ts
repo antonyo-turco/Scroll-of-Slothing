@@ -157,6 +157,8 @@ export interface AssetQuery {
   q?: string | null;
   kinds?: string[];
   tags?: string[];
+  /** Size labels to keep (empty = all). */
+  sizes?: string[];
   pinned_only?: boolean;
   sort?: AssetSort;
   limit?: number | null;

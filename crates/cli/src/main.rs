@@ -417,6 +417,7 @@ async fn main() -> Result<()> {
                         q: query,
                         kinds,
                         tags,
+                        sizes: vec![],
                         campaign_id: None,
                         session_id: None,
                         pinned_only: pinned,

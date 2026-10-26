@@ -30,6 +30,8 @@ export class LibraryState {
   kinds = $state<string[]>([]);
   tags = $state<string[]>([]);
   pinnedOnly = $state(false);
+  /** One size label, or '' for any size. */
+  size = $state('');
   sort = $state<AssetSort>('newest');
 
   items = $state<Asset[]>([]);
@@ -49,7 +51,7 @@ export class LibraryState {
 
   readonly active = $derived(this.items.find((a) => a.id === this.activeId) ?? null);
   readonly filtersActive = $derived(
-    !!this.q.trim() || this.kinds.length > 0 || this.tags.length > 0 || this.pinnedOnly,
+    !!this.q.trim() || this.kinds.length > 0 || this.tags.length > 0 || this.pinnedOnly || !!this.size,
   );
 
   query(): AssetQuery {
@@ -57,6 +59,7 @@ export class LibraryState {
       q: this.q.trim() || null,
       kinds: [...this.kinds],
       tags: [...this.tags],
+      sizes: this.size ? [this.size] : [],
       pinned_only: this.pinnedOnly,
       sort: this.sort,
       limit: FETCH_LIMIT,
@@ -112,6 +115,7 @@ export class LibraryState {
     this.kinds = [];
     this.tags = [];
     this.pinnedOnly = false;
+    this.size = '';
     void this.refresh();
   }
 

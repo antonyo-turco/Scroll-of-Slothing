@@ -14,6 +14,7 @@ See the `assets` table in `../data-model.md`. Kinds: `token`, `cutout`, `map`.
   - kind chips: All, Token, Cut-out, Map;
   - tag chips, where all selected tags must match (AND), with "clear";
   - Pinned only.
+  - Size (Tiny … Gargantuan, or any; sizes in the query, case-insensitive).
 - **Views:** the "★ Pinned" toggle replaces the old Tagged Assets tab (Pinned + This session); sessions were removed at the user's request on 2026-10-11.
 
 **View modes** (new, 2026-10-18): a segmented switch next to the sort picker, remembered in the workspace (`library.view`).
@@ -84,7 +85,7 @@ Assets imported from the old app have no params. They open with default framing,
 ## MCP
 | Tool | Purpose |
 |---|---|
-| `library_search` | `{q?, kinds?, tags?, pinned?, sort?, limit?, offset?}` returns a list of summaries |
+| `library_search` | `{q?, kinds?, tags?, sizes?, pinned?, sort?, limit?, offset?}` returns a list of summaries |
 | `library_get` | `{id}` returns metadata plus a thumbnail image |
 | `library_update` | `{id, name?, aliases?, size?, pinned?}` |
 | `library_set_tags` | |

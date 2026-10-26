@@ -134,6 +134,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     if (q.kinds?.length) items = items.filter((a) => q.kinds!.includes(a.kind));
     for (const t of q.tags ?? []) items = items.filter((a) => a.tags.some((x) => x.toLowerCase() === t.toLowerCase()));
     if (q.pinned_only) items = items.filter((a) => a.pinned);
+    if (q.sizes?.length) items = items.filter((a) => q.sizes!.some((s) => s.toLowerCase() === a.size_label.toLowerCase()));
     const byName = (a: Asset, b: Asset) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     const sorters: Record<string, (a: Asset, b: Asset) => number> = {
       newest: (a, b) => b.id - a.id,

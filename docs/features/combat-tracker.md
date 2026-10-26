@@ -193,6 +193,10 @@ current combat* or a `#combat=` link; it keeps each creature's changes).
 - ▶ rolls a creature list into the tracker with the import settings (or loads a snapshot,
   replacing the tracker), + adds it to the current combat, 🔗 copies its 5etools link, and the
   token button prints its creatures' tokens (see Play aids).
+- **Filters.** Search matches names and creatures; *Kind* (all, encounters, combats) and
+  *Difficulty* filter the list, and a *Difficulty* column rates each encounter for the chosen
+  party (the same choice as the editor's). File actions (save current combat, import, export,
+  new) are in the top bar.
 - **Next session.** The calendar button adds the encounter to the Planner's next session (making
   one if there is none) or takes it out; it is lit for encounters already in it, including
   pinned ones that join on their own. *Next session* in the toolbar shows only those. The

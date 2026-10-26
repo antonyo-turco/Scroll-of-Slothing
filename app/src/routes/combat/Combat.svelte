@@ -1036,7 +1036,7 @@
               <th class="init-th">Init</th>
               <th class="name">Name</th>
               <th>Conditions</th>
-              {#each t.stats_cols as c (c.id)}<th title={catalog.columns.find((k) => k.populate_with === c.populate_with)?.name}>{c.abbreviation || '·'}</th>{/each}
+              {#each t.stats_cols as c (c.id)}<th class="stat-head" title={catalog.columns.find((k) => k.populate_with === c.populate_with)?.name}>{c.abbreviation || '·'}</th>{/each}
               <th>HP</th>
               <th><span class="sr">Actions</span></th>
             </tr>
@@ -1642,6 +1642,11 @@
   }
   .stat .input {
     width: 56px;
+  }
+  /* stat names sit centered over their values */
+  .tracker th.stat-head,
+  .stat {
+    text-align: center;
   }
   /* outside edit mode a stat is plain text, the width of its input */
   .stat-val {

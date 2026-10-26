@@ -9,7 +9,7 @@
   import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
-  import { ASSET_KINDS, KIND_LABELS, type Asset } from '../../lib/types';
+  import { ASSET_KINDS, KIND_LABELS, SIZE_LABELS, type Asset } from '../../lib/types';
   import AssetCard, { ROW_COLUMNS, VARIANT_SIZE, type CardVariant } from './AssetCard.svelte';
   import AssetInspector from './AssetInspector.svelte';
   import ImportDialog from './ImportDialog.svelte';
@@ -174,6 +174,10 @@
           <button aria-pressed={lib.kinds.includes(k)} onclick={() => lib.toggleKind(k)}>{KIND_LABELS[k]}</button>
         {/each}
       </div>
+      <select class="input size-filter" aria-label="Size" bind:value={lib.size} onchange={() => lib.refresh()}>
+        <option value="">Any size</option>
+        {#each SIZE_LABELS as s (s)}<option value={s}>{s}</option>{/each}
+      </select>
       <label class="toggle">
         <input type="checkbox" bind:checked={lib.pinnedOnly} onchange={() => lib.refresh()} /> ★ Pinned
       </label>

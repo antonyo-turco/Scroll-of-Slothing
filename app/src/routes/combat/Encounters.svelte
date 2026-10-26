@@ -5,11 +5,12 @@
   import { onMount } from 'svelte';
   import { api, isTauri, pickFile, pickSavePath } from '../../lib/api';
   import Icon from '../../lib/components/Icon.svelte';
+  import ViewActions from '../../lib/components/ViewActions.svelte';
   import InfoTip from '../../lib/components/InfoTip.svelte';
   import { printTokens } from './combat-tokens';
   import Modal from '../../lib/components/Modal.svelte';
   import { app } from '../../lib/state.svelte';
-  import { difficulty, RATING_LABEL, xpOf } from '../../lib/difficulty';
+  import { difficulty, RATING_LABEL, xpOf, type Rating } from '../../lib/difficulty';
   import { CRS, scaleCreature } from '../../lib/scale';
   import type { BestiaryEntry, CombatImport, EncounterCreature, EncounterSummary, Party, SessionView } from '../../lib/types';
 
@@ -25,7 +26,7 @@
     } catch (e) {
       app.error('Could not load encounters', e);
     }
-    await loadNext();
+    await Promise.all([loadNext(), loadParties()]);
   }
 
   // ── the next session (Planner): which encounters it uses ──
@@ -68,14 +69,24 @@
     }
   });
 
+  // ── filters: kind, difficulty for a party, the next session, text ──
+  let kindFilter = $state<'all' | EncounterSummary['kind']>('all');
+  let ratingFilter = $state<Rating | ''>('');
+  /** How hard an encounter is for the chosen party; null without a party. */
+  const encRating = (e: EncounterSummary): Rating | null =>
+    shownParty
+      ? difficulty(e.lines.map((l) => ({ xp: xpOf(l.cr), count: l.count })), shownParty.heroes.map((h) => h.level ?? 1), use2014).rating
+      : null;
   const shown = $derived(
     list.filter((e) => {
       const q = query.trim().toLowerCase();
       if (nextOnly && !inNext.has(e.id)) return false;
+      if (kindFilter !== 'all' && e.kind !== kindFilter) return false;
+      if (ratingFilter && encRating(e) !== ratingFilter) return false;
       return !q || e.name.toLowerCase().includes(q) || e.lines.some((l) => l.name.toLowerCase().includes(q));
     }),
   );
-  const COLUMNS = '1fr 110px 90px 90px 110px 170px 32px';
+  const COLUMNS = '1fr 110px 90px 90px 120px 110px 170px 32px';
   const summary = (e: EncounterSummary) =>
     e.lines.map((l) => (l.count > 1 ? `${l.count} × ${l.name}` : l.name)).join(', ') || 'No creatures';
 
@@ -281,20 +292,38 @@
     difficulty(editCreatures.map((c) => ({ xp: xpOf(c.cr), count: c.count })), p.heroes.map((h) => h.level ?? 1), use2014);
 </script>
 
+<ViewActions>
+  <button class="btn" onclick={saveCurrent} title="Save the tracker as it is now (rows, HP, conditions, round)">Save current combat</button>
+  <button class="btn" onclick={() => (importOpen = true)}>Import…</button>
+  <button class="btn" onclick={exportDenc} disabled={!list.length} title="Save the selected encounter (or all) as a .denc file">
+    Export {selected && list.some((e) => e.id === selected) ? 'selected' : 'all'}
+  </button>
+  <button class="btn primary" onclick={() => openEditor(null)}>+ New encounter</button>
+</ViewActions>
+
 <div class="enc">
   <div class="view-toolbar">
-    <input class="input search" type="search" placeholder="Search encounters" aria-label="Search encounters" bind:value={query} />
+    <input class="input search" type="search" placeholder="Search names or creatures" aria-label="Search encounters" bind:value={query} />
+    <div class="segmented" role="group" aria-label="Kind">
+      <button aria-pressed={kindFilter === 'all'} onclick={() => (kindFilter = 'all')}>All</button>
+      <button aria-pressed={kindFilter === 'encounter'} onclick={() => (kindFilter = 'encounter')}>Encounters</button>
+      <button aria-pressed={kindFilter === 'combat'} onclick={() => (kindFilter = 'combat')}>Combats</button>
+    </div>
+    <select class="input filter" aria-label="Difficulty" bind:value={ratingFilter} disabled={!shownParty}
+      title={shownParty ? `How hard it is for ${shownParty.name}` : 'Save a party to filter by difficulty'}>
+      <option value="">Any difficulty</option>
+      {#each Object.entries(RATING_LABEL) as [r, l] (r)}<option value={r}>{l}</option>{/each}
+    </select>
+    {#if orderedParties.length > 1}
+      <select class="input filter" aria-label="Party for the difficulty" value={shownParty?.id} onchange={(e) => (partyId = e.currentTarget.value)}>
+        {#each orderedParties as p (p.id)}<option value={p.id}>for {p.name}{isDefault(p) ? ' (default)' : ''}</option>{/each}
+      </select>
+    {/if}
     <button class="btn" aria-pressed={nextOnly} onclick={() => (nextOnly = !nextOnly)} disabled={!next}
       title={next ? `Show only the encounters of ${next.name} (Planner)` : 'No next session in the Planner yet'}>
       <Icon name="calendar" size={16} /> Next session{inNext.size ? ` (${inNext.size})` : ''}
     </button>
-    <span class="grow"></span>
-    <button class="btn" onclick={saveCurrent} title="Save the tracker as it is now (rows, HP, conditions, round)">Save current combat</button>
-    <button class="btn" onclick={() => (importOpen = true)}>Import…</button>
-    <button class="btn" onclick={exportDenc} disabled={!list.length} title="Save the selected encounter (or all) as a .denc file">
-      Export {selected && list.some((e) => e.id === selected) ? 'selected' : 'all'} (.denc)
-    </button>
-    <button class="btn primary" onclick={() => openEditor(null)}>+ New encounter</button>
+    {#if shown.length !== list.length}<span class="muted">{shown.length} of {list.length}</span>{/if}
   </div>
 
   <div class="list-wrap">
@@ -305,6 +334,7 @@
           <span role="columnheader">Kind</span>
           <span role="columnheader">Creatures</span>
           <span role="columnheader">XP</span>
+          <span role="columnheader" title={shownParty ? `For ${shownParty.name}` : 'Save a party to rate encounters'}>Difficulty</span>
           <span role="columnheader">Changed</span>
           <span role="columnheader"><span class="visually-hidden">Actions</span></span>
           <span role="columnheader" title="Pinned">★</span>
@@ -328,6 +358,7 @@
             <span role="cell"><span class="list-pill"><span class="dot {e.kind}"></span>{e.kind === 'combat' ? 'Combat' : 'Encounter'}</span></span>
             <span role="cell" class="num">{e.total}</span>
             <span role="cell" class="num list-muted">{e.xp?.toLocaleString() ?? '—'}</span>
+            <span role="cell">{#if encRating(e)}<span class="diff-pill rating-{encRating(e)}">{RATING_LABEL[encRating(e)!]}</span>{:else}<span class="list-muted">—</span>{/if}</span>
             <span role="cell" class="list-muted num">{e.updated.slice(0, 10)}</span>
             <span role="cell" class="actions">
               <button class="btn ghost" title={e.kind === 'combat' ? 'Load this combat (replaces the tracker)' : 'Roll into the tracker'} aria-label="Start {e.name}"
@@ -494,6 +525,14 @@
 </Modal>
 
 <style>
+  .filter {
+    width: auto;
+  }
+  .diff-pill {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--r, var(--text-muted));
+  }
   .actions .slot {
     display: inline-block;
     width: 36px;

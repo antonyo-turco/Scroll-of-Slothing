@@ -65,6 +65,9 @@ pub struct SearchParams {
     /// Tag names; assets must carry all of them.
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Size labels to keep: Tiny, Small, Medium, Large, Huge, Gargantuan (empty = all).
+    #[serde(default)]
+    pub sizes: Vec<String>,
     #[serde(default)]
     pub pinned_only: bool,
     /// newest (default) | oldest | name_asc | name_desc | kind | size
@@ -582,6 +585,7 @@ impl SleuthServer {
             q: p.q,
             kinds: p.kinds,
             tags: p.tags,
+            sizes: p.sizes,
             campaign_id: None,
             session_id: None,
             pinned_only: p.pinned_only,
