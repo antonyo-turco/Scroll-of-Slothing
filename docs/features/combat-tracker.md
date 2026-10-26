@@ -178,8 +178,8 @@ panel; `HpCell`, `GroupBar`, `CombatDock` (Defeated + difficulty), `RollsWindow`
 Saved encounters (workspace `combat.encounters`), pinned first. An encounter is either a
 creature list (`kind: encounter`) or a snapshot of a whole tracker (`kind: combat`, from *Save
 current combat* or a `#combat=` link; it keeps each creature's changes).
-- **Editor.** Three columns in large type: a difficulty card per saved party (default party
-  first, rating, bar, budgets, the 2014 multiplier switch), the bestiary with CR and XP, and the
+- **Editor.** Three columns in large type: the difficulty card for one saved party, picked
+  from a list (the default party first; rating, bar, budgets, the 2014 multiplier switch), the bestiary with CR and XP, and the
   encounter's creatures with CR, XP each and per line, and the total XP.
 - **Lines with changes.** A creature line can carry `stats` (5etools fields, e.g. `{"ac": [17]}`)
   applied to those copies when the encounter starts; lines with different changes stay apart.
@@ -188,6 +188,8 @@ current combat* or a `#combat=` link; it keeps each creature's changes).
 - **`.denc` files.** *Export* writes the selected encounter (or all) as JSON
   (`{"format": "sleuth-encounters", "version": 1, "encounters": [...]}`); importing adds copies
   with new ids.
+- Each row keeps ▶, +, edit, delete and the pin; clicking a row opens a bar under it with
+  big labelled buttons for the next session, its tokens and its 5etools link.
 - ▶ rolls a creature list into the tracker with the import settings (or loads a snapshot,
   replacing the tracker), + adds it to the current combat, 🔗 copies its 5etools link, and the
   token button prints its creatures' tokens (see Play aids).

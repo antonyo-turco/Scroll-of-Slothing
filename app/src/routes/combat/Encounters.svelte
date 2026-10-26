@@ -269,6 +269,9 @@
   const isDefault = (p: Party) =>
     defaultNames.length > 0 && p.heroes.length === defaultNames.length && p.heroes.every((h) => defaultNames.includes(h.name.trim().toLowerCase()));
   const orderedParties = $derived([...parties].sort((a, b) => Number(isDefault(b)) - Number(isDefault(a))));
+  // the party the difficulty is shown for: picked, else the default party, else the first
+  let partyId = $state<string | null>(null);
+  const shownParty = $derived(orderedParties.find((p) => p.id === partyId) ?? orderedParties[0] ?? null);
   const use2014 = $derived(app.settings.combat_xp_multiplier_2014);
   const lineXp = (c: { cr: string | null; count: number }) => (xpOf(c.cr) ?? 0) * c.count;
   const totalXp = $derived(editCreatures.reduce((a, c) => a + lineXp(c), 0));
@@ -394,7 +397,14 @@
             2014 multiplier
           </label>
         </div>
-        {#each orderedParties as p (p.id)}
+        {#if orderedParties.length > 1}
+          <select class="input big" aria-label="Party" value={shownParty?.id} onchange={(e) => (partyId = e.currentTarget.value)}>
+            {#each orderedParties as p (p.id)}
+              <option value={p.id}>{p.name}{isDefault(p) ? ' (default)' : ''} · {p.heroes.length} heroes</option>
+            {/each}
+          </select>
+        {/if}
+        {#each shownParty ? [shownParty] : [] as p (p.id)}
           {@const d = rate(p)}
           <div class="party-diff rating-{d.rating}" data-testid="party-difficulty">
             <div class="pd-top">
@@ -598,7 +608,10 @@
     display: grid;
     grid-template-columns: 1fr 1.2fr 1.3fr;
     gap: var(--space-4);
-    height: 64vh;
+    /* the modal is at most 86vh: leave room for its header, footer and the name row,
+       so only the columns scroll, never the whole popup */
+    height: calc(86vh - 260px);
+    min-height: 320px;
   }
   .ed-col {
     display: flex;
