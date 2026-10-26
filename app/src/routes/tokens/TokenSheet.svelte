@@ -369,7 +369,7 @@
     align-items: center;
     gap: 4px;
     flex: none;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .copies .input {

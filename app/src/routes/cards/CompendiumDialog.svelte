@@ -229,7 +229,7 @@
   .prev {
     white-space: pre-wrap;
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: var(--fs-sm);
     line-height: 1.5;
     margin: 0;
   }

@@ -16,6 +16,8 @@
   let tracks = $state<Track[]>([]);
   const board = $derived(boards.find((b) => b.id === boardId) ?? null);
   const MODES: PlayMode[] = ['oneshot', 'restart', 'toggle'];
+  // #, icon, label, track, mode, colour, volume, loop, key, actions
+  const EDIT_COLUMNS = '32px 64px minmax(120px, 1fr) minmax(160px, 1.4fr) 150px auto 72px 48px 56px auto';
 
   async function load() {
     try {
@@ -145,49 +147,52 @@
       <button class="btn primary" onclick={() => ((newName = ''), (newOpen = true))}>New Board</button>
     </div>
   {:else if editing}
-    <table>
-      <thead><tr><th>Pos</th><th>Icon</th><th>Label</th><th>Track</th><th>Mode <InfoTip label="About button modes" text="One-shot plays the sound once. Restart plays it again from the start on every press. Toggle starts it on the first press and stops it on the next." /></th><th>Colour</th><th>Vol</th><th>Loop</th><th>Key</th><th></th></tr></thead>
-      <tbody>
-        {#each draft as b, i (i)}
-          <tr>
-            <td>{i + 1}</td>
-            <td><input class="input icon-in" bind:value={b.icon} aria-label="Icon" maxlength="4" /></td>
-            <td><input class="input" bind:value={b.label} aria-label="Label" /></td>
-            <td>
-              <select class="input" bind:value={b.track_id} aria-label="Track">
-                {#each tracks as t (t.id)}<option value={t.id}>{t.title}</option>{/each}
-              </select>
-            </td>
-            <td>
-              <select class="input" bind:value={b.play_mode} aria-label="Mode">
-                {#each MODES as m (m)}<option value={m}>{PLAY_MODE_SYMBOLS[m]} {m}</option>{/each}
-              </select>
-            </td>
-            <td class="swatches">
-              {#each BUTTON_COLORS as c (c)}
-                <button class="sw" style:background={c} aria-pressed={b.color === c} aria-label="Colour {c}" onclick={() => (b.color = c)}></button>
-              {/each}
-            </td>
-            <td><input class="input num" type="number" min="0" max="100" bind:value={b.volume} aria-label="Volume" /></td>
-            <td><input type="checkbox" bind:checked={b.loop_by_default} aria-label="Loop" /></td>
-            <td><input class="input key" maxlength="1" value={b.hotkey ?? ''} oninput={(e) => (b.hotkey = e.currentTarget.value || null)} aria-label="Hotkey" /></td>
-            <td class="row-actions">
-              <button class="btn ghost" aria-label="Move up" onclick={() => moveBtn(i, -1)}>↑</button>
-              <button class="btn ghost" aria-label="Move down" onclick={() => moveBtn(i, 1)}>↓</button>
-              <button class="btn ghost" aria-label="Remove button" onclick={() => draft.splice(i, 1)}>✕</button>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+    <div class="list" role="table" aria-label="Buttons">
+      <div class="list-head" role="row" style:grid-template-columns={EDIT_COLUMNS}>
+        <span role="columnheader">#</span><span role="columnheader">Icon</span><span role="columnheader">Label</span><span role="columnheader">Track</span>
+        <span role="columnheader">Mode <InfoTip label="About button modes" text="One-shot plays the sound once. Restart plays it again from the start on every press. Toggle starts it on the first press and stops it on the next." /></span>
+        <span role="columnheader">Colour</span><span role="columnheader">Vol</span><span role="columnheader">Loop</span><span role="columnheader">Key</span>
+        <span role="columnheader"><span class="visually-hidden">Actions</span></span>
+      </div>
+      {#each draft as b, i (i)}
+        <div class="list-row" role="row" style:grid-template-columns={EDIT_COLUMNS}>
+          <span role="cell" class="list-muted">{i + 1}</span>
+          <span role="cell"><input class="input" bind:value={b.icon} aria-label="Icon" maxlength="4" /></span>
+          <span role="cell"><input class="input" bind:value={b.label} aria-label="Label" /></span>
+          <span role="cell">
+            <select class="input" bind:value={b.track_id} aria-label="Track">
+              {#each tracks as t (t.id)}<option value={t.id}>{t.title}</option>{/each}
+            </select>
+          </span>
+          <span role="cell">
+            <select class="input" bind:value={b.play_mode} aria-label="Mode">
+              {#each MODES as m (m)}<option value={m}>{PLAY_MODE_SYMBOLS[m]} {m}</option>{/each}
+            </select>
+          </span>
+          <span role="cell" class="swatches">
+            {#each BUTTON_COLORS as c (c)}
+              <button class="sw" style:background={c} aria-pressed={b.color === c} aria-label="Colour {c}" onclick={() => (b.color = c)}></button>
+            {/each}
+          </span>
+          <span role="cell"><input class="input" type="number" min="0" max="100" bind:value={b.volume} aria-label="Volume" /></span>
+          <span role="cell"><input type="checkbox" bind:checked={b.loop_by_default} aria-label="Loop" /></span>
+          <span role="cell"><input class="input" maxlength="1" value={b.hotkey ?? ''} oninput={(e) => (b.hotkey = e.currentTarget.value || null)} aria-label="Hotkey" /></span>
+          <span role="cell" class="list-actions">
+            <button class="btn ghost" aria-label="Move up" onclick={() => moveBtn(i, -1)}>↑</button>
+            <button class="btn ghost" aria-label="Move down" onclick={() => moveBtn(i, 1)}>↓</button>
+            <button class="btn ghost" aria-label="Remove button" onclick={() => draft.splice(i, 1)}>✕</button>
+          </span>
+        </div>
+      {/each}
+    </div>
   {:else}
-    <div class="grid">
+    <div class="tile-grid pads" style:--tile-min="140px">
       {#each [...board.buttons].sort((a, b) => a.position - b.position) as b, i (b.id)}
-        <button class="tile" class:on={playing(b)} style:background={b.color} onclick={() => press(b)} title="{b.play_mode}{b.hotkey ? ` · key ${b.hotkey}` : i < 9 ? ` · key ${i + 1}` : ''}">
+        <button class="tile pad" class:active={playing(b)} style:background={b.color} onclick={() => press(b)} title="{b.play_mode}{b.hotkey ? ` · key ${b.hotkey}` : i < 9 ? ` · key ${i + 1}` : ''}">
           {#if b.icon}<span class="ico">{b.icon}</span>{/if}
           <span class="lbl">{b.label}</span>
           <span class="mode">{PLAY_MODE_SYMBOLS[b.play_mode]}</span>
-          {#if musicUi.playback[b.id]}<span class="tile-pi"><PlayIndicator status={musicUi.playback[b.id]} size={12} inherit /></span>{/if}
+          {#if musicUi.playback[b.id]}<span class="pad-pi"><PlayIndicator status={musicUi.playback[b.id]} size={12} inherit /></span>{/if}
         </button>
       {:else}
         <p class="muted">This board has no buttons. Click Edit to add some.</p>
@@ -208,118 +213,73 @@
 </Modal>
 
 <style>
-  .pane {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
-  .pane-body {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: var(--space-3) var(--space-4);
-    display: grid;
-    gap: var(--space-2);
-    align-content: start;
-  }
   .sel {
     width: auto;
   }
   .spacer {
     flex: 1;
   }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(4, 80px);
-    gap: 10px;
+  /* a pad: a square colour button on the shared tile grid; .active while it plays */
+  .pads {
+    padding: 0;
+    overflow: visible;
   }
-  .tile {
-    width: 80px;
-    height: 80px;
+  .pad {
+    aspect-ratio: 1;
     border: 0;
-    border-radius: var(--radius);
     color: #fff;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 4px;
-    position: relative;
+    gap: 6px;
+    padding: var(--space-2);
     box-shadow: var(--shadow);
     font: inherit;
   }
-  .tile:hover {
+  .pad:hover {
     filter: brightness(1.15);
   }
-  .tile:active {
+  .pad:active {
     transform: scale(0.97);
   }
-  .tile {
-    position: relative;
-  }
-  .tile-pi {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.6));
-  }
-  .tile.on {
-    outline: 3px solid #00cc66;
+  .pad.active {
+    outline: 3px solid var(--success);
     outline-offset: 2px;
   }
-  .ico {
-    font-size: 22px;
+  .pad .ico {
+    font-size: 32px;
     line-height: 1;
   }
-  .lbl {
-    font-size: 11px;
+  .pad .lbl {
+    font-size: var(--fs-md);
+    font-weight: 600;
     text-align: center;
-    line-height: 1.15;
+    line-height: 1.2;
     overflow: hidden;
     max-height: 2.4em;
   }
-  .mode {
+  .pad .mode {
     position: absolute;
-    top: 2px;
-    right: 4px;
-    font-size: 9px;
-    opacity: 0.8;
+    top: 6px;
+    left: 8px;
+    font-size: var(--fs-xs);
+    opacity: 0.85;
   }
-  table {
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  th {
-    text-align: left;
-    font-size: 12px;
-    color: var(--text-muted);
-    padding: 4px 6px;
-  }
-  td {
-    padding: 2px 6px;
-  }
-  td .input {
-    padding: 2px 6px;
-  }
-  .icon-in {
-    width: 48px;
-  }
-  .num {
-    width: 60px;
-  }
-  .key {
-    width: 36px;
+  .pad-pi {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.6));
   }
   .swatches {
     display: flex;
     gap: 3px;
   }
   .sw {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     border-radius: 3px;
     border: 2px solid transparent;
     cursor: pointer;
@@ -327,9 +287,6 @@
   }
   .sw[aria-pressed='true'] {
     border-color: var(--text);
-  }
-  .row-actions {
-    white-space: nowrap;
   }
   .form {
     display: grid;

@@ -1255,7 +1255,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-muted);
   }
   .round .input {
@@ -1272,7 +1272,7 @@
   .notes-pop {
     width: 100%;
     min-height: 50vh;
-    font-size: 15px;
+    font-size: var(--fs-md);
     line-height: 1.5;
     resize: vertical;
   }
@@ -1298,13 +1298,13 @@
     display: grid;
     gap: 4px;
     margin-bottom: var(--space-3);
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--text-muted);
   }
   .row-notes textarea {
     min-height: 64px;
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-weight: 400;
     color: var(--text);
     resize: vertical;
@@ -1312,11 +1312,11 @@
   .tracker {
     width: 100%;
     border-collapse: collapse;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .tracker th {
     text-align: left;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--text-muted);
     padding: 4px 6px;
@@ -1410,7 +1410,7 @@
   }
   .src {
     margin-left: 6px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .panel {
@@ -1448,7 +1448,7 @@
   }
   .panel-title {
     flex: 1;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -1475,11 +1475,11 @@
     color: var(--text);
   }
   .panel-expand > span:first-child {
-    font-size: 20px;
+    font-size: var(--fs-xl);
   }
   .panel-expand-label {
     writing-mode: vertical-rl;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-weight: 600;
     white-space: nowrap;
   }
@@ -1503,7 +1503,7 @@
     border-radius: 50%;
     padding: 0;
     background: none;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-style: italic;
     font-weight: 700;
     color: var(--text-muted);
@@ -1524,7 +1524,7 @@
     border-radius: var(--radius-sm);
     background: var(--surface);
     box-shadow: var(--shadow);
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-style: normal;
     font-weight: 400;
     color: var(--text);
@@ -1542,15 +1542,15 @@
   }
   .reset-text {
     margin: 0 0 var(--space-3);
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .reset-check {
-    font-size: 15px;
+    font-size: var(--fs-md);
     margin-bottom: var(--space-2);
   }
   .reset-hint {
     margin: var(--space-2) 0 0;
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .tracker tbody tr {
     user-select: none;
@@ -1566,7 +1566,7 @@
     padding: 1px 8px;
     border-radius: 999px;
     background: var(--surface-2);
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 700;
   }
   .save-badge.pass {
@@ -1601,7 +1601,7 @@
     border-radius: var(--radius-sm);
     background: var(--surface);
     box-shadow: var(--shadow);
-    font-size: 14px;
+    font-size: var(--fs-sm);
     line-height: 1.45;
     color: var(--text);
     white-space: normal;
@@ -1613,7 +1613,7 @@
   }
   .chip-wrap .tip small {
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .chip-wrap:hover .tip,
   .chip-wrap:focus-within .tip {
@@ -1636,7 +1636,7 @@
     color: var(--text);
     border-radius: 999px;
     padding: 2px 10px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     cursor: pointer;
     white-space: nowrap;
   }
@@ -1653,7 +1653,7 @@
     display: inline-block;
     min-width: 56px;
     text-align: center;
-    font-size: 16px;
+    font-size: var(--fs-md);
     font-variant-numeric: tabular-nums;
   }
   .num {
@@ -1682,9 +1682,6 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  .field {
-    font-size: 12px;
-  }
   .cond-grid {
     display: flex;
     flex-wrap: wrap;
@@ -1697,11 +1694,11 @@
     padding: 10px 12px;
     border-radius: var(--radius-sm);
     background: var(--surface-2);
-    font-size: 14px;
+    font-size: var(--fs-sm);
     line-height: 1.45;
   }
   .cond-grid .chip {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     padding: 4px 10px;
   }
 </style>

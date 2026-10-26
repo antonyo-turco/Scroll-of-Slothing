@@ -98,7 +98,7 @@
   }
   .title {
     font-weight: 700;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     letter-spacing: 0.01em;
   }
   ul {
@@ -166,7 +166,7 @@
     display: none;
   }
   .group-label {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -174,7 +174,7 @@
   }
   .badge {
     margin-left: auto;
-    font-size: 10px;
+    font-size: 12px;
     padding: 1px 6px;
     border-radius: 999px;
     border: 1px solid var(--border);

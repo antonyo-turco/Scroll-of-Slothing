@@ -112,7 +112,7 @@
   .rw {
     display: grid;
     gap: var(--space-4);
-    font-size: 16px;
+    font-size: var(--fs-md);
   }
   .xp,
   .coins {
@@ -122,7 +122,7 @@
     gap: var(--space-4);
   }
   .big {
-    font-size: 20px;
+    font-size: var(--fs-xl);
   }
   .big b {
     font-size: 26px;
@@ -169,7 +169,7 @@
   .themes {
     margin-left: 8px;
     font-weight: 400;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-muted);
   }
 </style>

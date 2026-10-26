@@ -530,7 +530,7 @@
     position: absolute;
     bottom: 6px;
     right: 8px;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-muted);
   }
   .px {

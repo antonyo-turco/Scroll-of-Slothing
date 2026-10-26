@@ -100,7 +100,7 @@
   .ref {
     display: grid;
     gap: var(--space-3);
-    font-size: 16px;
+    font-size: var(--fs-md);
     line-height: 1.55;
     max-height: 65vh;
     overflow: auto;

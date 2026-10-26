@@ -99,7 +99,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .body {
     padding: var(--space-4);

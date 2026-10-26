@@ -120,24 +120,6 @@
 </div>
 
 <style>
-  .pane {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
-  .pane-body {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: var(--space-3) var(--space-4);
-    display: grid;
-    gap: var(--space-2);
-    align-content: start;
-  }
-  .small {
-    font-size: 12px;
-  }
   .sc {
     padding: var(--space-2) var(--space-3);
   }
@@ -156,7 +138,7 @@
     border: 0;
     background: none;
     padding: 0 2px;
-    font-size: 18px;
+    font-size: var(--fs-lg);
     line-height: 1;
     color: var(--text-muted);
     cursor: pointer;
@@ -181,7 +163,7 @@
   .summary {
     margin: var(--space-2) 0 0;
     padding-left: var(--space-4);
-    font-size: 13px;
+    font-size: var(--fs-xs);
     display: grid;
     gap: 2px;
   }

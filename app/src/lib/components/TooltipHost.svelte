@@ -45,7 +45,7 @@
     background: var(--surface);
     box-shadow: 0 10px 28px rgb(0 0 0 / 0.35);
     color: var(--text);
-    font-size: 14px;
+    font-size: var(--fs-sm);
     line-height: 1.45;
     pointer-events: none;
     opacity: 0;
@@ -95,7 +95,7 @@
     align-items: center;
     gap: 8px;
     font-weight: 700;
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .swatch {
     flex: none;
@@ -112,7 +112,7 @@
   }
   .note {
     margin-top: 6px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
 </style>

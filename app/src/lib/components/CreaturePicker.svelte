@@ -122,7 +122,7 @@
     display: grid;
     gap: var(--space-4);
     height: 62vh;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .cp.multi {
     grid-template-columns: 1.2fr 1fr;
@@ -136,11 +136,11 @@
   }
   .cp-right h3 {
     margin: 0;
-    font-size: 17px;
+    font-size: var(--fs-lg);
   }
   .big {
     height: 40px;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   /* token, name, source/CR or stepper */
   .cp-list .list-row,
@@ -171,7 +171,7 @@
     white-space: nowrap;
   }
   .meta {
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 400;
     color: var(--text-muted);
     white-space: nowrap;
@@ -185,18 +185,18 @@
     min-width: 2.5ch;
     text-align: center;
     font-weight: 700;
-    font-size: 16px;
+    font-size: var(--fs-md);
   }
   .grow {
     flex: 1;
   }
   .sel-name {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-muted);
   }
   .big-btn {
     height: 40px;
-    font-size: 15px;
+    font-size: var(--fs-md);
     padding: 0 18px;
   }
 </style>

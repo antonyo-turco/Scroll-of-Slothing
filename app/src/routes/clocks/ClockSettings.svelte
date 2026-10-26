@@ -150,7 +150,7 @@
   .notes {
     min-height: 140px;
     resize: vertical;
-    font-size: 15px;
+    font-size: var(--fs-md);
     line-height: 1.5;
     padding: var(--space-2);
   }

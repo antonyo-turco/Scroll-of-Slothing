@@ -131,7 +131,7 @@
   .input {
     width: 100%;
     min-height: 40px;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   ul {
     list-style: none;

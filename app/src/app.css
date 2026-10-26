@@ -1,6 +1,12 @@
 /* Design tokens. Light is the base; dark is applied by system preference
    unless the user picks a theme explicitly (data-theme on <html>). */
 :root {
+  /* type scale (docs/styleguide.md "Type and space"): use these, not raw px */
+  --fs-xs: 13px; /* labels, meta, notes, status, pills */
+  --fs-sm: 14px; /* secondary body, inputs in dense tables */
+  --fs-md: 15px; /* body text and list rows */
+  --fs-lg: 17px; /* section and card titles */
+  --fs-xl: 20px; /* view and dialog titles */
   --bg: #f6f6f8;
   --surface: #ffffff;
   --surface-2: #f0f0f4;
@@ -35,7 +41,7 @@
 
   color-scheme: light;
   font-family: var(--font);
-  font-size: 14px;
+  font-size: var(--fs-md);
   line-height: 1.45;
   color: var(--text);
   background: var(--bg);
@@ -159,7 +165,7 @@ textarea {
 }
 .field > label,
 .field > .label {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 .input,
@@ -175,7 +181,7 @@ select.input {
 }
 .error-text {
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .segmented {
@@ -239,7 +245,7 @@ select.input {
   min-height: 36px;
   padding: 0 calc(var(--space-2) + 1px);
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -271,7 +277,7 @@ select.input {
   border: 1px solid transparent;
   border-bottom-color: var(--border);
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: var(--fs-md);
   cursor: default;
 }
 .list-row:hover {
@@ -287,6 +293,10 @@ select.input {
 }
 .list-row > * {
   min-width: 0;
+}
+/* inputs in a row fill their column, so editable rows line up */
+.list-row > [role='cell'] > .input {
+  width: 100%;
 }
 .list-thumb {
   position: relative;
@@ -320,7 +330,7 @@ select.input {
 }
 .list-sub,
 .list-muted {
-  font-size: 13px;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -370,7 +380,7 @@ select.input {
   min-width: 136px;
   height: auto;
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: var(--fs-xs);
 }
 .list-more .btn[aria-pressed='true'] {
   border-color: var(--accent);
@@ -395,7 +405,7 @@ button.list-row {
   color: var(--text);
   text-align: left;
   font: inherit;
-  font-size: 15px;
+  font-size: var(--fs-md);
   cursor: pointer;
 }
 
@@ -405,7 +415,7 @@ button.list-row {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   padding: 1px 9px;
   border-radius: 999px;
   background: var(--surface-2);
@@ -446,7 +456,7 @@ button.list-row {
   border-radius: 999px;
   padding: 3px 12px;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 .chip:hover {
@@ -498,6 +508,19 @@ button.list-row {
 .muted {
   color: var(--text-muted);
 }
+/* a short muted line of help that has to stay visible (longer help: an InfoTip) */
+.hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.small {
+  font-size: var(--fs-xs);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
 
 .visually-hidden {
   position: absolute;
@@ -542,7 +565,7 @@ button.list-row {
   background: var(--surface);
 }
 .view-toolbar .label {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 .toolbar-sep {
@@ -566,7 +589,7 @@ button.list-row {
   border-top: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -635,7 +658,7 @@ button.list-row {
 .section-title,
 details.section > summary {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -681,11 +704,11 @@ details.section:not([open]) {
   grid-template-columns: 92px minmax(0, 1fr);
   align-items: center;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: var(--fs-xs);
 }
 .prop > :first-child {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 .prop .segmented {
   display: flex;
@@ -703,7 +726,7 @@ details.section:not([open]) {
 }
 .with-unit > span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 .pair {
   display: grid;
@@ -725,7 +748,7 @@ details.section:not([open]) {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 .check input,
@@ -737,7 +760,7 @@ input[type="range"] {
   grid-template-columns: 92px minmax(0, 1fr) 36px;
   align-items: center;
   gap: var(--space-2);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 .range > :first-child {
   color: var(--text-muted);
@@ -770,7 +793,7 @@ input[type="range"] {
 }
 .note {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 .note.ok {
@@ -791,7 +814,7 @@ input[type="range"] {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  font-size: 13px;
+  font-size: var(--fs-xs);
 }
 .callout p {
   margin: 0;
@@ -805,6 +828,26 @@ input[type="range"] {
   padding: var(--space-6);
   text-align: center;
   color: var(--text-muted);
+}
+/* a tab's pane inside a view (Music's tabs): toolbar band on top, scrolling body below */
+.pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.pane-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3) var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+/* an empty pane centres its empty state, like every other view */
+.pane-body:has(> .empty-state) {
+  align-content: stretch;
 }
 .empty-state strong {
   color: var(--text);
@@ -832,13 +875,13 @@ input[type="range"] {
 .pager > span {
   flex: 1;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 .zoom-readout {
   min-width: 44px;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }

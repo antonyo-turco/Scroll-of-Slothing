@@ -6,9 +6,27 @@ only its own `grid-template-columns` and the odd layout detail; it does not rest
 chips. The page layout around them (top bar, toolbar band, inspector) is in `ux.md`, "Layout".
 
 ## Type and space
-Roomy, large type (the user's preference): body and rows 15 px, secondary text 13 px, headings
-17 px and up. Nothing smaller than 13 px, except the column headers of a dense table. Rows are at
-least 56 px tall; dialogs can be wide (1000–1400 px) when the content gains from it.
+Roomy, large type (the user's preference). Font sizes come from the scale in `app.css`, never raw
+pixels:
+
+| Token | Size | For |
+|---|---|---|
+| `--fs-xs` | 13 px | labels, meta, notes, status line, pills, chips, column headers |
+| `--fs-sm` | 14 px | secondary body text |
+| `--fs-md` | 15 px | body text (the root size) and list rows |
+| `--fs-lg` | 17 px | section and card titles |
+| `--fs-xl` | 20 px | view and dialog titles |
+
+Nothing is smaller than 13 px, except count badges on the rail and canvas and the `kbd` hint
+(12 px). Bigger display numbers (clock counts, initiative, the XP total) can use their own size.
+Rows are at least 56 px tall; dialogs can be wide (1000–1400 px) when the content gains from it.
+
+Shared helpers instead of per-view copies: `.hint` (a short muted line that has to stay
+visible), `.small`, `.mono`, `.muted`. Views don't redefine `.field`, `.hint` or font sizes.
+
+## Panes
+A view with tabs of its own (Music) puts each tab in a `.pane`: its toolbar band, then a scrolling
+`.pane-body`. An empty `.pane-body` centres its `.empty-state`, like every other view.
 
 ## Explanations go behind an ⓘ
 A section or toolbar never carries a line of explanation under it. Put it in an
@@ -91,15 +109,14 @@ The Library's grid is virtualized (`VirtualGrid.svelte`) and sizes its cards its
 |---|---|
 | View switch | Library (Cards / List / Pills), Clocks (Board / Detail) |
 | List (sortable) | Music → Library, Library list view (its column sorts are the Sort menu's), Combat → Encounters, Combat → Parties |
+| List (rows only, in groups or editable) | Planner sections, Soundboard editor |
 | Inspector detail | Library, Clocks, Token cutter, Map paginator (editors) |
 | Row detail (`.list-more`) | Combat → Encounters |
 | List box | Add creature, Spells and items, Creature picker (Tokens from 5etools), Planner → Add to session |
 | Pills | Library cards and rows, Music library, Soundscapes (tags), Mixer (ducked, running), Encounters (kind) |
 | Chips | Library tag bar, Music library filters and tags, track dialog tags |
-| Tiles | Clocks board; Library cards (virtualized) |
+| Tiles | Clocks board, Soundboard pads (square colour tiles, `.active` while playing); Library cards (virtualized) |
 
-## Not yet on the shared classes
-- Planner entries (`.entry` rows in each section) and the Soundboard pads (fixed 80 px colour
-  buttons, a different control from tiles).
-- Combat's tracker table, the stat block and the condition chips (`--c` colour per condition):
-  domain views with their own look.
+## Kept apart on purpose
+Combat's tracker table, the stat block and the condition chips (`--c` colour per condition) are
+domain views with their own look. They still use the type scale.

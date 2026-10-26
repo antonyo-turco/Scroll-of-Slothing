@@ -193,7 +193,7 @@
   }
   .empty {
     padding: var(--space-4);
-    font-size: 15px;
+    font-size: var(--fs-md);
     color: var(--text-muted);
   }
 </style>

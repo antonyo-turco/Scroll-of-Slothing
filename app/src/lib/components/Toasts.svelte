@@ -55,7 +55,7 @@
   }
   pre {
     white-space: pre-wrap;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     margin: var(--space-1) 0 0;
   }
 </style>

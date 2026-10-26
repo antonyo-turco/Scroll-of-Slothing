@@ -71,7 +71,7 @@
     padding: 2px 4px 2px 8px;
     border-radius: 999px;
     background: var(--accent-soft);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .chip button {
     border: 0;

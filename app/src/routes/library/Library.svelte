@@ -360,10 +360,6 @@
   .tagbar {
     padding-top: 0;
   }
-  .clear {
-    font-size: 12px;
-    min-height: 26px;
-  }
   .bulk {
     margin: var(--space-2) var(--space-4) 0;
     border: 1px solid var(--focus);

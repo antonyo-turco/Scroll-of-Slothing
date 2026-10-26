@@ -112,9 +112,6 @@
   }
   .count {
     width: 80px;
-    font-size: 12px;
-  }
-  .hint {
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
 </style>

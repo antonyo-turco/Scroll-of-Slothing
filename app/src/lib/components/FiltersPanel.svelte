@@ -169,7 +169,7 @@
     text-align: center;
     cursor: grab;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: var(--fs-sm);
     letter-spacing: -3px;
     touch-action: none;
   }
@@ -180,7 +180,7 @@
     gap: 6px;
     align-items: center;
     min-height: 30px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     cursor: pointer;
   }
   .name span {
@@ -192,7 +192,7 @@
     flex: none;
     width: 28px;
     min-height: 28px;
-    font-size: 11px;
+    font-size: var(--fs-xs);
   }
   .params {
     display: grid;

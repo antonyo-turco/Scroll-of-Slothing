@@ -95,7 +95,7 @@
     height: 44px;
     padding: 0 14px;
     cursor: pointer;
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-weight: 600;
   }
   .defeated ul {
@@ -111,7 +111,7 @@
     gap: 10px;
     padding: 6px 8px;
     border-top: 1px solid var(--border);
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .d-name {
     font-weight: 600;
@@ -119,11 +119,11 @@
     color: var(--text-muted);
   }
   .d-hp {
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .src {
     margin-left: 6px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .grow {
@@ -141,12 +141,12 @@
   }
   .db-title {
     font-weight: 600;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .db-rating {
     min-width: 7ch;
     font-weight: 800;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .db-rating.rating-trivial,
   .db-rating.rating-low { color: #2fb344; }
@@ -180,7 +180,7 @@
   .db-xp {
     min-width: 9ch;
     text-align: right;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
     color: var(--text-muted);
   }

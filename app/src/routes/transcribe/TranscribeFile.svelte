@@ -509,7 +509,7 @@
   }
   .segments time {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
     text-align: right;
   }
@@ -535,7 +535,7 @@
   .terms {
     resize: vertical;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .inspector progress {
     width: 100%;
@@ -548,7 +548,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface-2);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .model-card .mono {
@@ -605,7 +605,7 @@
     white-space: nowrap;
   }
   .est small {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 400;
     color: var(--text-muted);
   }

@@ -116,7 +116,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 4px 4px 4px 10px;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .players {

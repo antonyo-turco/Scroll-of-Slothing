@@ -227,7 +227,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .grow {
     flex: 1;

@@ -115,7 +115,7 @@
   }
   th {
     text-align: left;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 500;
     color: var(--text-muted);
     padding-bottom: var(--space-1);

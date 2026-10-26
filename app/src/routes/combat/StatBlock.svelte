@@ -332,7 +332,7 @@
   .sb {
     display: grid;
     gap: var(--space-3);
-    font-size: 15px;
+    font-size: var(--fs-md);
     line-height: 1.55;
   }
   .title {
@@ -349,7 +349,7 @@
     margin: 0;
     font-style: italic;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .props {
     display: grid;
@@ -376,10 +376,10 @@
     display: grid;
   }
   .abil b {
-    font-size: 17px;
+    font-size: var(--fs-lg);
   }
   .abil span {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--text-muted);
   }
@@ -390,7 +390,7 @@
     margin: var(--space-3) 0 0;
     padding-bottom: 2px;
     border-bottom: 1px solid var(--border);
-    font-size: 16px;
+    font-size: var(--fs-md);
     font-variant: small-caps;
     font-weight: 700;
     color: #b0331f;
@@ -453,7 +453,7 @@
     gap: 4px;
     margin-left: 8px;
     vertical-align: 1px;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-variant: normal;
     font-weight: 400;
     line-height: 1;
@@ -469,7 +469,7 @@
   }
   .pips-label {
     margin-left: 4px;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--text-muted);
     white-space: nowrap;
@@ -497,7 +497,7 @@
     border-radius: 999px;
     background: color-mix(in srgb, #2fb344 14%, transparent);
     color: var(--text);
-    font-size: 13px;
+    font-size: var(--fs-xs);
     cursor: pointer;
   }
   .recharge.used {

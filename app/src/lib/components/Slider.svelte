@@ -95,7 +95,7 @@
     display: flex;
     justify-content: space-between;
     gap: var(--space-2);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .lbl {
     color: var(--text-muted);
@@ -115,7 +115,7 @@
   .ctl .btn {
     width: 28px;
     min-height: 28px;
-    font-size: 16px;
+    font-size: var(--fs-md);
     line-height: 1;
     touch-action: manipulation;
   }

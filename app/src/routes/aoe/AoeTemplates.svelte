@@ -516,7 +516,7 @@
     min-width: 0;
   }
   .strip figcaption {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 600;
   }
   .strip img {
@@ -525,15 +525,12 @@
     background: #fff;
     box-shadow: var(--shadow);
   }
-  .field {
-    font-size: 12px;
-  }
   .nowrap {
     flex-wrap: nowrap;
   }
   .gap {
     flex: none;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .gap .input {

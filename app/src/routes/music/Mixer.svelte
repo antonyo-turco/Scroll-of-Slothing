@@ -288,12 +288,6 @@
 </Modal>
 
 <style>
-  .pane {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
   .mixer {
     flex: 1;
     min-height: 0;
@@ -307,14 +301,14 @@
     align-content: start;
   }
   h2 {
-    font-size: 15px;
+    font-size: var(--fs-md);
     margin: 0;
   }
   .spacer {
     flex: 1;
   }
   .seg-label {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     padding: 0 8px;
     align-self: center;
     color: var(--text-muted);
@@ -362,7 +356,7 @@
     flex: 1 1 0;
     min-width: 0;
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -370,7 +364,7 @@
   .role {
     width: auto;
     padding: 2px 6px;
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .btn[aria-pressed='true'] {
     background: var(--accent-soft);
@@ -381,7 +375,7 @@
     width: 3ch;
     text-align: right;
     font-variant-numeric: tabular-nums;
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .soundbites {
     display: grid;
@@ -405,12 +399,9 @@
     width: 64px;
     padding: 2px 6px;
   }
-  .small {
-    font-size: 12px;
-  }
   .empty {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .form {
     display: grid;

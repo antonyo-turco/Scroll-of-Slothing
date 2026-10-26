@@ -232,17 +232,11 @@
     flex-direction: column;
     min-height: 0;
   }
-  .hint {
-    font-size: 12px;
-  }
   .grow {
     flex: 1;
   }
   .num {
     font-variant-numeric: tabular-nums;
-  }
-  .field {
-    font-size: 12px;
   }
   .nowrap {
     flex-wrap: nowrap;
@@ -260,7 +254,7 @@
     padding: 3px 0;
   }
   .hrow.head {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--text-muted);
   }

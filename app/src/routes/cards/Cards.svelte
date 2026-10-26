@@ -321,7 +321,7 @@
     min-height: 0;
     resize: none;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: var(--fs-xs);
     line-height: 1.5;
     padding: var(--space-3) var(--space-4);
     border: 0;
@@ -348,7 +348,7 @@
     gap: 4px;
   }
   figcaption {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     text-align: center;
   }
   .page-btn {
@@ -363,7 +363,7 @@
   .ref {
     white-space: pre-wrap;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     margin: 0;
   }
 </style>

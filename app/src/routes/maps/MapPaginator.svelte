@@ -1045,7 +1045,7 @@
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 92%, transparent);
     box-shadow: var(--shadow);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     pointer-events: none;
   }
   .badge {
@@ -1056,7 +1056,7 @@
     border-radius: var(--radius-sm);
     background: var(--surface);
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .segmented.modes {
     display: grid;
@@ -1073,9 +1073,6 @@
   }
   .segmented.stretch button {
     flex: 1;
-  }
-  .field {
-    font-size: 12px;
   }
   .page {
     position: relative;
@@ -1104,7 +1101,7 @@
     padding: 0;
     color: var(--text);
     text-decoration: underline;
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .asset {
     margin-top: auto;

@@ -43,7 +43,7 @@
     container-type: inline-size;
   }
   h1 {
-    font-size: 15px;
+    font-size: var(--fs-md);
     margin: 0;
     font-weight: 650;
     white-space: nowrap;
@@ -66,7 +66,7 @@
   kbd {
     margin-left: var(--space-2);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 12px;
     padding: 1px 6px;
     border: 1px solid var(--border);
     border-radius: 4px;

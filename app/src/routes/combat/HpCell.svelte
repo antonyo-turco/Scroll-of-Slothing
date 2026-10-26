@@ -157,7 +157,7 @@
   .hp-max {
     padding-left: 4px;
     text-align: left;
-    font-size: 16px;
+    font-size: var(--fs-md);
     font-variant-numeric: tabular-nums;
     color: var(--text-muted);
   }
@@ -165,7 +165,7 @@
   .input.num.temp {
     width: 60px;
     padding: 0 4px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: #4aa3ff;
     border-color: color-mix(in srgb, #4aa3ff 55%, var(--border));
   }
@@ -226,7 +226,7 @@
     height: 32px;
     padding: 0 6px;
     border-radius: 7px;
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: #2fb344;
@@ -286,7 +286,7 @@
     color: #e5533d;
   }
   .stable {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     color: #2fb344;
   }

@@ -177,7 +177,7 @@
   .big-empty {
     height: 100%;
     gap: var(--space-3);
-    font-size: 16px;
+    font-size: var(--fs-md);
     max-width: 640px;
     margin: 0 auto;
     text-align: center;
@@ -195,7 +195,7 @@
   }
   .name {
     margin: 0;
-    font-size: 19px;
+    font-size: var(--fs-xl);
     text-align: center;
     overflow-wrap: anywhere;
   }
@@ -218,7 +218,7 @@
     font-variant-numeric: tabular-nums;
   }
   .of {
-    font-size: 18px;
+    font-size: var(--fs-lg);
     font-weight: 500;
     color: var(--text-muted);
   }
@@ -229,7 +229,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: 15px;
+    font-size: var(--fs-md);
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
@@ -237,7 +237,7 @@
     color: var(--text);
   }
   .open {
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   /* Detail: three rows fill the visible height; more scroll. */
   .rows {
@@ -294,7 +294,7 @@
   }
   .notes-preview {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-muted);
     text-align: center;
     display: -webkit-box;

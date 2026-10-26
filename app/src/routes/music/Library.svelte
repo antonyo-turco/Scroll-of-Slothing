@@ -388,11 +388,7 @@
     width: auto;
     min-height: 28px;
     padding-block: 0;
-    font-size: 12px;
-  }
-  .clear {
-    font-size: 12px;
-    min-height: 26px;
+    font-size: var(--fs-xs);
   }
   .search {
     flex: 1 1 200px;
@@ -426,7 +422,7 @@
   }
   .intro {
     margin: 0 0 var(--space-2);
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .suggest {
     list-style: none;

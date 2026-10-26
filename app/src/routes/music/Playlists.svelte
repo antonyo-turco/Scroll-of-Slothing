@@ -178,21 +178,6 @@
 </Modal>
 
 <style>
-  .pane {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
-  .pane-body {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: var(--space-3) var(--space-4);
-    display: grid;
-    gap: var(--space-2);
-    align-content: start;
-  }
   .now {
     display: flex;
     gap: var(--space-2);
@@ -215,12 +200,9 @@
   .name {
     flex: 1;
   }
-  .small {
-    font-size: 12px;
-  }
   .tracks {
     margin: 6px 0 0;
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .link {
     border: 0;

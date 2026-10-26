@@ -187,9 +187,6 @@
     max-height: 100%;
     object-fit: contain;
   }
-  .field {
-    font-size: 12px;
-  }
   .area {
     min-height: 52px;
     padding: var(--space-2);

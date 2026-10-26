@@ -207,7 +207,7 @@
     align-items: center;
   }
   .file {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -220,7 +220,7 @@
     display: flex;
     gap: 6px;
     align-items: center;
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .actions {
     display: flex;

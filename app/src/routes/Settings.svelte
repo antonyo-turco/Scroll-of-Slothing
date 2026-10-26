@@ -461,7 +461,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-weight: 650;
   }
   summary {
@@ -473,7 +473,7 @@
   }
   .hint {
     margin: calc(-1 * var(--space-2)) 0 0;
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .row {
     display: grid;
@@ -525,23 +525,19 @@
     flex: 1;
   }
   .key-status {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
     white-space: nowrap;
   }
   .key-status.on {
     color: var(--success, var(--text));
   }
-  .mono {
-    font-family: var(--font-mono);
-    font-size: 12px;
-  }
   details.sub {
     padding: 0;
   }
   details.sub summary {
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   details.sub summary::before {

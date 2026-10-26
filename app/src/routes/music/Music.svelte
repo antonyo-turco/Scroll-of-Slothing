@@ -94,7 +94,7 @@
     flex: none;
   }
   .now {
-    font-size: 13px;
+    font-size: var(--fs-xs);
     max-width: 22ch;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -108,7 +108,7 @@
     padding: var(--space-2) var(--space-4);
     background: color-mix(in srgb, var(--danger) 15%, var(--surface));
     color: var(--danger);
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .body {
     flex: 1;

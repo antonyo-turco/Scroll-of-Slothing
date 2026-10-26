@@ -71,7 +71,7 @@
     background: var(--surface);
     box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
     color: var(--text);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 400;
     line-height: 1.45;
     letter-spacing: normal;

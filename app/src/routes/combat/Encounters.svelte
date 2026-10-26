@@ -542,7 +542,7 @@
   }
   .diff-pill {
     font-weight: 700;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--r, var(--text-muted));
   }
   .enc {
@@ -570,16 +570,13 @@
   .dot.combat {
     background: #cc0000;
   }
-  .field {
-    font-size: 12px;
-  }
   .nowrap {
     flex-wrap: nowrap;
   }
   .ed {
     display: grid;
     gap: var(--space-4);
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .ed-head {
     display: flex;
@@ -588,10 +585,10 @@
   .ed-head .field {
     display: grid;
     gap: 4px;
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .big {
-    font-size: 15px;
+    font-size: var(--fs-md);
     height: 40px;
   }
   .ed-body {
@@ -617,16 +614,16 @@
   }
   .col-head h3 {
     margin: 0;
-    font-size: 17px;
+    font-size: var(--fs-lg);
     flex: 1;
   }
   .total {
-    font-size: 17px;
+    font-size: var(--fs-lg);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
   .small-check {
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .diff {
     overflow: auto;
@@ -653,16 +650,16 @@
   }
   .pd-name {
     font-weight: 700;
-    font-size: 16px;
+    font-size: var(--fs-md);
   }
   .pd-rating {
     font-weight: 800;
-    font-size: 16px;
+    font-size: var(--fs-md);
     color: var(--r);
   }
   .pd-sub,
   .pd-nums {
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .pd-nums {
     display: grid;
@@ -690,7 +687,7 @@
     background: var(--text-muted);
   }
   .legend {
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .hits,
   .picked {
@@ -715,7 +712,7 @@
     color: var(--text);
     cursor: pointer;
     text-align: left;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .hits button:hover {
     background: var(--accent-soft);
@@ -727,7 +724,7 @@
     white-space: nowrap;
   }
   .hmeta {
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
     white-space: nowrap;
   }
@@ -755,11 +752,11 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .pxp {
     grid-area: xp;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .stepper {
@@ -771,16 +768,16 @@
   .cnt {
     min-width: 2.5ch;
     text-align: center;
-    font-size: 16px;
+    font-size: var(--fs-md);
     font-weight: 700;
   }
   .big-btn {
-    font-size: 15px;
+    font-size: var(--fs-md);
     height: 40px;
     padding: 0 20px;
   }
   .pad {
     padding: 8px;
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
 </style>

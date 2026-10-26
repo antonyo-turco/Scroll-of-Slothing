@@ -73,7 +73,7 @@
     color: var(--text);
     font: inherit;
     font-weight: 700;
-    font-size: 15px;
+    font-size: var(--fs-md);
     text-align: left;
     cursor: pointer;
   }
@@ -122,7 +122,7 @@
   }
   .rl-total {
     min-width: 2.5ch;
-    font-size: 18px;
+    font-size: var(--fs-lg);
     font-weight: 800;
     text-align: center;
     font-variant-numeric: tabular-nums;
@@ -132,10 +132,10 @@
   }
   .rl-what {
     display: grid;
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .rl-what small {
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
 </style>

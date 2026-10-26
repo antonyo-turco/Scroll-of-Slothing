@@ -198,7 +198,7 @@
     border: 2px solid var(--focus);
     background: var(--surface);
     color: var(--focus);
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     display: grid;
     place-items: center;
@@ -214,7 +214,7 @@
     background: rgb(0 0 0 / 0.35);
     color: #fff;
     cursor: pointer;
-    font-size: 15px;
+    font-size: var(--fs-md);
     opacity: 0;
     transition: opacity 80ms;
   }
@@ -244,7 +244,7 @@
     align-items: center;
   }
   .kind {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     padding: 1px 6px;
     border-radius: 999px;
     background: var(--surface-2);
@@ -252,14 +252,14 @@
   }
   .size {
     margin-left: auto;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     border: 1px solid var(--border);
     border-radius: 4px;
     background: var(--surface);
     padding: 1px 2px;
   }
   .tags {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -271,13 +271,13 @@
     padding: 4px var(--space-2);
   }
   .pill .name {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 500;
   }
   .pill .pin {
     width: 24px;
     height: 24px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .pill .check {
     width: 18px;
@@ -301,7 +301,7 @@
     left: 2px;
     width: 16px;
     height: 16px;
-    font-size: 11px;
+    font-size: var(--fs-xs);
   }
   .cell {
     min-width: 0;
@@ -337,7 +337,7 @@
     display: block;
   }
   .aka {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     margin-top: 4px;
   }
 </style>

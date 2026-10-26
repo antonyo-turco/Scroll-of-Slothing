@@ -225,16 +225,17 @@
               {#if list.length}
                 <ul>
                   {#each list as e (`${e.kind}:${e.ref_id}`)}
-                    <li class="entry" class:missing={e.missing} data-testid="plan-entry">
-                      <span class="thumb">
+                    <li class="list-row entry" class:missing={e.missing} data-testid="plan-entry">
+                      <span class="list-thumb">
                         {#if e.thumb}<img src={blobUrl(e.thumb)} alt="" loading="lazy" />{:else}
                           <Icon name={e.section === 'music' ? 'music' : e.section === 'encounters' ? 'swords' : e.section === 'maps' ? 'map' : 'cards'} size={22} />
                         {/if}
                       </span>
-                      <span class="what">
-                        <span class="name">{e.name}</span>
-                        <span class="detail">{e.detail}{#if e.starred}<span class="star" title="Starred in its own tool">★ Starred</span>{/if}</span>
+                      <span class="list-name">
+                        <span class="list-title">{e.name}</span>
+                        <span class="list-sub">{e.detail}{#if e.starred} <span class="pill accent" title="Starred in its own tool">★ Starred</span>{/if}</span>
                       </span>
+                      <span class="list-actions">
                       {#if e.section === 'tokens' && e.item_id}
                         <label class="copies" title="Copies to print">×
                           <input class="input" type="number" min="1" max="99" aria-label="Copies of {e.name}" value={e.copies}
@@ -250,6 +251,7 @@
                       {:else}
                         <button class="btn ghost" onclick={() => keep(e)} title="Keep it in this session even when it is unstarred">Keep</button>
                       {/if}
+                      </span>
                     </li>
                   {/each}
                 </ul>
@@ -330,7 +332,7 @@
   .big-empty {
     height: 100%;
     gap: var(--space-3);
-    font-size: 16px;
+    font-size: var(--fs-md);
   }
   .session-pick {
     display: flex;
@@ -339,7 +341,7 @@
   }
   .session-pick select {
     min-width: 260px;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .tool-label {
     color: var(--text-muted);
@@ -372,11 +374,11 @@
   }
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: var(--fs-lg);
   }
   .count {
     margin-left: 6px;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-weight: 500;
     color: var(--text-muted);
   }
@@ -384,59 +386,16 @@
     list-style: none;
     margin: var(--space-2) 0 0;
     padding: 0;
-    display: grid;
-    gap: 4px;
-  }
+    }
+  /* thumbnail, name, actions */
   .entry {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-2);
-    border-radius: var(--radius-sm);
+    grid-template-columns: 44px minmax(0, 1fr) auto;
   }
-  .entry:hover {
-    background: var(--surface-2);
+  .entry:last-child {
+    border-bottom-color: transparent;
   }
   .entry.missing {
     opacity: 0.6;
-  }
-  .thumb {
-    width: 52px;
-    height: 52px;
-    flex: none;
-    display: grid;
-    place-items: center;
-    border-radius: var(--radius-sm);
-    background: var(--surface-2);
-    color: var(--text-muted);
-    overflow: hidden;
-  }
-  .thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .what {
-    flex: 1;
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-  .name {
-    font-size: 16px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .detail {
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-  .star {
-    margin-left: var(--space-2);
-    color: #d6a21a;
-    font-weight: 600;
   }
   .copies {
     display: flex;
@@ -457,7 +416,7 @@
     gap: var(--space-2);
   }
   .checklist .check {
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .done {
     text-decoration: line-through;
@@ -473,7 +432,7 @@
   .notes {
     min-height: 180px;
     resize: vertical;
-    font-size: 15px;
+    font-size: var(--fs-md);
     line-height: 1.5;
     padding: var(--space-2);
   }

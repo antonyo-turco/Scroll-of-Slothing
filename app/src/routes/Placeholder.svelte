@@ -29,10 +29,10 @@
   }
   h2 {
     margin: 0 0 var(--space-2);
-    font-size: 18px;
+    font-size: var(--fs-lg);
   }
   code {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
 </style>

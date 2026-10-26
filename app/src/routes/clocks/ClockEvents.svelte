@@ -121,17 +121,17 @@
   }
   h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: var(--fs-lg);
   }
   .muted-count {
     margin-left: 4px;
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-weight: 500;
     color: var(--text-muted);
   }
   .next-at {
     margin-left: auto;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-muted);
   }
   .list {
@@ -141,7 +141,7 @@
   }
   .empty {
     margin: 0;
-    font-size: 15px;
+    font-size: var(--fs-md);
     color: var(--text-muted);
   }
   ul {
@@ -176,7 +176,7 @@
   .at {
     width: 64px;
     flex: none;
-    font-size: 16px;
+    font-size: var(--fs-md);
   }
   .body {
     flex: 1;
@@ -186,18 +186,18 @@
   }
   .text {
     width: 100%;
-    font-size: 16px;
+    font-size: var(--fs-md);
   }
   .meta {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-muted);
   }
   .repeat {
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .small {
     width: 72px;

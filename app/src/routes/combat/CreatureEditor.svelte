@@ -261,7 +261,7 @@
     align-items: center;
     gap: var(--space-3);
     margin-bottom: var(--space-3);
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .stat-form {
     display: grid;
@@ -269,7 +269,7 @@
     gap: var(--space-3);
     max-height: 62vh;
     overflow: auto;
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .stat-form fieldset {
     display: grid;
@@ -286,7 +286,7 @@
   }
   .stat-form legend {
     padding: 0 6px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -295,10 +295,10 @@
   .stat-form .field {
     display: grid;
     gap: 4px;
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .stat-form .input {
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .stat-form .wide {
     grid-column: 1 / -1;
@@ -310,14 +310,14 @@
     width: 100%;
     height: 56vh;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: var(--fs-xs);
     line-height: 1.5;
     white-space: pre;
     resize: vertical;
   }
   .json-hint {
     margin: 0 0 var(--space-2);
-    font-size: 13px;
+    font-size: var(--fs-xs);
   }
   .grow {
     flex: 1;

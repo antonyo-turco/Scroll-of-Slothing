@@ -161,12 +161,8 @@
   }
   h2 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-weight: 650;
-  }
-  .hint {
-    margin: 0;
-    font-size: 12px;
   }
   .toggle {
     display: flex;
@@ -179,10 +175,6 @@
     width: 16px;
     height: 16px;
   }
-  .mono {
-    font-family: var(--font-mono);
-    font-size: 12px;
-  }
   .col-row {
     display: flex;
     align-items: center;
@@ -193,7 +185,7 @@
   }
   .kind {
     flex: 1;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -204,7 +196,7 @@
   }
   details.sub summary {
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   details.sub[open] {

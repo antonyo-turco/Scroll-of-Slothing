@@ -101,7 +101,7 @@
     border-radius: var(--radius);
     background: var(--surface);
     box-shadow: var(--shadow);
-    font-size: 16px;
+    font-size: var(--fs-md);
     animation: conc-in 0.25s ease-out;
   }
   .conc-text {
@@ -143,7 +143,7 @@
     border-radius: 12px;
     background: var(--surface);
     box-shadow: 0 12px 36px rgb(0 0 0 / 0.35);
-    font-size: 15px;
+    font-size: var(--fs-md);
     animation: note-life 5s ease forwards;
   }
   .recharge-notice {
@@ -165,7 +165,7 @@
     border-radius: 8px;
     background: color-mix(in srgb, #e5533d 18%, transparent);
     color: #e5533d;
-    font-size: 16px;
+    font-size: var(--fs-md);
     font-weight: 800;
     cursor: pointer;
   }
@@ -173,11 +173,11 @@
     background: color-mix(in srgb, #e5533d 32%, transparent);
   }
   .rc-res {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-muted);
   }
   .ln-label {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -242,7 +242,7 @@
     --edge: #6b6b6b;
   }
   .tc-label {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -254,7 +254,7 @@
     line-height: 1.15;
   }
   .tc-name.small {
-    font-size: 19px;
+    font-size: var(--fs-xl);
     font-weight: 700;
   }
   @keyframes note-life {

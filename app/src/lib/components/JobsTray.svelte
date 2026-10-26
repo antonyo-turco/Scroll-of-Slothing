@@ -51,7 +51,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   progress {
     width: 100%;

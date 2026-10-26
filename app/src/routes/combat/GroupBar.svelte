@@ -59,7 +59,7 @@
     border-radius: 10px;
     background: var(--surface);
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
-    font-size: 15px;
+    font-size: var(--fs-md);
   }
   .gb-count {
     font-weight: 700;
@@ -95,7 +95,7 @@
     background: var(--border);
   }
   .gb-half {
-    font-size: 14px;
+    font-size: var(--fs-sm);
   }
   .grow {
     flex: 1;
