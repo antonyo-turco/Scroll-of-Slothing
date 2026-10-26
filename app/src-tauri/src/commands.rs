@@ -1339,3 +1339,56 @@ pub async fn planner_prune(svc: Svc<'_>, session: String) -> Res<usize> {
 pub fn planner_print(svc: Svc<'_>, session: String, dir: PathBuf) -> JobId {
     svc.planner_print(session, dir)
 }
+
+// ── clocks ──
+
+#[tauri::command]
+pub async fn clocks_list(svc: Svc<'_>) -> Res<Vec<sleuth_service::Clock>> {
+    svc.clocks_list().await
+}
+
+#[tauri::command]
+pub async fn clocks_create(
+    svc: Svc<'_>,
+    clock: sleuth_service::ClockNew,
+) -> Res<sleuth_service::Clock> {
+    svc.clocks_create(clock).await
+}
+
+#[tauri::command]
+pub async fn clocks_update(
+    svc: Svc<'_>,
+    id: String,
+    patch: sleuth_service::ClockPatch,
+) -> Res<sleuth_service::Clock> {
+    svc.clocks_update(id, patch).await
+}
+
+#[tauri::command]
+pub async fn clocks_advance(svc: Svc<'_>, id: String, by: i64) -> Res<sleuth_service::Clock> {
+    svc.clocks_advance(id, by).await
+}
+
+#[tauri::command]
+pub async fn clocks_reset(svc: Svc<'_>, id: String) -> Res<sleuth_service::Clock> {
+    svc.clocks_reset(id).await
+}
+
+#[tauri::command]
+pub async fn clocks_run(
+    svc: Svc<'_>,
+    id: Option<String>,
+    run: bool,
+) -> Res<Vec<sleuth_service::Clock>> {
+    svc.clocks_run(id, run).await
+}
+
+#[tauri::command]
+pub async fn clocks_delete(svc: Svc<'_>, id: String) -> Res<Vec<sleuth_service::Clock>> {
+    svc.clocks_delete(id).await
+}
+
+#[tauri::command]
+pub async fn clocks_tick(svc: Svc<'_>) -> Res<Vec<sleuth_service::ClockTick>> {
+    svc.clocks_tick().await
+}

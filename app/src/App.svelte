@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount, type Component } from 'svelte';
+  import ClockWatcher from './lib/components/ClockWatcher.svelte';
   import CommandPalette from './lib/components/CommandPalette.svelte';
   import JobsTray from './lib/components/JobsTray.svelte';
   import MusicEngine from './lib/components/MusicEngine.svelte';
   import Rail from './lib/components/Rail.svelte';
   import Toasts from './lib/components/Toasts.svelte';
+  import TooltipHost from './lib/components/TooltipHost.svelte';
   import TopBar from './lib/components/TopBar.svelte';
   import { findView } from './lib/nav';
   import { app } from './lib/state.svelte';
@@ -58,7 +60,8 @@
 <CommandPalette />
 <JobsTray />
 <Toasts />
-{#if app.ready}<MusicEngine />{/if}
+<TooltipHost />
+{#if app.ready}<MusicEngine /><ClockWatcher />{/if}
 
 <style>
   .shell {

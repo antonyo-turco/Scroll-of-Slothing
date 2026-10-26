@@ -1,11 +1,11 @@
-// Navigation model: 8 rail destinations (+ settings) with optional sub-views.
+// Navigation model: 9 rail destinations (+ settings) with optional sub-views.
 // Route ids are persisted (settings.start_view) — never rename them; a retired
 // view keeps its id as an alias (ROUTE_ALIASES).
 
 import type { Component } from 'svelte';
 
 export type IconName =
-  | 'library' | 'calendar' | 'token' | 'swords' | 'skull' | 'pencil' | 'copy' | 'braces' | 'undo' | 'trash' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'settings'
+  | 'library' | 'calendar' | 'token' | 'swords' | 'skull' | 'pencil' | 'copy' | 'braces' | 'undo' | 'trash' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'clock' | 'settings'
   | 'search' | 'chevron-left' | 'chevron-right' | 'x' | 'check' | 'loader' | 'command';
 
 export interface View {
@@ -50,6 +50,8 @@ export const DESTINATIONS: Destination[] = [
     views: [{ id: 'music', label: 'Music', phase: 7, load: () => import('../routes/music/Music.svelte') }] },
   { id: 'combat', label: 'Combat', icon: 'swords',
     views: [{ id: 'combat', label: 'Combat', phase: 9, load: () => import('../routes/combat/Combat.svelte') }] },
+  { id: 'clocks', label: 'Clocks', icon: 'clock',
+    views: [{ id: 'clocks', label: 'Clocks', phase: 11, load: () => import('../routes/clocks/Clocks.svelte') }] },
   { id: 'transcribe', label: 'Transcribe', icon: 'mic', group: 'After', views: [
     { id: 'transcribe.file', label: 'File', phase: 8, load: () => import('../routes/transcribe/TranscribeFile.svelte') },
   ] },

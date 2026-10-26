@@ -13,7 +13,7 @@ use crate::units::PageFormat;
 /// Default 5etools mirror for the combat tracker (a local copy).
 pub const DEFAULT_FIVETOOLS_BASE_URL: &str = "http://localhost:8080";
 
-pub const ROUTES: [&str; 13] = [
+pub const ROUTES: [&str; 14] = [
     "library",
     "planner",
     "tokens.cutter",
@@ -25,6 +25,7 @@ pub const ROUTES: [&str; 13] = [
     "maps.aoe",
     "music",
     "combat",
+    "clocks",
     "transcribe.file",
     "settings",
 ];

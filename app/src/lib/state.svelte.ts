@@ -118,10 +118,11 @@ class AppState {
     }, 150);
   }
 
-  toast(kind: Toast['kind'], text: string, detail?: string): void {
+  /** Shows a toast; errors stay until dismissed, others go after `ms`. */
+  toast(kind: Toast['kind'], text: string, detail?: string, ms = 3500): void {
     const id = ++this.#toastSeq;
     this.toasts.push({ id, kind, text, detail });
-    if (kind !== 'error') setTimeout(() => this.dismissToast(id), 3500);
+    if (kind !== 'error') setTimeout(() => this.dismissToast(id), ms);
   }
 
   dismissToast(id: number): void {

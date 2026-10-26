@@ -969,3 +969,69 @@ export interface PlanRef {
   ref_id: string;
   copies?: number | null;
 }
+
+// ── clocks (crates/core/src/clocks.rs, crates/service/src/clocks.rs) ──
+
+export interface AutoAdvance {
+  every_secs: number;
+  /** Unix ms the running segment started counting (minus carried time); null while paused. */
+  since_ms: number | null;
+  /** Time counted toward the next segment while paused. */
+  carry_ms: number;
+}
+
+/** Something that happens when segment `at` (1-based) fills; with `repeat`, again every `repeat` segments after. */
+export interface ClockEvent {
+  id: string;
+  at: number;
+  repeat: number | null;
+  text: string;
+}
+
+export interface Clock {
+  id: string;
+  name: string;
+  segments: number;
+  filled: number;
+  color: string | null;
+  notes: string;
+  auto: AutoAdvance | null;
+  events: ClockEvent[];
+  created: string;
+  updated: string;
+}
+
+export interface ClockNew {
+  name?: string | null;
+  segments?: number | null;
+  color?: string | null;
+  every_secs?: number | null;
+  run?: boolean | null;
+}
+
+export interface ClockPatch {
+  name?: string | null;
+  segments?: number | null;
+  filled?: number | null;
+  color?: string | null;
+  notes?: string | null;
+  /** 0 removes the timer. */
+  every_secs?: number | null;
+  /** Replaces every event (an empty id gets a new one). */
+  events?: ClockEvent[] | null;
+}
+
+export interface FiredEvent {
+  segment: number;
+  text: string;
+}
+
+export interface ClockTick {
+  id: string;
+  name: string;
+  added: number;
+  filled: number;
+  segments: number;
+  full: boolean;
+  events: FiredEvent[];
+}

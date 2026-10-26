@@ -205,6 +205,63 @@ pub struct PlannerItemParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ClockCreateParams {
+    /// Default `Clock N`.
+    pub name: Option<String>,
+    /// 2-24 segments, default 4.
+    pub segments: Option<u32>,
+    /// `#rrggbb`; omit for the accent colour.
+    pub color: Option<String>,
+    /// Advance one segment every this many seconds (10 s to 24 h); omit for a hand-filled clock.
+    pub every_secs: Option<u32>,
+    /// Start the timer right away.
+    pub run: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ClockUpdateParams {
+    pub id: String,
+    pub name: Option<String>,
+    /// 2-24; the fill is clamped to it.
+    pub segments: Option<u32>,
+    pub filled: Option<u32>,
+    /// `#rrggbb`; empty goes back to the accent colour.
+    pub color: Option<String>,
+    pub notes: Option<String>,
+    /// Timer period in seconds (10 s to 24 h); 0 removes the timer.
+    pub every_secs: Option<u32>,
+    /// Replaces every event: [{id?, at, repeat?, text}].
+    pub events: Option<Vec<ClockEventParam>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ClockEventParam {
+    /// Keep an existing event's id; leave empty for a new one.
+    #[serde(default)]
+    pub id: String,
+    /// The segment (1-based) whose filling triggers it.
+    pub at: u32,
+    /// Fire again every this many segments after `at`.
+    pub repeat: Option<u32>,
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ClockAdvanceParams {
+    pub id: String,
+    /// Segments to fill; negative empties them. Default 1.
+    pub by: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ClockRunParams {
+    /// The clock; omit for every clock with a timer.
+    pub id: Option<String>,
+    /// true starts the timer, false pauses it.
+    pub run: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct PlannerSessionParams {
     pub session: String,
 }
@@ -1655,6 +1712,81 @@ impl SleuthServer {
         ok(
             &serde_json::json!({ "job_id": self.svc.planner_print(p.session, PathBuf::from(p.dir)) }),
         )
+    }
+
+    #[tool(
+        description = "Blades in the Dark style clocks: id, name, segments, filled, color, notes, events (what happens at a segment: at, repeat, text) and auto (the timer: every_secs, since_ms = Unix ms the running segment started counting, null when paused, carry_ms counted while paused)."
+    )]
+    async fn clocks_list(&self) -> ToolResult {
+        done(self.svc.clocks_list().await)
+    }
+
+    #[tool(
+        description = "Make a clock: name, segments (2-24, default 4), color, every_secs (advance one segment every N seconds; omit for a hand-filled clock) and run (start the timer)."
+    )]
+    async fn clocks_create(&self, Parameters(p): Parameters<ClockCreateParams>) -> ToolResult {
+        let new = sleuth_service::ClockNew {
+            name: p.name,
+            segments: p.segments,
+            color: p.color,
+            every_secs: p.every_secs,
+            run: p.run,
+        };
+        done(self.svc.clocks_create(new).await)
+    }
+
+    #[tool(
+        description = "Change a clock: name, segments, filled, color, notes, every_secs (0 removes the timer), events (replaces them: [{id?, at, repeat?, text}], something that happens when segment `at` fills and, with repeat, every `repeat` segments after). Filling it stops its timer."
+    )]
+    async fn clocks_update(&self, Parameters(p): Parameters<ClockUpdateParams>) -> ToolResult {
+        let patch = sleuth_service::ClockPatch {
+            name: p.name,
+            segments: p.segments,
+            filled: p.filled,
+            color: p.color,
+            notes: p.notes,
+            every_secs: p.every_secs,
+            events: p.events.map(|l| {
+                l.into_iter()
+                    .map(|e| sleuth_service::ClockEvent {
+                        id: e.id,
+                        at: e.at,
+                        repeat: e.repeat,
+                        text: e.text,
+                    })
+                    .collect()
+            }),
+        };
+        done(self.svc.clocks_update(p.id, patch).await)
+    }
+
+    #[tool(description = "Fill `by` segments of a clock (default 1; negative empties them).")]
+    async fn clocks_advance(&self, Parameters(p): Parameters<ClockAdvanceParams>) -> ToolResult {
+        done(self.svc.clocks_advance(p.id, p.by.unwrap_or(1)).await)
+    }
+
+    #[tool(description = "Empty a clock and pause its timer.")]
+    async fn clocks_reset(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.clocks_reset(p.id).await)
+    }
+
+    #[tool(
+        description = "Start (run: true) or pause a clock's timer, or every timer when id is omitted. A paused timer keeps its partial segment; full clocks don't start."
+    )]
+    async fn clocks_run(&self, Parameters(p): Parameters<ClockRunParams>) -> ToolResult {
+        done(self.svc.clocks_run(p.id, p.run).await)
+    }
+
+    #[tool(description = "Delete a clock. Returns the remaining clocks.")]
+    async fn clocks_delete(&self, Parameters(p): Parameters<StrIdParams>) -> ToolResult {
+        done(self.svc.clocks_delete(p.id).await)
+    }
+
+    #[tool(
+        description = "Add the segments every running timer owes now and list the clocks that moved (added, filled, full, and the events of the segments that filled). The app ticks on its own while it is open and notifies on each segment."
+    )]
+    async fn clocks_tick(&self) -> ToolResult {
+        done(self.svc.clocks_tick().await)
     }
 
     #[tool(

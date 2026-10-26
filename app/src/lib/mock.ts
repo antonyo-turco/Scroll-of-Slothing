@@ -16,6 +16,7 @@ import { createMapsMockHandlers, MOCK_TOKEN_FILTER_CATALOG } from './mock-maps';
 import { createSttMockHandlers } from './mock-stt';
 import { createCombatMockHandlers } from './mock-combat';
 import { createPlannerMockHandlers } from './mock-planner';
+import { createClocksMockHandlers } from './mock-clocks';
 
 export interface Backend {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -698,6 +699,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
   Object.assign(handlers, createMusicMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
   Object.assign(handlers, createCombatMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
+  Object.assign(handlers, createClocksMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
   Object.assign(handlers, createPlannerMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), (cmd, args = {}) => handlers[cmd](args)));
 
   return {

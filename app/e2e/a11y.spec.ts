@@ -17,6 +17,7 @@ const ROUTES = [
   'maps.aoe',
   'music',
   'combat',
+  'clocks',
   'transcribe.file',
   'settings',
 ];

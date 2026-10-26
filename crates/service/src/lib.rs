@@ -6,6 +6,7 @@ mod aoe;
 mod blobs;
 mod cards;
 mod clipboard;
+mod clocks;
 mod combat;
 mod cutouts;
 mod error;
@@ -35,6 +36,8 @@ use tokio::sync::broadcast;
 
 pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
 pub use cards::{CardOptions, CardSummary};
+pub use clocks::{ClockNew, ClockPatch, ClockTick, FiredEvent};
+pub use sleuth_core::clocks::{AutoAdvance, Clock, ClockEvent};
 pub use combat::{
     BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CreatureImage, DENC_FORMAT,
     EncounterCreature, EncounterLine, EncounterSummary, Hero, Party, RowPatch, SavedEncounter,

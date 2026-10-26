@@ -25,6 +25,7 @@ The left rail has 8 destinations instead of Python's 16 tabs, in three headed gr
 | `maps.paginator`, `maps.aoe` | Map Paginator, AoE Templates |
 | `music` (tabs inside the view) | Library, Mixer, Soundscapes, Playlists, Soundboard |
 | `combat` | (new: the 5etools-compatible initiative tracker) |
+| `clocks` | (new: Blades in the Dark style clocks; Board and Detail views with events) |
 | `transcribe.file` | (new: speech to text) |
 | `settings` (pinned to the bottom of the rail) | Settings |
 

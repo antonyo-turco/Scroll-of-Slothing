@@ -32,6 +32,7 @@ A general Handouts destination; the current **Cards** tool becomes one of its ta
 letters, notices, wanted posters and similar on templates, printed through the PDF pipeline.
 
 ### Timers and trackers (During)
+Clocks picked up 2026-10-25: spec in `features/clocks.md` (Phase 11). Still to do:
 - **Real time:** countdown and stopwatch timers with notifications.
 - **Blades in the Dark style clocks:** segmented clocks (4, 6, 8 … segments) filled by hand.
 - **Clocks tied to time:** a clock can advance on its own every N minutes of real time (for
