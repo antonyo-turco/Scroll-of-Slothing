@@ -10,7 +10,8 @@
   // The whole state is a MapDoc (full-res image px). Zoom/pan, the grid, tiles
   // and tools are client-side vectors over the Rust-processed proxy image.
   import { onDestroy, onMount } from 'svelte';
-  import { api, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
+  import { api, firstImagePath, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import type { FilterCatalog, MapDoc, MapLayout, Pt, SaveDetails, SizingMode } from '../../lib/types';
@@ -312,7 +313,7 @@
       if (doc) void refreshLayout();
     }
     unlisten = await onFileDrop((paths) => {
-      const img = paths.find((p) => IMAGE_EXTENSIONS.includes(p.split('.').pop()?.toLowerCase() ?? ''));
+      const img = firstImagePath(paths);
       if (img) void loadPath(img);
     });
   });
@@ -485,6 +486,19 @@
     } finally {
       busy = false;
     }
+  }
+
+  // The cut-lines hint can raise the margin; turning cut lines off puts it back.
+  let marginBeforeHint: number | null = null;
+  function setSafeMargin() {
+    if (!doc) return;
+    marginBeforeHint = doc.margin_in;
+    doc.margin_in = 0.2;
+  }
+  function cutLinesChanged() {
+    if (!doc || doc.cut_border) return;
+    if (marginBeforeHint != null && doc.margin_in === 0.2) doc.margin_in = marginBeforeHint;
+    marginBeforeHint = null;
   }
 
   /** Print region = content inside uniform borders, snapped to grid lines. */
@@ -727,9 +741,8 @@
       <div id="map-panel" role="tabpanel" aria-labelledby="map-tab-{tab}">
         {#if tab === 'scale'}
           <section class="section">
-            <h3 class="section-title">Square size</h3>
+            <h3 class="section-title">Square size <InfoTip label="About the square size" text="⌗ Detect grid reads the grid drawn on the map. Or set the size by hand: rows × columns, pixels per inch, or a reference block. Reference block: box a block of known size with the Reference square tool, then drag its corners onto the block’s real corners to de-warp the whole map." /></h3>
             <button class="btn block" disabled={busy} onclick={detectGrid} title="Find the grid drawn in the map and set the square size and line offset from it">⌗ Detect grid</button>
-            <p class="note">Reads the grid drawn on the map. Or set it by hand:</p>
             <div class="segmented modes" role="group" aria-label="Sizing mode">
               {#each MODES as [m, label] (m)}
                 <button aria-pressed={doc.mode === m} onclick={() => (doc!.mode = m)}>{label}</button>
@@ -748,7 +761,6 @@
                 <button class="btn" disabled={busy} onclick={undoDewarp}>↺ Undo de-warp</button>
               {:else}
                 <label class="field">Block is N×N squares <input class="input" type="number" min="1" max="99" bind:value={doc.ref_n} /></label>
-                <p class="note">Box a block of known size with the Reference square tool, then drag its corners onto the block's real corners to de-warp the whole map.</p>
                 <div class="pair">
                   <button class="btn" disabled={busy} onclick={() => setTool('reference')}>{doc.ref_quad ? 'Edit block' : 'Draw block'}</button>
                   <button class="btn primary" disabled={!doc.ref_quad || busy} onclick={dewarp}>▦ De-warp</button>
@@ -763,7 +775,7 @@
           </section>
 
           <section class="section">
-            <h3 class="section-title">Grid position</h3>
+            <h3 class="section-title">Grid position <InfoTip label="About the grid position" text="Shifts the printed grid so its lines sit on the map’s own lines. Detect grid sets it for you." /></h3>
             <div class="pair">
               <label class="field">Offset X <input class="input" type="number" step="0.5" bind:value={doc.offset_x} /></label>
               <label class="field">Offset Y <input class="input" type="number" step="0.5" bind:value={doc.offset_y} /></label>
@@ -790,6 +802,7 @@
               <div class="segmented" role="group" aria-label="Page format">
                 <button aria-pressed={doc.format === 'A4'} onclick={() => (doc!.format = 'A4')}>A4</button>
                 <button aria-pressed={doc.format === 'Letter'} onclick={() => (doc!.format = 'Letter')}>Letter</button>
+                <button aria-pressed={doc.format === 'A3'} onclick={() => (doc!.format = 'A3')}>A3</button>
               </div>
             </div>
             <div class="prop">
@@ -803,13 +816,17 @@
               <span>1 square =</span>
               <span class="with-unit"><input class="input" type="number" min="0.05" step="0.05" aria-label="1 square = (in)" bind:value={doc.square_in} /><span>in</span></span>
             </label>
+            <label class="prop">
+              <span>Margin</span>
+              <span class="with-unit"><input class="input" type="number" min="0" step="0.05" aria-label="Margin (in)" bind:value={doc.margin_in} /><span>in</span></span>
+            </label>
             <label class="check" title="Lines along every edge of each page's map, out to the paper edge, to trim the white margin">
-              <input type="checkbox" bind:checked={doc.cut_border} /> Cut lines (trim the white margin)
+              <input type="checkbox" bind:checked={doc.cut_border} onchange={cutLinesChanged} /> Cut lines (trim the white margin)
             </label>
             {#if doc.cut_border && (doc.margin_in ?? 0) < 0.2}
               <div class="note warn" data-testid="margin-hint">
                 Most printers can't print within about 0.2 in (5 mm) of the paper edge, so the map's edges and the cut lines get clipped.
-                <button class="btn ghost linkish" onclick={() => (doc!.margin_in = 0.2)}>Set margin to 0.2 in</button>
+                <button class="btn ghost linkish" onclick={setSafeMargin}>Set margin to 0.2 in</button>
               </div>
             {/if}
           </section>
@@ -830,7 +847,7 @@
           </section>
 
           <section class="section">
-            <h3 class="section-title">Pages</h3>
+            <h3 class="section-title">Pages <InfoTip label="About pages" text="Click a page on the map to leave it out of the print. Include all brings every page back." /></h3>
             <p class="note" data-testid="tiling-summary">{layout?.summary || 'No pages.'}</p>
             {#if tiles.length}
               <div class="pager">
@@ -850,18 +867,16 @@
                 {/if}
                 <button class="btn ghost" onclick={() => doc && (doc.excluded = [])} disabled={!doc.excluded.length}>Include all</button>
               </div>
-              <p class="note">Click a page on the map to leave it out.</p>
             {/if}
           </section>
 
           <details class="section">
             <summary>Advanced</summary>
-            <div class="pair">
-              <label class="field">Margin (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.margin_in} /></label>
-              <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
+            <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
+            <div class="field">
+              <span class="label">1 in prints as (mm) <InfoTip label="About printer calibration" text="Printer calibration: print a page, measure what should be one inch, and enter the measured length in millimetres." /></span>
+              <input class="input" type="number" min="1" step="0.1" aria-label="1 in prints as (mm)" bind:value={doc.calibration_mm} />
             </div>
-            <label class="field">1 in prints as (mm) <input class="input" type="number" min="1" step="0.1" bind:value={doc.calibration_mm} /></label>
-            <p class="note">Printer calibration: measure a printed inch and enter it here.</p>
             <label class="check"><input type="checkbox" bind:checked={doc.align_to_grid} /> Align pages to grid</label>
             <div class="field">
               <span class="label">Check it fits a table of</span>
@@ -893,12 +908,11 @@
           </section>
 
           <section class="section">
-            <h3 class="section-title">Grid printed in the map</h3>
+            <h3 class="section-title">Grid printed in the map <InfoTip label="About removing the grid" text="Remove paints over the map’s own grid lines, using the square size, so only the printed grid remains." /></h3>
             <div class="segmented stretch" role="group" aria-label="Embedded grid">
               <button aria-pressed={!doc.remove_grid} onclick={() => (doc!.remove_grid = false)}>Keep</button>
               <button aria-pressed={doc.remove_grid} onclick={() => (doc!.remove_grid = true)}>Remove</button>
             </div>
-            <p class="note">Removing it paints over the map's own lines, using the square size.</p>
           </section>
 
           <section class="section">

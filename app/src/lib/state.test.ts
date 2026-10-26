@@ -6,9 +6,9 @@ import { app } from './state.svelte';
 import { DEFAULT_SETTINGS } from './types';
 
 describe('navigation model', () => {
-  it('exposes the 7 rail destinations, all enabled', () => {
+  it('exposes the 8 rail destinations, all enabled', () => {
     expect(DESTINATIONS.map((d) => d.id)).toEqual([
-      'library', 'tokens', 'cutouts', 'cards', 'maps', 'music',
+      'library', 'tokens', 'cutouts', 'cards', 'maps', 'music', 'combat', 'transcribe',
     ]);
     expect(DESTINATIONS.filter((d) => d.disabled)).toEqual([]);
   });
@@ -18,7 +18,7 @@ describe('navigation model', () => {
     expect(ALL_VIEWS.map((v) => v.id).sort()).toEqual(
       [
         'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
-        'cards', 'maps.paginator', 'maps.aoe', 'music', 'settings',
+        'cards', 'maps.paginator', 'maps.aoe', 'music', 'combat', 'transcribe.file', 'settings',
       ].sort(),
     );
   });

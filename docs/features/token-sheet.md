@@ -16,6 +16,12 @@ Collects tokens, packs them onto Letter or A4 pages, previews the pages, and exp
 
 The legacy importer maps the Python labels to these.
 
+## From 5etools
+*From 5etools…* opens a creature picker (the cached bestiary, see `combat-tracker.md`): pick
+creatures and counts, and each one's round token is downloaded from the 5etools mirror and added
+at the creature's size (5etools `size`: T/S/M/L/H/G → Tiny … Gargantuan). Creatures without a
+token are reported and nothing is added. MCP: `token_sheet_add_creatures`.
+
 ## Items
 Each item has:
 - a source: an asset id, or a transient image (for example straight from the cutter or an upload);
@@ -37,7 +43,8 @@ The sheet is autosaved to the `workspaces` table under `token_sheet`. Python los
 ## Page options
 - Format: Letter or A4. Default comes from the `token_page_format` setting.
 - Cut border: on or off. Default comes from the `token_cut_border` setting.
-  - When on, each token gets a circle with radius `min(w,h)/2`, drawn in the cut-line style.
+  - When on, each token gets its outline drawn in the cut-line style: a circle with radius `min(w,h)/2`, or the token's polygon (square, hexagon, octagon, decagon) as large as fits the drawn image.
+  - The outline is `SheetItem.shape`, detected from the image when the item is added (`token::detect_shape`, see token-cutter.md "Shapes"). Items saved before shapes existed are circles. A fully opaque picture added to the sheet counts as a square, so its cut line no longer crosses the picture.
   - When off, the preview shows a light grey `#cccccc` cell outline instead. The outline is not printed.
 
 ## Packing algorithm (core::pack::token_grid)
@@ -57,6 +64,13 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 5. If nothing fits, start a new page. If it still doesn't fit on an empty page, **report the item as skipped** (Python only printed a warning).
 
 **Position on the page:** `x = off_x + col*cell`, `y = H - off_y - (row+cells)*cell`, in PDF bottom-left coordinates.
+
+**Justification (app path, after packing; `token_grid::justify`, 2026-10-18).** `pack` places tokens edge to edge, which makes them hard to cut apart, and leaves the page's spare width and height as a strip around the block. Justify shares that space out evenly between token columns and between token rows, like justified text:
+- gap = `(usable − occupied) / (columns − 1)`, capped at **18 pt (¼ in)** so a half-empty page doesn't scatter; the same vertically; the block is then centred inside the 10 pt margins;
+- each token moves by `gap × rank` of its grid column (and row), where ranks count the distinct columns tokens start on, so neighbours always end up at least one gap apart and nothing overlaps (property test);
+- sizes, pages and which tokens fit are unchanged: it only redistributes space that was empty.
+- Typical gaps: A4, Medium tokens ≈ 12 pt between columns and rows; Letter, Medium ≈ 2 pt between columns (Letter's grid is nearly full width) and ≈ 6 pt between rows.
+- The Python-parity `Legacy` mode and its golden fixture don't use it.
 
 **Size change from Python**
 - Python used a 72 pt cell, so Tiny and Small tokens printed at 1 inch.
@@ -95,6 +109,8 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 ## Intentional changes
 - UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of tokens on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.
 - Half-inch packing grid: Tiny and Small print at their true size (see "Size change from Python" above).
+- Justified pages: spare space is spread between tokens so they are easy to cut (see "Justification" above). Python packed them edge to edge.
+- Cut lines follow the token's shape (circle, square, hexagon, octagon, decagon; 2026-10-18). Python always drew circles.
 - An item that can never fit is reported once and creates no pages (Python opened an empty page per copy).
 - Images are embedded as PNG with transparency (Python wrote a temporary JPEG per token, flattened on white).
 - Non-square images are fitted inside their cell, centred, in both the preview and the PDF. Python stretched them to a square.

@@ -97,14 +97,14 @@ Defaults come from Settings.
 
 | Control | Default |
 |---|---|
-| Page | A4 / Letter |
+| Page | A4 / Letter / A3 (297×420 mm, maps only) |
 | Orientation | Portrait / Landscape (default portrait) |
 | 1 square = N inch | 1.0 |
 | Calibration: a printed 1 in measures _ mm | 25.4 (factor = 25.4/mm) |
-| Margin (in) | 0 |
+| Margin (in) | 0; shown in Paper, next to the cut lines |
 | Overlap (in) | 0 |
 | Align pages to grid | off |
-| Cut lines (trim the white margin) | off (the `map_cut_border` setting); four lines in the cut-line style along every edge of each page's image, running on to the paper edge. Shown in the page preview too. Warns when the margin is under 0.2 in, because most printers clip that band. |
+| Cut lines (trim the white margin) | off (the `map_cut_border` setting); four lines in the cut-line style along every edge of each page's image, running on to the paper edge. Shown in the page preview too. Warns when the margin is under 0.2 in, because most printers clip that band; the warning's "Set margin to 0.2 in" is undone when cut lines are turned off again. |
 
 **Fit check**: target area in feet, default 3×2. `squares = round(region/cell)`, and the printed size in inches is compared with the target in either orientation, showing ✓ or ✗.
 
@@ -205,16 +205,18 @@ Defaults come from Settings.
 - Grid detection and fit-to-map are new (Python had neither).
 - Landscape pages and the fewest-pages suggestion are new (Python printed portrait only, from the region's corner).
 - Cut lines extend through the margin to the paper edge instead of only outlining the image (Python drew a rectangle), so the white margin of a printer without borderless printing can be trimmed with a ruler or trimmer. The page preview shows them, and a hint asks for a margin of at least 0.2 in.
+- A3 paper (user request, 2026-10-15). Python printed on A4 and Letter only. A3 uses the same formula as ReportLab's A4 (29.7 × 42 cm), and is offered for maps and AoE templates only; token, object and card sheets refuse it.
+- The margin moved from Advanced into Paper, next to the cut lines (user request, 2026-10-15): the hint's "Set margin to 0.2 in" changed a field hidden in a collapsed section, so turning cut lines off left the white margin in place with no visible way back. Turning cut lines off now also restores the margin the hint replaced.
 
 ## Parity checklist (Python `ui/map_paginator_panel.py`, `map_grid.py`, `map_pdf_generator.py`)
-- [ ] Load via file, paste, drop or library; 2000 px proxy; DPI detection
-- [ ] View zoom and pan
+- [x] Load via file, paste, drop or library; 2000 px proxy; DPI detection
+- [x] View zoom and pan
 - [x] 4 sizing modes, square cells, manual offset, nudge-align (golden `grid_modes.json`)
-- [ ] Grid styles and appearance
+- [x] Grid styles and appearance
 - [x] FFT removal: synthetic test plus golden comparison (99.99 % identical pixels; f32 FFT)
 - [x] De-warp with an 8000 px cap, undo (golden `homography.json`; bicubic warp bit-exact)
-- [ ] Print settings including calibration; fit check
-- [ ] Region snapping and handles; tile include/exclude; layout drag with ¼ snapping
+- [x] Print settings including calibration; fit check
+- [x] Region snapping and handles; tile include/exclude; layout drag with ¼ snapping
 - [x] Tiling math: free and grid-aligned (golden `tiling.json`)
-- [ ] Sub-pixel tile resampling, cut border, include set
-- [ ] Export PDF; Save as Asset with Update/New
+- [x] Sub-pixel tile resampling, cut border, include set
+- [x] Export PDF; Save as Asset with Update/New

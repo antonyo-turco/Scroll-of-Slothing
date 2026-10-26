@@ -23,6 +23,11 @@ pub struct Track {
     pub loop_by_default: bool,
     pub duration: Option<f64>,
     pub added_at: String,
+    #[serde(default)]
+    pub favorite: bool,
+    /// `music`, `ambient` or `soundbite` (`sleuth_core::music::CATEGORIES`).
+    #[serde(default = "default_category")]
+    pub category: String,
     pub campaign_ids: Vec<String>,
     pub session_ids: Vec<String>,
     pub tags: Vec<String>,
@@ -38,10 +43,17 @@ pub struct TrackRow {
     pub notes: String,
     pub loop_by_default: bool,
     pub duration: Option<f64>,
+    /// Empty means "guess from the title, loop flag and length".
+    #[serde(default)]
+    pub category: String,
     pub campaign_ids: Vec<String>,
     pub session_ids: Vec<String>,
     pub tags: Vec<String>,
     pub legacy_id: Option<String>,
+}
+
+fn default_category() -> String {
+    "music".into()
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -52,6 +64,21 @@ pub struct TrackQuery {
     pub tags: Vec<String>,
     #[serde(default)]
     pub text: Option<String>,
+    /// Only favourite tracks.
+    #[serde(default)]
+    pub favorites_only: bool,
+    /// Only tracks that loop (`true`) or play once (`false`) by default.
+    #[serde(default)]
+    pub looping: Option<bool>,
+    /// Length bounds in seconds, inclusive. Tracks of unknown length are left
+    /// out when either bound is set.
+    #[serde(default)]
+    pub min_duration: Option<f64>,
+    #[serde(default)]
+    pub max_duration: Option<f64>,
+    /// Only tracks of this category.
+    #[serde(default)]
+    pub category: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -98,6 +125,9 @@ pub struct SoundscapeSoundbite {
 pub struct Soundscape {
     pub id: String,
     pub name: String,
+    /// Pinned soundscapes are listed first.
+    #[serde(default)]
+    pub pinned: bool,
     pub campaign_id: Option<String>,
     pub notes: String,
     pub created_at: String,
@@ -196,11 +226,12 @@ fn track_from_row(conn: &Connection, r: &Row<'_>) -> rusqlite::Result<Track> {
         loop_by_default: r.get(6)?,
         duration: r.get(7)?,
         added_at: r.get(8)?,
+        favorite: r.get(9)?,
+        category: r.get(10)?,
     })
 }
 
-const TRACK_COLS: &str =
-    "id, source, url, blob_hash, title, notes, loop_by_default, duration, added_at";
+const TRACK_COLS: &str = "id, source, url, blob_hash, title, notes, loop_by_default, duration, added_at, favorite, category";
 
 fn title_of(conn: &Connection, track_id: &str) -> String {
     conn.query_row("SELECT title FROM music_tracks WHERE id = ?1", [track_id], |r| r.get(0))
@@ -228,7 +259,34 @@ impl Store {
             .filter(|t| q.session_id.as_ref().is_none_or(|s| t.session_ids.contains(s)))
             .filter(|t| q.tags.iter().all(|g| t.tags.iter().any(|x| x.eq_ignore_ascii_case(g))))
             .filter(|t| text.as_ref().is_none_or(|x| t.title.to_lowercase().contains(x.trim())))
+            .filter(|t| !q.favorites_only || t.favorite)
+            .filter(|t| q.category.as_ref().is_none_or(|c| &t.category == c))
+            .filter(|t| q.looping.is_none_or(|l| t.loop_by_default == l))
+            .filter(|t| {
+                if q.min_duration.is_none() && q.max_duration.is_none() {
+                    return true;
+                }
+                t.duration.is_some_and(|d| {
+                    q.min_duration.is_none_or(|lo| d >= lo)
+                        && q.max_duration.is_none_or(|hi| d <= hi)
+                })
+            })
             .collect())
+    }
+
+    pub fn music_track_set_favorite(&self, id: &str, favorite: bool) -> Result<Track> {
+        {
+            let conn = self.conn();
+            let n = conn.execute(
+                "UPDATE music_tracks SET favorite = ?2 WHERE id = ?1",
+                params![id, favorite],
+            )?;
+            if n == 0 {
+                return Err(StoreError::NotFound(format!("track {id}")));
+            }
+            rec(&conn, "music_track", id, "update")?;
+        }
+        self.music_track_get(id)
     }
 
     pub fn music_track_get(&self, id: &str) -> Result<Track> {
@@ -271,14 +329,25 @@ impl Store {
 
     /// Inserts (`id = None`) or replaces a track's fields and links.
     pub fn music_track_save(&self, id: Option<&str>, row: &TrackRow) -> Result<Track> {
+        let category = if row.category.trim().is_empty() {
+            sleuth_core::music::guess_category(&row.title, row.loop_by_default, row.duration)
+                .to_string()
+        } else if sleuth_core::music::is_category(&row.category) {
+            row.category.clone()
+        } else {
+            return Err(StoreError::Invalid(format!(
+                "unknown category {:?} (music, ambient or soundbite)",
+                row.category
+            )));
+        };
         let id = {
             let mut conn = self.conn();
             let tx = conn.transaction()?;
             let id = match id {
                 Some(id) => {
                     let n = tx.execute(
-                        "UPDATE music_tracks SET source=?2, url=?3, blob_hash=?4, title=?5, notes=?6, loop_by_default=?7, duration=?8 WHERE id=?1",
-                        params![id, row.source, row.url, row.blob_hash, row.title, row.notes, row.loop_by_default, row.duration],
+                        "UPDATE music_tracks SET source=?2, url=?3, blob_hash=?4, title=?5, notes=?6, loop_by_default=?7, duration=?8, category=?9 WHERE id=?1",
+                        params![id, row.source, row.url, row.blob_hash, row.title, row.notes, row.loop_by_default, row.duration, category],
                     )?;
                     if n == 0 {
                         return Err(StoreError::NotFound(format!("track {id}")));
@@ -288,8 +357,8 @@ impl Store {
                 None => {
                     let id = uuid();
                     tx.execute(
-                        "INSERT INTO music_tracks (id, source, url, blob_hash, title, notes, loop_by_default, duration, added_at, legacy_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-                        params![id, row.source, row.url, row.blob_hash, row.title, row.notes, row.loop_by_default, row.duration, now(), row.legacy_id],
+                        "INSERT INTO music_tracks (id, source, url, blob_hash, title, notes, loop_by_default, duration, added_at, legacy_id, category) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+                        params![id, row.source, row.url, row.blob_hash, row.title, row.notes, row.loop_by_default, row.duration, now(), row.legacy_id, category],
                     )?;
                     id
                 }
@@ -484,11 +553,11 @@ impl Store {
     // ── soundscapes ─────────────────────────────────────────────────────
 
     fn soundscape_full(conn: &Connection, id: &str) -> Result<Soundscape> {
-        let (name, campaign_id, notes, created_at) = conn
+        let (name, campaign_id, notes, created_at, pinned) = conn
             .query_row(
-                "SELECT name, campaign_id, notes, created_at FROM music_soundscapes WHERE id = ?1",
+                "SELECT name, campaign_id, notes, created_at, pinned FROM music_soundscapes WHERE id = ?1",
                 [id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )
             .optional()?
             .ok_or_else(|| StoreError::NotFound(format!("soundscape {id}")))?;
@@ -524,6 +593,7 @@ impl Store {
             .collect::<rusqlite::Result<_>>()?;
         Ok(Soundscape {
             id: id.to_string(),
+            pinned,
             name,
             campaign_id,
             notes,
@@ -542,7 +612,7 @@ impl Store {
         let conn = self.conn();
         let ids = {
             let mut st = conn.prepare(
-                "SELECT id, campaign_id FROM music_soundscapes ORDER BY name COLLATE NOCASE",
+                "SELECT id, campaign_id FROM music_soundscapes ORDER BY pinned DESC, name COLLATE NOCASE",
             )?;
             st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
@@ -615,6 +685,19 @@ impl Store {
         rec(&tx, "music_soundscape", &id, "update")?;
         tx.commit()?;
         Ok(id)
+    }
+
+    pub fn music_soundscape_set_pinned(&self, id: &str, pinned: bool) -> Result<Soundscape> {
+        let conn = self.conn();
+        let n = conn.execute(
+            "UPDATE music_soundscapes SET pinned = ?2 WHERE id = ?1",
+            params![id, pinned],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NotFound(format!("soundscape {id}")));
+        }
+        rec(&conn, "music_soundscape", id, "update")?;
+        Self::soundscape_full(&conn, id)
     }
 
     pub fn music_soundscape_delete(&self, id: &str) -> Result<()> {

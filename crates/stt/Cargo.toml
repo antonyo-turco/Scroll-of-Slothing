@@ -1,0 +1,32 @@
+[package]
+name = "sleuth-stt"
+description = "Speech to text: audio decoding, resampling, Whisper models and engines"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "sleuth_stt"
+
+[features]
+# whisper.cpp on the GPU through Vulkan (any vendor). Needs the Vulkan SDK to build.
+vulkan = ["whisper-rs/vulkan"]
+
+[dependencies]
+sleuth-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+symphonia = { version = "0.5", features = ["all"] }
+rubato = "0.16"
+whisper-rs = { version = "0.16", features = ["tracing_backend"] }
+reqwest = { version = "0.13", features = ["blocking"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -66,7 +66,7 @@ Units: `px_per_ft = px_per_square / feet_per_square`. Coordinates start at the t
 - width 1–200 (default 5), shown for line only
 - feet per square 1–100 (default 5)
 - inches per square (default 1.0, minimum 0.05)
-- page A4 / Letter
+- page A4 / Letter / A3
 
 **Style**
 - fill colour and opacity
@@ -121,12 +121,13 @@ Units: `px_per_ft = px_per_square / feet_per_square`. Coordinates start at the t
 - Built-in presets cannot be deleted; saving over an existing user preset needs explicit `overwrite` (the UI asks, as Python did).
 - The sheet is autosaved in the `aoe.sheet` workspace instead of living only in memory.
 - Exports run as cancellable jobs and report skipped (too large) templates in the job result.
+- A3 paper (11.6929 × 16.5354 in) is new (user request, 2026-10-15); Python had A4 and Letter only.
 
 ## Parity checklist (Python `aoe_templates.py`, `ui/aoe_template_panel.py`)
 - [x] 4 shapes; geometry matches the golden fixture `aoe_geometry.json`
 - [x] Render defaults, supersampling, the 6000 px cap (golden renders within MAE 0.45)
-- [ ] Labels, halo, auto-fill
-- [ ] 11 built-in presets; user presets with save, overwrite confirm, delete
+- [x] Labels, halo, auto-fill
+- [x] 11 built-in presets; user presets with save, overwrite confirm, delete
 - [x] MaxRects packing (golden `maxrects.json`); skipped items reported
-- [ ] Sheet preview and current-template preview
-- [ ] Sheet PDF, template PDF, PNG
+- [x] Sheet preview and current-template preview
+- [x] Sheet PDF, template PDF, PNG

@@ -196,6 +196,26 @@ mod tests {
     }
 
     #[test]
+    fn box_resampling_is_subpixel_and_seamless() {
+        let src = RgbImage::from_fn(100, 10, |x, _| {
+            let v = (x * 2) as u8;
+            image::Rgb([v, v, v])
+        });
+        // one resample of the whole span, and two tiles split at a fractional edge
+        let whole = resize_box_rgb(&src, (10.0, 0.0, 70.5, 10.0), 121, 20);
+        let left = resize_box_rgb(&src, (10.0, 0.0, 40.25, 10.0), 60, 20);
+        let right = resize_box_rgb(&src, (40.25, 0.0, 70.5, 10.0), 61, 20);
+        assert_eq!((left.width(), right.width()), (60, 61));
+        // the tiles carry on the ramp across the cut with no jump
+        let (a, b) = (left.get_pixel(59, 10)[0], right.get_pixel(0, 10)[0]);
+        assert!(i16::from(b) - i16::from(a) <= 2, "seam: {a} -> {b}");
+        assert!((i16::from(whole.get_pixel(60, 10)[0]) - i16::from(b)).abs() <= 2);
+        // the fractional box start is honoured, not rounded to a pixel
+        assert!((i16::from(left.get_pixel(0, 10)[0]) - 20).abs() <= 2);
+        assert_eq!(resize_rgb(&src, 100, 10), src, "same size is a copy");
+    }
+
+    #[test]
     fn dpi_from_png_jpeg_and_bmp_metadata() {
         // PNG: signature, then a pHYs chunk of 5906 px/m (≈150 dpi), unit metre.
         let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];

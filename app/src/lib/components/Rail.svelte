@@ -29,7 +29,12 @@
   </div>
 
   <ul>
-    {#each DESTINATIONS as d (d.id)}
+    {#each DESTINATIONS as d, i (d.id)}
+      {#if d.group}
+        <li class="group" class:first={i === 0} aria-hidden={app.sidebarCollapsed ? 'true' : undefined}>
+          {#if !app.sidebarCollapsed}<span class="group-label">{d.group}</span>{/if}
+        </li>
+      {/if}
       <li>
         <button
           class="item"
@@ -145,6 +150,27 @@
     position: absolute;
     top: 3px;
     right: 6px;
+  }
+  /* Group heading (Before | During | After the session); a separator above all but the first. */
+  .group {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-3) 2px;
+    border-top: 1px solid var(--border);
+  }
+  .group.first {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .collapsed .group.first {
+    display: none;
+  }
+  .group-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
   }
   .badge {
     margin-left: auto;

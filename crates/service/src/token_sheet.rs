@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
 use sleuth_core::pack::Layout;
-use sleuth_core::pack::token_grid::{GridMode, TokenItem, pack};
-use sleuth_core::token::TokenParams;
+use sleuth_core::pack::token_grid::{GridMode, TokenItem, justify, pack};
+use sleuth_core::token::{TokenParams, TokenShape, detect_shape};
 use sleuth_core::units::{PageFormat, SizeLabel};
 use sleuth_pdf::{CutLine, PdfError};
 use sleuth_store::Store;
@@ -31,6 +31,10 @@ pub struct SheetItem {
     pub thumb: String,
     /// Library asset this item came from, if any.
     pub asset_id: Option<i64>,
+    /// Outline for the cut line, detected from the image when added (older
+    /// items: circle, as before).
+    #[serde(default)]
+    pub shape: TokenShape,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -80,6 +84,18 @@ fn save(s: &Store, sheet: &TokenSheet) -> Result<()> {
     Ok(())
 }
 
+/// Token, object and card sheets print on Letter or A4; A3 is for maps only.
+pub(crate) fn check_sheet_format(f: PageFormat) -> Result<PageFormat> {
+    if f.is_sheet_format() {
+        Ok(f)
+    } else {
+        Err(ServiceError::InvalidInput(format!(
+            "{} is for maps only; sheets print on Letter or A4",
+            f.as_str()
+        )))
+    }
+}
+
 pub(crate) fn thumb_of(s: &Store, image_hash: &str) -> Result<String> {
     let img = imaging::decode(&s.read_blob(image_hash)?)
         .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
@@ -89,22 +105,31 @@ pub(crate) fn thumb_of(s: &Store, image_hash: &str) -> Result<String> {
     Ok(s.put_blob(&webp, "image/webp", Some(t.dimensions()))?.hash)
 }
 
+/// Outline of a stored image (see `detect_shape`).
+fn shape_of(s: &Store, image_hash: &str) -> Result<TokenShape> {
+    let img = imaging::decode(&s.read_blob(image_hash)?)
+        .map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
+    Ok(detect_shape(&img.to_rgba8()))
+}
+
 fn new_item(
+    s: &Store,
     label: String,
     size: String,
     image: String,
     thumb: String,
     asset_id: Option<i64>,
-) -> SheetItem {
-    SheetItem {
+) -> Result<SheetItem> {
+    Ok(SheetItem {
         id: uuid::Uuid::new_v4().to_string(),
         label,
         size,
         copies: 1,
+        shape: shape_of(s, &image)?,
         image,
         thumb,
         asset_id,
-    }
+    })
 }
 
 fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
@@ -116,7 +141,9 @@ fn compute_layout(sheet: &TokenSheet) -> (Layout, SheetLayout) {
             copies: i.copies,
         })
         .collect();
-    let layout = pack(&items, sheet.format, GridMode::HalfInch);
+    let mut layout = pack(&items, sheet.format, GridMode::HalfInch);
+    // Spread the tokens into the page's spare space so they're easy to cut apart.
+    justify(&mut layout, GridMode::HalfInch);
     let view = SheetLayout {
         page_w: layout.page_w,
         page_h: layout.page_h,
@@ -168,7 +195,7 @@ impl Service {
                     None => thumb_of(s, &a.rendered_blob)?,
                 };
                 let size = SizeLabel::parse(&a.size_label).unwrap_or_default().as_str().to_string();
-                sheet.items.push(new_item(a.name, size, a.rendered_blob, thumb, Some(a.id)));
+                sheet.items.push(new_item(s, a.name, size, a.rendered_blob, thumb, Some(a.id))?);
             }
             Ok(())
         })
@@ -190,7 +217,41 @@ impl Service {
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_else(|| "Token".into());
                 let thumb = thumb_of(s, &src.hash)?;
-                sheet.items.push(new_item(label, size.clone(), src.hash, thumb, None));
+                sheet.items.push(new_item(s, label, size.clone(), src.hash, thumb, None)?);
+            }
+            Ok(())
+        })
+        .await
+    }
+
+    /// Adds 5etools creature tokens (downloaded from the mirror), sized from
+    /// the creature (Tiny … Gargantuan), `count` copies each. Creatures without
+    /// a token are reported and nothing is added.
+    pub async fn token_sheet_add_creatures(&self, items: Vec<CreatureToken>) -> Result<TokenSheet> {
+        let svc = self.clone();
+        self.sheet_mutate(move |s, sheet| {
+            let mut fetched = vec![];
+            let mut missing = vec![];
+            for it in &items {
+                match svc.creature_image_bytes(s, &it.hash, crate::CreatureImage::Token) {
+                    Ok(x) => fetched.push((x, it.count.clamp(1, 99))),
+                    Err(e) => missing.push(format!("{} ({e})", it.hash)),
+                }
+            }
+            if !missing.is_empty() {
+                return Err(ServiceError::NotFound(format!(
+                    "no token for: {}",
+                    missing.join("; ")
+                )));
+            }
+            for ((mon, bytes), count) in fetched {
+                let src = store_source(s, &bytes)?;
+                let thumb = thumb_of(s, &src.hash)?;
+                let label = mon["name"].as_str().unwrap_or("Creature").to_string();
+                let size = crate::combat::creature_size_label(&mon);
+                let mut item = new_item(s, label, size, src.hash, thumb, None)?;
+                item.copies = count;
+                sheet.items.push(item);
             }
             Ok(())
         })
@@ -212,7 +273,7 @@ impl Service {
             let thumb = thumb_of(s, &img.hash)?;
             let label =
                 if label.trim().is_empty() { "Token".into() } else { label.trim().to_string() };
-            sheet.items.push(new_item(label, size, img.hash, thumb, None));
+            sheet.items.push(new_item(s, label, size, img.hash, thumb, None)?);
             Ok(())
         })
         .await
@@ -272,6 +333,7 @@ impl Service {
         format: Option<PageFormat>,
         cut_border: Option<bool>,
     ) -> Result<TokenSheet> {
+        format.map(check_sheet_format).transpose()?;
         self.sheet_mutate(move |_, sheet| {
             if let Some(f) = format {
                 sheet.format = f;
@@ -312,7 +374,9 @@ impl Service {
             let cut = sheet
                 .cut_border
                 .then(|| CutLine::from_settings(&store.load_settings().unwrap_or_default()));
-            let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut.as_ref(), &mut |p| {
+            let shapes: Vec<TokenShape> = sheet.items.iter().map(|i| i.shape).collect();
+            let cut = cut.as_ref().map(|c| (c, shapes.as_slice()));
+            let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut, &mut |p| {
                 ctx.progress(0.05 + 0.9 * p, "rendering pages");
                 !ctx.is_cancelled()
             })
@@ -354,6 +418,15 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
         panic!("job timeout");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn sheets_refuse_a3() {
+        let (_d, svc) = temp_service();
+        let err = svc.token_sheet_set_options(Some(PageFormat::A3), None).await.unwrap_err();
+        assert!(matches!(err, ServiceError::InvalidInput(_)), "{err:?}");
+        assert!(svc.object_sheet_set_options(Some(PageFormat::A3), None).await.is_err());
+        assert_eq!(svc.token_sheet_get().await.unwrap().format, PageFormat::Letter);
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -464,4 +537,12 @@ mod tests {
         assert_eq!(st.state, JobState::Failed);
         assert!(st.error.unwrap().contains("empty"));
     }
+}
+
+/// One creature for `token_sheet_add_creatures`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreatureToken {
+    /// 5etools creature hash, e.g. `goblin_mm`.
+    pub hash: String,
+    pub count: u32,
 }

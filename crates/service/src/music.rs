@@ -108,6 +108,14 @@ enum Request {
     StopAll,
 }
 
+/// Tags to add to one track (see [`Service::music_tags_suggest`]).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TagSuggestion {
+    pub track_id: String,
+    pub title: String,
+    pub add: Vec<String>,
+}
+
 /// Track create/update payload (`music.ts` `TrackInput`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TrackInput {
@@ -125,6 +133,10 @@ pub struct TrackInput {
     pub duration: Option<f64>,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// `music`, `ambient` or `soundbite`. Omitted: keep it (update) or guess it
+    /// from the title, loop flag and length (create).
+    #[serde(default)]
+    pub category: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -421,6 +433,12 @@ impl Service {
             notes: input.notes.clone().unwrap_or_default(),
             loop_by_default: input.loop_by_default.unwrap_or(true),
             duration: input.duration.or(existing.and_then(|e| e.duration)),
+            category: input
+                .category
+                .clone()
+                .filter(|c| !c.trim().is_empty())
+                .or_else(|| existing.map(|e| e.category.clone()))
+                .unwrap_or_default(),
             // campaigns/sessions are no longer edited; keep any hidden links
             campaign_ids: existing.map(|e| e.campaign_ids.clone()).unwrap_or_default(),
             session_ids: existing.map(|e| e.session_ids.clone()).unwrap_or_default(),
@@ -442,6 +460,72 @@ impl Service {
             let existing = s.music_track_get(&id)?;
             let row = Self::track_row(s, &input, Some(&existing))?;
             Ok(s.music_track_save(Some(&id), &row)?)
+        })
+        .await
+    }
+
+    /// Marks a track as a favourite (or not). Returns the updated track.
+    pub async fn music_track_set_favorite(&self, id: String, favorite: bool) -> Result<MusicTrack> {
+        self.blocking(move |s| Ok(s.music_track_set_favorite(&id, favorite)?)).await
+    }
+
+    /// Tags the title suggests that each track doesn't have yet
+    /// (`sleuth_core::music::suggest_tags`). Nothing is changed.
+    pub async fn music_tags_suggest(&self) -> Result<Vec<TagSuggestion>> {
+        self.blocking(|s| {
+            Ok(s.music_tracks_list(&TrackQuery::default())?
+                .into_iter()
+                .filter_map(|t| {
+                    let add: Vec<String> = sleuth_core::music::suggest_tags(&t.title)
+                        .into_iter()
+                        .filter(|g| !t.tags.iter().any(|x| x.eq_ignore_ascii_case(g)))
+                        .map(String::from)
+                        .collect();
+                    (!add.is_empty()).then_some(TagSuggestion {
+                        track_id: t.id,
+                        title: t.title,
+                        add,
+                    })
+                })
+                .collect())
+        })
+        .await
+    }
+
+    /// Adds the given tags to each track (existing tags are kept). Returns how
+    /// many tracks changed.
+    pub async fn music_tags_apply(&self, items: Vec<TagSuggestion>) -> Result<usize> {
+        self.blocking(move |s| {
+            let mut changed = 0;
+            for it in items {
+                let t = s.music_track_get(&it.track_id)?;
+                let mut tags = t.tags.clone();
+                for g in it.add.iter().map(|g| g.trim()).filter(|g| !g.is_empty()) {
+                    if !tags.iter().any(|x| x.eq_ignore_ascii_case(g)) {
+                        tags.push(g.to_string());
+                    }
+                }
+                if tags.len() == t.tags.len() {
+                    continue;
+                }
+                let row = MusicTrackRow {
+                    source: t.source,
+                    url: t.url,
+                    blob_hash: t.blob_hash,
+                    title: t.title,
+                    notes: t.notes,
+                    loop_by_default: t.loop_by_default,
+                    duration: t.duration,
+                    category: t.category,
+                    campaign_ids: t.campaign_ids,
+                    session_ids: t.session_ids,
+                    tags,
+                    legacy_id: None,
+                };
+                s.music_track_save(Some(&it.track_id), &row)?;
+                changed += 1;
+            }
+            Ok(changed)
         })
         .await
     }
@@ -548,7 +632,10 @@ impl Service {
     ) -> Result<MixerState> {
         self.live(move |s| {
             let t = s.music_track_get(&track_id)?;
-            let role = check_role(role.as_deref().unwrap_or("music"))?;
+            // Without an explicit role, the track's category decides.
+            let role = check_role(
+                role.as_deref().unwrap_or(sleuth_core::music::role_for_category(&t.category)),
+            )?;
             // the sfx role forces looping off
             let looping = role != "sfx" && looping.unwrap_or(t.loop_by_default);
             s.music_channel_insert(&t.id, clamp_vol(volume.unwrap_or(80)), looping, play, &role)?;
@@ -1214,6 +1301,15 @@ impl Service {
         .await
     }
 
+    /// Pins a soundscape to the top of the list (or unpins it).
+    pub async fn music_soundscape_set_pinned(
+        &self,
+        id: String,
+        pinned: bool,
+    ) -> Result<MusicSoundscape> {
+        self.blocking(move |s| Ok(s.music_soundscape_set_pinned(&id, pinned)?)).await
+    }
+
     pub async fn music_soundscape_delete(&self, id: String) -> Result<()> {
         self.blocking(move |s| {
             s.music_soundscape_delete(&id)?;
@@ -1438,7 +1534,7 @@ impl Service {
                 let t = s.music_track_get(tid)?;
                 let mut v = json!({
                     "source": t.source, "url": t.url, "title": t.title, "notes": t.notes,
-                    "loop_by_default": t.loop_by_default, "duration": t.duration,
+                    "loop_by_default": t.loop_by_default, "duration": t.duration, "category": t.category,
                 });
                 if let Some(h) = &t.blob_hash {
                     let mime = s.blob_meta(h)?.mime;
@@ -1521,6 +1617,8 @@ impl Service {
                         notes: v["notes"].as_str().unwrap_or("").to_string(),
                         loop_by_default: v["loop_by_default"].as_bool().unwrap_or(true),
                         duration: v["duration"].as_f64(),
+                        // Older .dmix files have none: the store guesses.
+                        category: v["category"].as_str().unwrap_or("").to_string(),
                         ..Default::default()
                     };
                     Ok(s.music_track_save(None, &row)?.id)
@@ -1653,6 +1751,7 @@ impl Service {
                     notes: str_of(&t, "notes"),
                     loop_by_default: t["loop_by_default"].as_i64().unwrap_or(1) != 0,
                     duration: t["duration"].as_f64(),
+                    category: String::new(), // guessed by the store
                     campaign_ids: campaigns,
                     session_ids: sessions,
                     tags,

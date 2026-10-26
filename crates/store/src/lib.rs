@@ -90,7 +90,7 @@ impl Store {
 }
 
 /// ISO-8601 UTC timestamp, second precision.
-pub(crate) fn now() -> String {
+pub fn now() -> String {
     time::OffsetDateTime::now_utc()
         .replace_nanosecond(0)
         .ok()

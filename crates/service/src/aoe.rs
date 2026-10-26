@@ -524,11 +524,17 @@ mod tests {
         let out = d.path().join("t.pdf");
         let st = wait(
             &svc,
-            &svc.aoe_export_template_pdf(AoeConfig { a_ft: 60.0, ..fireball }, out.clone()),
+            &svc.aoe_export_template_pdf(AoeConfig { a_ft: 60.0, ..fireball.clone() }, out.clone()),
         )
         .await;
         assert_eq!(st.state, JobState::Done, "{:?}", st.error);
         assert!(st.result.unwrap()["pages"].as_u64().unwrap() > 1);
+
+        let png = d.path().join("t.png");
+        assert_eq!(svc.aoe_export_png(fireball.clone(), png.clone()).await.unwrap(), png);
+        let img = image::open(&png).unwrap();
+        assert_eq!((img.width(), img.height()), (1216, 1216));
+        assert!(svc.aoe_export_png(AoeConfig { a_ft: 0.0, ..fireball }, png).await.is_err());
     }
 
     #[tokio::test(flavor = "multi_thread")]

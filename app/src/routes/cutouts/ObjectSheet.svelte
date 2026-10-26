@@ -2,6 +2,7 @@
   // Object Sheet: cut-outs laid out flat or as fold-over standees. Spec: docs/features/object-sheet.md.
   import { onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFiles, pickSavePath } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import { SIZE_LABELS, type ObjectSheet, type PageFormat, type SheetLayout, type SheetMode } from '../../lib/types';
@@ -92,6 +93,7 @@
           <button aria-pressed={sheet.mode === m} onclick={() => apply(api.objectSheetSetOptions(null, m as SheetMode))}>{label}</button>
         {/each}
       </div>
+      <InfoTip label="About sheet modes" text="Flat prints each cut-out once, to lay on the table. Standee prints it twice, mirrored, with a fold line, so it stands up when folded." />
       <div class="spacer"></div>
       <div class="pager">
         <button class="btn icon" disabled={page <= 0} onclick={() => page--} aria-label="Previous page">‹</button>
@@ -136,7 +138,7 @@
 
   <aside class="inspector" aria-label="Sheet items">
     <section class="section items">
-      <h3 class="section-title">Cut-outs on the sheet</h3>
+      <h3 class="section-title">Cut-outs on the sheet <InfoTip label="About the object sheet" text="Each item prints at its size and scale, as many copies as you set. Items too large for a page are reported." /></h3>
       {#if loaded && sheet.items.length === 0}
         <p class="note">No cut-outs yet.</p>
       {/if}

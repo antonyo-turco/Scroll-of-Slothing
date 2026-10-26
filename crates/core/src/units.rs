@@ -13,17 +13,21 @@ pub enum PageFormat {
     #[default]
     Letter,
     A4,
+    /// Large paper for maps (Map Paginator and AoE templates only).
+    A3,
 }
 
 impl PageFormat {
-    pub const ALL: [PageFormat; 2] = [PageFormat::Letter, PageFormat::A4];
+    pub const ALL: [PageFormat; 3] = [PageFormat::Letter, PageFormat::A4, PageFormat::A3];
 
-    /// Page size in points `(width, height)`, portrait. Values match ReportLab's
-    /// `LETTER` and `A4` exactly so layouts are bit-compatible with the Python app.
+    /// Page size in points `(width, height)`, portrait. Letter and A4 match
+    /// ReportLab's `LETTER` and `A4` exactly so layouts are bit-compatible with
+    /// the Python app; A3 follows the same formula.
     pub fn size_pt(self) -> (f64, f64) {
         match self {
             PageFormat::Letter => (612.0, 792.0),
             PageFormat::A4 => (21.0 / 2.54 * PT_PER_INCH, 29.7 / 2.54 * PT_PER_INCH),
+            PageFormat::A3 => (29.7 / 2.54 * PT_PER_INCH, 42.0 / 2.54 * PT_PER_INCH),
         }
     }
 
@@ -31,15 +35,27 @@ impl PageFormat {
         match self {
             PageFormat::Letter => "Letter",
             PageFormat::A4 => "A4",
+            PageFormat::A3 => "A3",
         }
+    }
+
+    /// Whether token, object and card sheets can use this format (A3 is for maps).
+    pub fn is_sheet_format(self) -> bool {
+        !matches!(self, PageFormat::A3)
     }
 
     pub fn parse(s: &str) -> Option<Self> {
         match s.trim() {
             s if s.eq_ignore_ascii_case("letter") => Some(PageFormat::Letter),
             s if s.eq_ignore_ascii_case("a4") => Some(PageFormat::A4),
+            s if s.eq_ignore_ascii_case("a3") => Some(PageFormat::A3),
             _ => None,
         }
+    }
+
+    /// [`parse`](Self::parse) limited to the sheet formats (Letter, A4).
+    pub fn parse_sheet(s: &str) -> Option<Self> {
+        Self::parse(s).filter(|f| f.is_sheet_format())
     }
 }
 
@@ -117,6 +133,9 @@ mod tests {
         let (w, h) = PageFormat::A4.size_pt();
         assert!((w - 595.275_590_551_181_2).abs() < 1e-9);
         assert!((h - 841.889_763_779_527_7).abs() < 1e-9);
+        // A3 = 297 × 420 mm: A4's long side by twice its short side
+        let (w3, h3) = PageFormat::A3.size_pt();
+        assert!((w3 - h).abs() < 1e-9 && (h3 - 2.0 * w).abs() < 1e-9);
     }
 
     #[test]
@@ -142,5 +161,7 @@ mod tests {
             assert_eq!(PageFormat::parse(f.as_str()), Some(f));
         }
         assert_eq!(PageFormat::parse("legal"), None);
+        assert_eq!(PageFormat::parse_sheet("a4"), Some(PageFormat::A4));
+        assert_eq!(PageFormat::parse_sheet("A3"), None);
     }
 }

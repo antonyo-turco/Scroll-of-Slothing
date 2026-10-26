@@ -24,7 +24,7 @@ test('copies expand across pages; overflow warnings switch with duplex', async (
   await expect(page.getByText(/11 cards · 2 pages/)).toBeVisible();
   await expect(page.getByTestId('overflow')).toHaveText('⚠ text overflow: Essay');
 
-  await page.getByLabel('Double-sided').check();
+  await page.getByLabel('Double-sided', { exact: true }).check();
   await expect(page.getByTestId('overflow')).toHaveText('↪ continues on back: Essay');
   await expect(page.getByText(/2 pages \+ backs/)).toBeVisible();
   await expect(page.getByRole('img', { name: 'Back of page 1' })).toBeVisible();

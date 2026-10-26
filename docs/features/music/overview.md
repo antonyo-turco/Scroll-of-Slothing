@@ -90,5 +90,5 @@ Service tests are in `crates/service/src/music_tests.rs`, engine tests in `app/s
 - [x] The standalone MCP server drives the app's engine through queued requests (`standalone_process_queues_for_the_app`)
 - [x] `.dmix` export/import with embedded uploads, master and ducking; rejects other files and newer versions (`dmix_embeds_uploads_and_carries_settings`)
 - [x] Legacy import from `legacy/music.json`: tracks, tags, campaigns, soundscapes, playlists, soundboards; missing files reported (`legacy_music_import_is_idempotent`)
-- [ ] Alpha test by the user in the desktop app
+- [x] Alpha test by the user in the desktop app
 

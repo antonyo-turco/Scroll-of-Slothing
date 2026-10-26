@@ -9,6 +9,7 @@ use sleuth_core::units::PageFormat;
 use sleuth_pdf::PdfError;
 use sleuth_store::{Deck, DeckSummary};
 
+use crate::token_sheet::check_sheet_format;
 use crate::{JobId, Result, Service, ServiceError};
 
 /// Verbatim Python `TEMPLATES` and `REFERENCE_TEXT` (assets/cards/templates.json).
@@ -55,6 +56,7 @@ impl Service {
 
     /// Full page layout (drawing ops) for the exact preview.
     pub async fn cards_layout(&self, markdown: String, opts: CardOptions) -> Result<DeckLayout> {
+        check_sheet_format(opts.format)?;
         self.blocking(move |_| {
             Ok(layout(&parse(&markdown), opts.format, opts.double_sided, opts.flip))
         })
@@ -70,6 +72,7 @@ impl Service {
     /// Exports the deck as a PDF (job result: `{path, pages, cards, overflow}`).
     pub fn cards_export_pdf(&self, markdown: String, opts: CardOptions, path: PathBuf) -> JobId {
         self.spawn_job("card export", move |ctx| {
+            check_sheet_format(opts.format)?;
             let cards = parse(&markdown);
             if cards.is_empty() {
                 return Err(ServiceError::InvalidInput("the deck has no cards".into()));

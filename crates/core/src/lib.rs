@@ -3,11 +3,14 @@
 
 pub mod aoe;
 pub mod cards;
+pub mod combat;
 pub mod cutout;
 pub mod fonts;
 pub mod imaging;
 pub mod maps;
+pub mod music;
 pub mod pack;
 pub mod settings;
+pub mod stt;
 pub mod token;
 pub mod units;

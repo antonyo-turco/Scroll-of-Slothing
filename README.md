@@ -32,7 +32,8 @@ Your data lives in `%APPDATA%\sleuth`: a SQLite database plus a content-addresse
 ## Build from source
 Prerequisites:
 - Rust stable (pinned by `rust-toolchain.toml`, with rustfmt and clippy)
-- Visual Studio 2022 with the "Desktop development with C++" workload (MSVC and the Windows SDK)
+- Visual Studio 2022 with the "Desktop development with C++" workload (MSVC, the Windows SDK and CMake)
+- LLVM (`winget install LLVM.LLVM`), for building whisper.cpp (speech to text)
 - Node 20+
 - WebView2, which ships with Windows 11
 

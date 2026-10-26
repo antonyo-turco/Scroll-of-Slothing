@@ -6,6 +6,7 @@ mod aoe;
 mod blobs;
 mod cards;
 mod clipboard;
+mod combat;
 mod cutouts;
 mod error;
 mod events;
@@ -17,7 +18,9 @@ mod maps;
 mod music;
 mod object_sheet;
 mod organize;
+mod secrets;
 mod settings;
+mod stt;
 mod token_sheet;
 mod tokens;
 mod ui;
@@ -31,6 +34,10 @@ use tokio::sync::broadcast;
 
 pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
 pub use cards::{CardOptions, CardSummary};
+pub use combat::{
+    BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CreatureImage, DENC_FORMAT,
+    EncounterCreature, EncounterLine, EncounterSummary, Hero, Party, RowPatch, SavedEncounter,
+};
 pub use cutouts::CutoutDraft;
 pub use error::{ErrorCode, ServiceError};
 pub use events::Event;
@@ -41,7 +48,7 @@ pub use maps::{FilterCatalog, FilterPreset, MapDoc, MapLayout, SizingMode, WORK_
 pub use music::{
     ChannelPatch as MusicChannelPatch, DuckMode, EngineEvent as MusicEngineEvent, MixImportResult,
     MixerState, MusicImportReport, PlaylistInput, SoundbitePatch, SoundboardInput, SoundscapeInput,
-    TrackInput, TrackMeta, media_mime,
+    TagSuggestion as MusicTagSuggestion, TrackInput, TrackMeta, media_mime,
 };
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use settings::SettingsUpdate;
@@ -54,7 +61,14 @@ pub use sleuth_store::{
     MusicChannel, MusicPlaylist, MusicSoundbite, MusicSoundboard, MusicSoundboardButton,
     MusicSoundscape, MusicTrack, MusicTrackQuery,
 };
-pub use token_sheet::{PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet};
+pub use sleuth_stt::cloud::{CloudModelSpec, KeyInfo as CloudKeyInfo};
+pub use stt::{
+    CloudKeyStatus, EngineEstimate, SttModel, TranscribeEstimate, TranscribeOptions,
+    TranscribeResult,
+};
+pub use token_sheet::{
+    CreatureToken, PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet,
+};
 pub use tokens::{Border, SourceImage, TokenDraft};
 pub use ui::editor_route;
 
@@ -89,12 +103,18 @@ struct Inner {
     images: imgcache::ImageCache,
     maps: maps::MapCache,
     music: music::MusicRuntime,
+    stt: stt::SttRuntime,
+    secrets: secrets::Secrets,
     ui_attached: std::sync::atomic::AtomicBool,
 }
 
 impl Service {
     /// Opens the data directory (creating and migrating it if needed).
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self> {
+        Self::open_with(data_dir, secrets::Secrets::system())
+    }
+
+    fn open_with(data_dir: impl AsRef<Path>, secrets: secrets::Secrets) -> Result<Self> {
         let store = Arc::new(Store::open(data_dir)?);
         let (events, _) = broadcast::channel(256);
         Ok(Service {
@@ -105,6 +125,8 @@ impl Service {
                 images: imgcache::ImageCache::default(),
                 maps: maps::MapCache::default(),
                 music: music::MusicRuntime::default(),
+                stt: stt::SttRuntime::default(),
+                secrets,
                 ui_attached: std::sync::atomic::AtomicBool::new(false),
             }),
         })
@@ -172,7 +194,8 @@ impl Service {
 #[cfg(test)]
 pub(crate) fn temp_service() -> (tempfile::TempDir, Service) {
     let dir = tempfile::tempdir().unwrap();
-    let svc = Service::open(dir.path()).unwrap();
+    // Never touch the real credential store from tests.
+    let svc = Service::open_with(dir.path(), secrets::Secrets::memory()).unwrap();
     (dir, svc)
 }
 

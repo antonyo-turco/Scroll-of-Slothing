@@ -4,6 +4,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, isTauri, pickSavePath } from '../../lib/api';
   import Modal from '../../lib/components/Modal.svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import type { AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout, PageFormat } from '../../lib/types';
@@ -390,7 +391,7 @@
     </section>
 
     <section class="section">
-      <h3 class="section-title">Scale &amp; paper</h3>
+      <h3 class="section-title">Scale &amp; paper <InfoTip label="About scale" text="Templates print at true scale: one grid square on paper is the size set here, usually one inch per 5 ft." /></h3>
       <div class="pair">
         <label class="field">Feet per square <input class="input" type="number" min="1" max="100" bind:value={cfg.feet_per_square} /></label>
         <label class="field">Inches per square <input class="input" type="number" min="0.05" step="0.05" bind:value={cfg.inch} /></label>
@@ -398,7 +399,7 @@
       <div class="prop">
         <span>Paper</span>
         <div class="segmented" role="group" aria-label="Page format">
-          {#each ['A4', 'Letter'] as f (f)}
+          {#each ['A4', 'Letter', 'A3'] as f (f)}
             <button aria-pressed={cfg.page_format === f} onclick={() => (cfg.page_format = f as PageFormat)}>{f}</button>
           {/each}
         </div>
@@ -439,7 +440,7 @@
     </section>
 
     <section class="section">
-      <h3 class="section-title">Sheet</h3>
+      <h3 class="section-title">Sheet <InfoTip label="About the sheet" text="The sheet packs several templates onto pages to print together. Templates too big for one page are listed and must be exported on their own." /></h3>
       <div class="row nowrap">
         <button class="btn grow" onclick={addToSheet}>+ Add to sheet</button>
         <label class="with-unit gap" title="Gap between templates on the sheet">Gap
@@ -462,7 +463,6 @@
         </div>
         {#if selected.length === 1}<p class="note">{nameOf(selected[0])}</p>{/if}
       {:else}
-        <p class="note">The sheet packs several templates onto pages to print together.</p>
       {/if}
       {#if sheetLayout?.skipped.length}
         <p class="note warn" role="alert">Too big for one sheet (export individually): {sheetLayout.skipped.join(', ')}</p>

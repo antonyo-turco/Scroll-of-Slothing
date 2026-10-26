@@ -9,6 +9,10 @@ import type {
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
+  CloudKeyInfo, CloudKeyStatus, CloudModelSpec, Segment, SttModel, TranscribeEstimate, TranscribeOptions,
+  TranscriptFormat,
+  BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CombatSort, RowPatch, Tracker,
+  EncounterCreature, EncounterSummary, Hero, Party,
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
@@ -189,6 +193,53 @@ export const api = {
   aoePresetsSave: (name: string, config: AoeConfig, overwrite: boolean) =>
     call<AoePreset>('aoe_presets_save', { name, config, overwrite }),
   aoePresetsDelete: (name: string) => call<void>('aoe_presets_delete', { name }),
+
+  // ── combat tracker ──
+  combatGet: () => call<Tracker>('combat_get'),
+  combatSet: (tracker: Tracker) => call<Tracker>('combat_set', { tracker }),
+  combatNextTurn: () => call<Tracker>('combat_next_turn'),
+  combatPrevTurn: () => call<Tracker>('combat_prev_turn'),
+  combatSort: (sort: CombatSort) => call<Tracker>('combat_sort', { sort }),
+  combatAddPlayer: (name?: string) => call<Tracker>('combat_add_player', { name: name ?? null }),
+  combatAddCreature: (hash: string, count: number, rollHp: boolean | null, customName: string | null, side: 'enemy' | 'ally' | 'neutral' = 'enemy') =>
+    call<Tracker>('combat_add_creature', { hash, count, rollHp, customName, side }),
+  combatDuplicate: (id: string, reroll: boolean) => call<Tracker>('combat_duplicate', { id, reroll }),
+  combatDelete: (id: string, similar: boolean) => call<Tracker>('combat_delete', { id, similar }),
+  combatUpdateRow: (id: string, patch: RowPatch) => call<Tracker>('combat_update_row', { id, patch }),
+  combatAddCondition: (rowId: string, name: string, color: string | null, turns: number | null) =>
+    call<Tracker>('combat_add_condition', { rowId, name, color, turns }),
+  combatReset: (keepPlayers: boolean | null = null) => call<Tracker>('combat_reset', { keepPlayers }),
+  combatLink: () => call<string>('combat_link'),
+  combatImportLink: (text: string) => call<CombatImport>('combat_import_link', { text }),
+  combatCatalog: () => call<CombatCatalog>('combat_catalog'),
+  bestiaryStatus: () => call<BestiaryStatus>('bestiary_status'),
+  bestiarySearch: (query: string, limit?: number) => call<BestiaryEntry[]>('bestiary_search', { query, limit: limit ?? null }),
+  bestiarySync: () => call<string>('bestiary_sync'),
+  bestiaryLegendaryGroup: (name: string, source: string) => call<Record<string, unknown> | null>('bestiary_legendary_group', { name, source }),
+  imageSourceFromCreature: (hash: string, kind: 'token' | 'art') => call<SourceImage>('image_source_from_creature', { hash, kind }),
+  tokenSheetAddCreatures: (items: { hash: string; count: number }[]) => call<TokenSheet>('token_sheet_add_creatures', { items }),
+  bestiarySaveCreature: (creature: Record<string, unknown>) => call<BestiaryEntry>('bestiary_save_creature', { creature }),
+  bestiaryHomebrew: () => call<Record<string, unknown>[]>('bestiary_homebrew'),
+  bestiaryDeleteCreature: (hash: string) => call<void>('bestiary_delete_creature', { hash }),
+  bestiaryGet: (hash: string) => call<Record<string, unknown> | null>('bestiary_get', { hash }),
+  encountersList: () => call<EncounterSummary[]>('encounters_list'),
+  encounterSave: (id: string | null, name: string, notes: string, creatures: EncounterCreature[]) =>
+    call<EncounterSummary>('encounter_save', { id, name, notes, creatures }),
+  encounterSetPinned: (id: string, pinned: boolean) => call<void>('encounter_set_pinned', { id, pinned }),
+  encounterDelete: (id: string) => call<void>('encounter_delete', { id }),
+  encounterSaveCurrent: (name: string) => call<EncounterSummary>('encounter_save_current', { name }),
+  encounterImport: (text: string, name?: string) => call<EncounterSummary>('encounter_import', { text, name: name ?? null }),
+  encounterImportFile: (path: string) => call<EncounterSummary>('encounter_import_file', { path }),
+  encounterStart: (id: string, append: boolean | null) => call<CombatImport>('encounter_start', { id, append }),
+  encounterLink: (id: string) => call<string>('encounter_link', { id }),
+  encountersExport: (ids: string[] | null, path: string) => call<number>('encounters_export', { ids, path }),
+  encountersImportDenc: (path: string) => call<EncounterSummary[]>('encounters_import_denc', { path }),
+  partiesList: () => call<Party[]>('parties_list'),
+  partySave: (id: string | null, name: string, notes: string, heroes: Hero[]) =>
+    call<Party>('party_save', { id, name, notes, heroes }),
+  partyDelete: (id: string) => call<void>('party_delete', { id }),
+  partyAddToTracker: (id: string, heroIds: string[] | null, asDefault: boolean) =>
+    call<Tracker>('party_add_to_tracker', { id, heroIds, asDefault }),
   aoeRender: async (config: AoeConfig): Promise<Blob> => toBlob(await call<ArrayBuffer | string>('aoe_render', { config })),
   aoeInfo: (config: AoeConfig) => call<AoeInfo>('aoe_info', { config }),
   aoeExportPng: (config: AoeConfig, path: string) => call<string>('aoe_export_png', { config, path }),
@@ -203,6 +254,23 @@ export const api = {
     toBlob(await call<ArrayBuffer | string>('aoe_sheet_preview', { inch, format, page, maxPx })),
   aoeSheetExportPdf: (inch: number, format: PageFormat, path: string) =>
     call<string>('aoe_sheet_export_pdf', { inch, format, path }),
+
+  sttModelsList: () => call<SttModel[]>('stt_models_list'),
+  /** Returns a job id. */
+  sttModelDownload: (id: string) => call<string>('stt_model_download', { id }),
+  sttModelDelete: (id: string) => call<void>('stt_model_delete', { id }),
+  sttCloudModelsList: () => call<CloudModelSpec[]>('stt_cloud_models_list'),
+  transcribeEstimate: (path: string, beamSize: number | null, cloudModel: string | null) =>
+    call<TranscribeEstimate>('transcribe_estimate', { path, beamSize, cloudModel }),
+  sttCloudKeyStatus: () => call<CloudKeyStatus>('stt_cloud_key_status'),
+  /** Saved in the Windows Credential Manager; the key never comes back. */
+  sttCloudKeySet: (key: string) => call<CloudKeyStatus>('stt_cloud_key_set', { key }),
+  sttCloudKeyClear: () => call<CloudKeyStatus>('stt_cloud_key_clear'),
+  sttCloudKeyTest: () => call<CloudKeyInfo>('stt_cloud_key_test'),
+  /** Returns a job id; the job result is a TranscribeResult. */
+  transcribeFile: (path: string, opts: TranscribeOptions) => call<string>('transcribe_file', { path, opts }),
+  transcriptExport: (segments: Segment[], format: TranscriptFormat, title: string | null, path: string | null) =>
+    call<string>('transcript_export', { segments, format, title, path }),
 };
 
 // ── native dialogs (no-ops returning null outside Tauri) ──
@@ -244,3 +312,9 @@ export async function onFileDrop(handler: (paths: string[]) => void): Promise<()
 }
 
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'];
+
+/** The first dropped path with an image extension (any case). */
+export const firstImagePath = (paths: string[]): string | undefined =>
+  paths.find((p) => IMAGE_EXTENSIONS.includes(p.split('.').pop()?.toLowerCase() ?? ''));
+/** Matches sleuth_stt::audio::EXTENSIONS. */
+export const AUDIO_EXTENSIONS = ['wav', 'mp3', 'flac', 'ogg', 'oga', 'm4a', 'mp4', 'aac', 'mka', 'mkv', 'webm', 'caf', 'aiff'];

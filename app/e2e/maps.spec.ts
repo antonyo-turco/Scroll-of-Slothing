@@ -172,6 +172,89 @@ test('inspector tabs follow the canvas tool, and the margin hint fixes the margi
   await expect(hint).toBeVisible();
   await hint.getByRole('button', { name: 'Set margin to 0.2 in' }).click();
   await expect(hint).toBeHidden();
-  await inspector.getByText('Advanced').click();
-  await expect(inspector.getByRole('spinbutton', { name: 'Margin (in)' })).toHaveValue('0.2');
+  const margin = inspector.getByRole('spinbutton', { name: 'Margin (in)' });
+  await expect(margin).toHaveValue('0.2');
+
+  // turning cut lines off undoes the hint's margin, and the trim can be redone
+  await inspector.getByRole('checkbox', { name: /Cut lines/ }).uncheck();
+  await expect(margin).toHaveValue('0');
+  await inspector.getByRole('checkbox', { name: /Cut lines/ }).check();
+  await expect(hint).toBeVisible();
+});
+
+test('A3 paper fits more of the map on each page', async ({ page }) => {
+  await openMap(page);
+  const inspector = page.getByRole('complementary', { name: 'Map settings' });
+  const summary = page.getByTestId('tiling-summary');
+  const pages = async () => Number((await summary.textContent())!.match(/(\d+) page/)![1]);
+  await inspector.getByRole('tab', { name: 'Pages' }).click();
+  const format = inspector.getByRole('group', { name: 'Page format' });
+  await format.getByRole('button', { name: 'A4' }).click();
+  await expect(summary).toContainText('page');
+  const a4 = await pages();
+  await format.getByRole('button', { name: 'A3' }).click();
+  await expect(format.getByRole('button', { name: 'A3' })).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(pages).toBeLessThan(a4);
+});
+
+test('zoom buttons step ×1.25, clamp at 10%, and Fit restores the whole map', async ({ page }) => {
+  await openMap(page);
+  const zoom = async () => Number((await page.locator('.zoom-readout').textContent())!.replace('%', ''));
+  const controls = page.getByRole('group', { name: 'Zoom' });
+  await controls.getByRole('button', { name: 'Fit' }).click();
+  const fitted = await zoom();
+  await controls.getByRole('button', { name: 'Zoom in' }).click();
+  await expect.poll(zoom).toBe(Math.round(fitted * 1.25));
+  for (let i = 0; i < 20; i++) await controls.getByRole('button', { name: 'Zoom out' }).click();
+  await expect.poll(zoom).toBe(10);
+  await controls.getByRole('button', { name: 'Fit' }).click();
+  await expect.poll(zoom).toBe(fitted);
+});
+
+test('Space + drag and the middle button pan whatever the tool', async ({ page }) => {
+  await openMap(page);
+  await page.getByRole('button', { name: 'Print area', exact: true }).click();
+  // Space on a focused button presses it, so the canvas only sees it unfocused
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  const stage = page.getByTestId('map-stage');
+  const layer = () => stage.locator('.layer').evaluate((el) => (el as HTMLElement).style.transform);
+  const box = (await stage.boundingBox())!;
+  const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
+
+  const before = await layer();
+  await page.keyboard.down('Space');
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 60, cy + 40, { steps: 4 });
+  await page.mouse.up();
+  await page.keyboard.up('Space');
+  await expect.poll(layer).not.toBe(before);
+
+  const mid = await layer();
+  await page.mouse.move(cx, cy);
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.move(cx - 50, cy - 30, { steps: 4 });
+  await page.mouse.up({ button: 'middle' });
+  await expect.poll(layer).not.toBe(mid);
+});
+
+test('clicking a page with the Pan tool excludes it, clicking again includes it', async ({ page }) => {
+  await openMap(page);
+  await page.getByRole('button', { name: 'Pan', exact: true }).click();
+  const stage = page.getByTestId('map-stage');
+  const tile = stage.locator('rect.tile').first();
+  const excluded = () => stage.locator('rect.tile.ex').count();
+  expect(await excluded()).toBe(0);
+  const b = (await tile.boundingBox())!;
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await expect.poll(excluded).toBe(1);
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await expect.poll(excluded).toBe(0);
+});
+
+test('Paste with no image on the clipboard reports it and keeps the map', async ({ page }) => {
+  await openMap(page);
+  await page.getByRole('button', { name: 'Paste', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Paste failed');
+  await expect(page.getByTestId('map-stage')).toBeVisible();
 });

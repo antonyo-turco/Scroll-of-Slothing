@@ -22,11 +22,14 @@ rayon.workspace = true
 arboard.workspace = true
 sleuth-legacy.workspace = true
 sleuth-pdf.workspace = true
+sleuth-stt.workspace = true
 fastrand.workspace = true
 base64.workspace = true
+reqwest = { version = "0.13", features = ["blocking"] }
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = { version = "5", features = ["std"] }
+keyring = { version = "3", features = ["windows-native"] }
 
 [dev-dependencies]
 tempfile.workspace = true

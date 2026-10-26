@@ -26,6 +26,27 @@ test('library asset opens in the cutter, edits re-render, update-or-new choice',
 
   // Thin borders are offered; filters (image only) come from the token catalog.
   await expect(page.getByRole('radio', { name: 'Roll20 gold, thin' })).toBeVisible();
+
+  // The shape picker shows only that shape's borders and keeps the kind (thin → thin).
+  const shapes = page.getByRole('radiogroup', { name: 'Shape' });
+  const borderGroup = page.getByRole('radiogroup', { name: 'Border' });
+  await expect(shapes.getByRole('radio', { name: 'Circle' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Roll20 gold, thin' }).click();
+  await shapes.getByRole('radio', { name: 'Hexagon' }).click();
+  await expect(borderGroup.getByRole('radio', { name: 'Roll20 gold, hexagon, thin' })).toHaveAttribute('aria-checked', 'true');
+  await expect(borderGroup.getByRole('radio', { name: 'Roll20 gold, thin' })).toHaveCount(0);
+  await expect(borderGroup.getByRole('radio', { name: 'No border, hexagon' })).toBeVisible();
+  await shapes.getByRole('radio', { name: 'Square' }).click();
+  await expect(borderGroup.getByRole('radio', { name: 'Roll20 gold, square, thin' })).toHaveAttribute('aria-checked', 'true');
+  await borderGroup.getByRole('radio', { name: 'No border, square' }).click();
+  await shapes.getByRole('radio', { name: 'Octagon' }).click();
+  await expect(borderGroup.getByRole('radio', { name: 'No border, octagon' })).toHaveAttribute('aria-checked', 'true');
+  await shapes.getByRole('radio', { name: 'Decagon' }).click();
+  await expect(borderGroup.getByRole('radio', { name: 'No border, decagon' })).toHaveAttribute('aria-checked', 'true');
+  await expect(borderGroup.getByRole('radio', { name: 'Roll20 gold, decagon', exact: true })).toBeVisible();
+  await shapes.getByRole('radio', { name: 'Circle' }).click();
+  await expect(borderGroup.getByRole('radio', { name: 'No border', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Roll20 grey', exact: true }).click();
   const filters = page.getByRole('combobox', { name: 'Filter preset' });
   await expect(filters.locator('option', { hasText: 'Newsprint' })).toHaveCount(0);
   await filters.selectOption('Sepia print');

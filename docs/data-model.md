@@ -5,6 +5,7 @@
 - Inside the data dir:
   - `sleuth.db`: SQLite, WAL mode, `foreign_keys=ON`
   - `blobs/ab/cd/<blake3-hex>.<ext>`: content-addressed files
+  - `fivetools/bestiary/`: the combat tracker's copy of a 5etools mirror's `data/bestiary/` (`index.json` and `bestiary-*.json`), refreshed by `bestiary_sync`
   - `legacy/music.json`: music data preserved by the legacy importer; "Import legacy music" (`music_import_legacy`) reads it
 
 ## Tables (migration V1)
@@ -64,6 +65,9 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 - `object_sheet`
 - `map_paginator`: the Map Paginator document (`MapDoc`: source, grid, filters, print settings, region, excluded pages), shared by the UI and MCP
 - `aoe.sheet`: the AoE multi-template sheet (template configs + gap)
+- `combat.encounters`: saved encounters (creature lists and tracker snapshots), see `features/combat-tracker.md`
+- `combat.parties`: saved hero parties
+- `combat.tracker`: the combat tracker in the 5etools serial form (see `features/combat-tracker.md`); changes are logged as `combat/tracker`
 - `cards.editor`
 - `ui.last_route`
 

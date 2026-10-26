@@ -4,6 +4,7 @@
   // cut-out result is rendered in Rust (gated: one request in flight, latest wins).
   import { onDestroy, onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
@@ -454,7 +455,7 @@
     </section>
 
     <section class="section">
-      <h3 class="section-title">Outline</h3>
+      <h3 class="section-title">Outline <InfoTip label="About the outline" text="A coloured border around the cut-out, so it is easy to cut along. 0 px means no outline." /></h3>
       <div class="row">
         <input type="color" class="swatch" aria-label="Outline colour" value={outlineHex}
           oninput={(e) => (d.params.outline_rgb = [1, 3, 5].map((i) => parseInt(e.currentTarget.value.slice(i, i + 2), 16)) as [number, number, number])} />

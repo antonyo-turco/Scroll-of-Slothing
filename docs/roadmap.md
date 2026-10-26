@@ -17,9 +17,14 @@ Phases are **not** promoted individually. `master` receives the rewrite only onc
 | 5 | Map Paginator + filters + AoE templates | in progress (sprint) |
 | 6 | Perf benchmarks, accessibility, packaging (MSI), in-app MCP HTTP, docs review | done (pending review) |
 | 7 | Music (requested by the user; spec in `features/music/`) | done (pending review; alpha testing pending) |
+| 8 | Transcribe: speech to text from files and live, local Whisper by default plus an OpenRouter-format cloud engine (requested 2026-10-18; spec in `features/transcribe.md`) | in progress (file transcription done; live and the Transcripts tab to do) |
+| 9 | Combat tracker: a port of the 5etools DM Screen Initiative Tracker with 5etools combat/encounter links and a cached bestiary from a 5etools mirror (requested 2026-10-25; spec in `features/combat-tracker.md`) | in progress (v1 core tracker and links) |
 
 ## Out of scope
-The features on the old repo's `feature/dnd-integration` and `dev-dnd-legacy` branches: LAN multiplayer, combat tracker, character sheets, encounters.
+The features on the old repo's `feature/dnd-integration` and `dev-dnd-legacy` branches: LAN multiplayer, character sheets, encounters. Their combat tracker is replaced by Phase 9, a 5etools-compatible tracker requested on 2026-10-25 (not a port of those branches).
+
+## Parity status
+On 2026-10-18 the user declared that the rewrite has reached parity with Orb of Many Functions and is feature-complete. Phase 8 (Transcribe) is a new feature beyond parity and does not block the release. On 2026-10-25 the last unticked items (AoE templates, Map Paginator, Map filters) got their tests and the user confirmed the Music alpha test, so every parity checklist is ticked.
 
 ## Next features
 In order. The parity sprint runs on `sprint/full-parity` and merges back into `dev`.
@@ -31,6 +36,17 @@ In order. The parity sprint runs on `sprint/full-parity` and merges back into `d
    - Music: the alpha-test item (everything else is ticked; see `features/music/overview.md`).
    - Install the MSI once and double-click a `.dmix` file (the association only exists in the installed app).
 2. **Release.** Once every checklist is ticked, music included, propose a single descriptive `master` merge and wait for the user's approval.
+
+### Combat tracker: possible future features (out of bounds for now)
+Saved at the user's request on 2026-10-25; not to be built until asked:
+- **Music cues:** switch the Music mixer to a chosen soundscape when combat starts or a "boss" row's turn begins.
+- **Quick NPC generator:** make a homebrew creature from a template ("CR 2 brute") with the 2024 DMG statistics by CR, saved through the homebrew bestiary.
+
+### Combat tracker: decided against
+- **Combat log** (a per-round timeline of damage, conditions and turns).
+- **Maps integration** (starting encounters from a map, AoE templates sized from stat blocks).
+- **Player view** and the per-row "visible to players" toggle: the tracker is for the DM only.
+- **Custom conditions** (removed 2026-10-25).
 
 ### Removed
 - Campaigns and sessions (2026-10-11, at the user's request): UI, filters, links, commands and MCP/CLI tools are gone; the tables stay, unused. See `features/campaigns-sessions.md`.

@@ -6,13 +6,15 @@ import {
   DEFAULT_SETTINGS, SIZE_INCHES, SIZE_LABELS,
   type Asset, type AssetQuery, type Border, type PageFormat, type PlacedItem,
   type ServiceEvent, type Settings, type SheetItem, type SheetItemPatch, type SheetLayout,
-  type SizeLabel, type TokenParams, type TokenSheet, type CutoutParams, type ObjectItem,
+  type SizeLabel, type TokenParams, type TokenShape, type TokenSheet, type CutoutParams, type ObjectItem,
   type ObjectItemPatch, type ObjectSheet, type SheetMode, type CardOp, type CardOptions, type Deck,
   type DeckLayout,
 } from './types';
 import cardTemplates from '../../../assets/cards/templates.json';
 import { createMusicMockHandlers } from './mock-music';
 import { createMapsMockHandlers, MOCK_TOKEN_FILTER_CATALOG } from './mock-maps';
+import { createSttMockHandlers } from './mock-stt';
+import { createCombatMockHandlers } from './mock-combat';
 
 export interface Backend {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -21,7 +23,7 @@ export interface Backend {
 
 const ROUTES = [
   'library', 'tokens.cutter', 'tokens.sheet', 'cutouts.cutter', 'cutouts.sheet',
-  'cards', 'maps.paginator', 'maps.aoe', 'music', 'settings',
+  'cards', 'maps.paginator', 'maps.aoe', 'music', 'transcribe.file', 'settings',
 ];
 
 function validate(key: string, value: unknown): string | null {
@@ -35,10 +37,15 @@ function validate(key: string, value: unknown): string | null {
     if (positive.includes(key)) return value > 0 ? null : 'must be > 0';
     return value >= 0 ? null : 'must be ≥ 0';
   }
-  if (key.endsWith('_page_format')) return value === 'Letter' || value === 'A4' ? null : 'invalid format';
+  if (key === 'map_page_format') return ['Letter', 'A4', 'A3'].includes(value as string) ? null : 'invalid format';
+  if (key.endsWith('_page_format')) return value === 'Letter' || value === 'A4' ? null : 'must be Letter or A4 (A3 is for maps only)';
   if (key === 'cut_line_style') return ['Dashed', 'Dotted', 'Solid'].includes(value as string) ? null : 'invalid style';
   if (key === 'theme') return ['system', 'light', 'dark'].includes(value as string) ? null : 'invalid theme';
   if (key === 'cut_line_color') return /^#[0-9a-fA-F]{6}$/.test(value as string) ? null : 'invalid colour';
+  if (key === 'stt_engine') return value === 'local' || value === 'cloud' ? null : 'expected local or cloud';
+  if (key === 'stt_cloud_base_url') return /^https?:\/\/.{3,}/.test(String(value).trim()) ? null : 'must be an http(s) URL';
+  if (key === 'stt_cloud_model') return String(value).trim() ? null : 'must not be empty';
+  if (key === 'fivetools_base_url') return /^https?:\/\/.{3,}/.test(String(value).trim()) ? null : 'must be an http(s) URL';
   return null;
 }
 
@@ -252,10 +259,23 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
 
   // ── tokens & token sheet ──
   const borders: Border[] = [
-    { id: 'builtin:roll20', name: 'Roll20 gold', builtin: true, blob: 'mock-border-gold', width: 442, height: 442 },
-    { id: 'builtin:roll20_greyscale', name: 'Roll20 grey', builtin: true, blob: 'mock-border-grey', width: 256, height: 256 },
-    { id: 'builtin:roll20_thin', name: 'Roll20 gold, thin', builtin: true, blob: 'mock-border-gold-thin', width: 442, height: 442 },
-    { id: 'builtin:roll20_greyscale_thin', name: 'Roll20 grey, thin', builtin: true, blob: 'mock-border-grey-thin', width: 256, height: 256 },
+    { id: 'builtin:roll20', name: 'Roll20 gold', builtin: true, blob: 'mock-border-gold', width: 442, height: 442, shape: 'circle', borderless: false },
+    { id: 'builtin:roll20_greyscale', name: 'Roll20 grey', builtin: true, blob: 'mock-border-grey', width: 256, height: 256, shape: 'circle', borderless: false },
+    { id: 'builtin:roll20_thin', name: 'Roll20 gold, thin', builtin: true, blob: 'mock-border-gold-thin', width: 442, height: 442, shape: 'circle', borderless: false },
+    { id: 'builtin:roll20_greyscale_thin', name: 'Roll20 grey, thin', builtin: true, blob: 'mock-border-grey-thin', width: 256, height: 256, shape: 'circle', borderless: false },
+    { id: 'builtin:none', name: 'No border', builtin: true, blob: 'mock-border-none', width: 442, height: 442, shape: 'circle', borderless: true },
+    { id: 'builtin:roll20_square', name: 'Roll20 gold, square', builtin: true, blob: 'mock-border-square', width: 442, height: 442, shape: 'square', borderless: false },
+    { id: 'builtin:roll20_square_thin', name: 'Roll20 gold, square, thin', builtin: true, blob: 'mock-border-square-thin', width: 442, height: 442, shape: 'square', borderless: false },
+    { id: 'builtin:none_square', name: 'No border, square', builtin: true, blob: 'mock-border-none', width: 442, height: 442, shape: 'square', borderless: true },
+    { id: 'builtin:roll20_hex', name: 'Roll20 gold, hexagon', builtin: true, blob: 'mock-border-hex', width: 442, height: 442, shape: 'hex', borderless: false },
+    { id: 'builtin:roll20_hex_thin', name: 'Roll20 gold, hexagon, thin', builtin: true, blob: 'mock-border-hex-thin', width: 442, height: 442, shape: 'hex', borderless: false },
+    { id: 'builtin:none_hex', name: 'No border, hexagon', builtin: true, blob: 'mock-border-none', width: 442, height: 442, shape: 'hex', borderless: true },
+    { id: 'builtin:roll20_octagon', name: 'Roll20 gold, octagon', builtin: true, blob: 'mock-border-octagon', width: 442, height: 442, shape: 'octagon', borderless: false },
+    { id: 'builtin:roll20_octagon_thin', name: 'Roll20 gold, octagon, thin', builtin: true, blob: 'mock-border-octagon-thin', width: 442, height: 442, shape: 'octagon', borderless: false },
+    { id: 'builtin:none_octagon', name: 'No border, octagon', builtin: true, blob: 'mock-border-none', width: 442, height: 442, shape: 'octagon', borderless: true },
+    { id: 'builtin:roll20_decagon', name: 'Roll20 gold, decagon', builtin: true, blob: 'mock-border-decagon', width: 442, height: 442, shape: 'decagon', borderless: false },
+    { id: 'builtin:roll20_decagon_thin', name: 'Roll20 gold, decagon, thin', builtin: true, blob: 'mock-border-decagon-thin', width: 442, height: 442, shape: 'decagon', borderless: false },
+    { id: 'builtin:none_decagon', name: 'No border, decagon', builtin: true, blob: 'mock-border-none', width: 442, height: 442, shape: 'decagon', borderless: true },
   ];
   const sources = new Map<string, { width: number; height: number }>();
   const tokenParams = new Map<number, TokenParams>();
@@ -268,8 +288,8 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     }
     return sheet;
   };
-  const sheetItem = (label: string, size: string, image: string, asset_id: number | null): SheetItem => ({
-    id: `mock-item-${++seq}`, label, size, copies: 1, image, thumb: image, asset_id,
+  const sheetItem = (label: string, size: string, image: string, asset_id: number | null, shape: TokenShape = 'circle'): SheetItem => ({
+    id: `mock-item-${++seq}`, label, size, copies: 1, image, thumb: image, asset_id, shape,
   });
   const checkSize = (s: string) => {
     const hit = SIZE_LABELS.find((x) => x.toLowerCase() === s.split(' (')[0].trim().toLowerCase());
@@ -335,7 +355,7 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
     token_borders_list: () => borders,
     token_filter_catalog: () => MOCK_TOKEN_FILTER_CATALOG,
     token_borders_add: ({ path, name }: Record<string, unknown>) => {
-      const b = { id: `user:${++seq}`, name: (name as string) || String(path).split(/[\\/]/).pop()!.replace(/\.[^.]+$/, ''), builtin: false, blob: `mock-border-${seq}`, width: 300, height: 300 };
+      const b: Border = { id: `user:${++seq}`, name: (name as string) || String(path).split(/[\\/]/).pop()!.replace(/\.[^.]+$/, ''), builtin: false, blob: `mock-border-${seq}`, width: 300, height: 300, shape: 'circle', borderless: false };
       borders.push(b);
       return b;
     },
@@ -398,8 +418,9 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
       }
       return getSheet();
     },
-    token_sheet_add_composed: ({ label, size }: Record<string, unknown>) => {
-      getSheet().items.push(sheetItem((label as string).trim() || 'Token', checkSize(size as string), `mock-composed-${++seq}`, null));
+    token_sheet_add_composed: ({ label, size, params }: Record<string, unknown>) => {
+      const shape = borders.find((b) => b.id === (params as TokenParams | undefined)?.border)?.shape ?? 'circle';
+      getSheet().items.push(sheetItem((label as string).trim() || 'Token', checkSize(size as string), `mock-composed-${++seq}`, null, shape));
       return getSheet();
     },
     token_sheet_update: ({ id, patch }: Record<string, unknown>) => {
@@ -663,6 +684,8 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
 
   Object.assign(handlers, createMapsMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
   Object.assign(handlers, createMusicMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
+  Object.assign(handlers, createCombatMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
+  Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
 
   return {
     async invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {

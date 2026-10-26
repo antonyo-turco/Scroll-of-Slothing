@@ -1,9 +1,12 @@
 // Mirrors of the Rust types serialized by the service layer.
 // Keep in sync with crates/core/src/settings.rs and crates/service/src/*.rs.
 
-export type PageFormat = 'Letter' | 'A4';
+/** A3 is offered for maps (Map Paginator, AoE templates) only. */
+export type PageFormat = 'Letter' | 'A4' | 'A3';
 export type CutLineStyle = 'Dashed' | 'Dotted' | 'Solid';
 export type Theme = 'system' | 'light' | 'dark';
+/** Who transcribes speech: Whisper on this computer, or an OpenRouter-format API. */
+export type SttEngine = 'local' | 'cloud';
 
 export interface Settings {
   start_view: string;
@@ -24,6 +27,24 @@ export interface Settings {
   map_overlap_in: number;
   map_align_to_grid: boolean;
   mcp_http_enabled: boolean;
+  stt_engine: SttEngine;
+  stt_cloud_base_url: string;
+  stt_cloud_model: string;
+  /** Root of the 5etools site or mirror the combat tracker reads creatures from. */
+  fivetools_base_url: string;
+  combat_roll_init: boolean;
+  combat_roll_hp: boolean;
+  combat_roll_groups: boolean;
+  combat_reroll_each_round: boolean;
+  combat_hp_as_damage: boolean;
+  combat_import_roll_groups: boolean;
+  combat_import_add_players: boolean;
+  combat_import_append: boolean;
+  combat_xp_multiplier_2014: boolean;
+  combat_reset_confirm: boolean;
+  combat_reset_keep_players: boolean;
+  combat_turn_popup: boolean;
+  combat_passive_initiative: boolean;
 }
 
 export interface SettingsUpdate {
@@ -78,6 +99,23 @@ export const DEFAULT_SETTINGS: Settings = {
   map_overlap_in: 0.0,
   map_align_to_grid: false,
   mcp_http_enabled: false,
+  stt_engine: 'local',
+  stt_cloud_base_url: 'https://openrouter.ai/api/v1',
+  stt_cloud_model: 'openai/whisper-1',
+  fivetools_base_url: 'http://localhost:8080',
+  combat_roll_init: true,
+  combat_roll_hp: false,
+  combat_roll_groups: true,
+  combat_reroll_each_round: false,
+  combat_hp_as_damage: false,
+  combat_import_roll_groups: true,
+  combat_import_add_players: true,
+  combat_import_append: false,
+  combat_xp_multiplier_2014: false,
+  combat_reset_confirm: true,
+  combat_reset_keep_players: false,
+  combat_turn_popup: true,
+  combat_passive_initiative: false,
 };
 
 // ── library (crates/store/src/assets.rs) ──
@@ -174,6 +212,10 @@ export interface TokenParams {
   filters: FilterStep[];
 }
 
+/** Token outline (crates/core/src/token.rs `TokenShape`): `hex` is pointy-top,
+ *  `octagon` has flat top/bottom/sides, `decagon` a flat top and bottom. */
+export type TokenShape = 'circle' | 'square' | 'hex' | 'octagon' | 'decagon';
+
 export interface Border {
   id: string;
   name: string;
@@ -181,6 +223,9 @@ export interface Border {
   blob: string;
   width: number;
   height: number;
+  shape: TokenShape;
+  /** A blank border: the image is only clipped to the shape. */
+  borderless: boolean;
 }
 
 export interface SourceImage {
@@ -205,6 +250,8 @@ export interface SheetItem {
   image: string;
   thumb: string;
   asset_id: number | null;
+  /** Outline for the cut line, detected from the image when added. */
+  shape: TokenShape;
 }
 
 export interface TokenSheet {
@@ -539,6 +586,94 @@ export interface AoeSheetLayout {
   summary: string;
 }
 
+// ── speech to text (docs/features/transcribe.md) ──
+
+export interface SttModel {
+  id: string;
+  label: string;
+  hint: string;
+  /** bytes */
+  size: number;
+  installed: boolean;
+  /** seconds of work per second of audio (beam 5) on this machine */
+  speed: number;
+  /** measured here, else the built-in guess */
+  measured: boolean;
+}
+
+export interface CloudModelSpec {
+  id: string;
+  label: string;
+  usd_per_min: number;
+}
+
+export interface EngineEstimate {
+  model: string;
+  /** null when the duration is unknown */
+  seconds: number | null;
+  measured: boolean;
+  /** cloud, when the price is known: USD */
+  cost: number | null;
+}
+
+export interface TranscribeEstimate {
+  duration_ms: number | null;
+  local: EngineEstimate[];
+  cloud: EngineEstimate;
+}
+
+export interface Correction {
+  from: string;
+  to: string;
+}
+
+export interface TranscribeOptions {
+  /** default: the stt_engine setting */
+  engine?: SttEngine | null;
+  /** local: a catalog id; cloud: an OpenRouter model id (default: the stt_cloud_model setting) */
+  model?: string | null;
+  /** 'it' | 'en' | 'auto' | any ISO 639-1 code */
+  language?: string | null;
+  glossary?: string[];
+  corrections?: Correction[];
+  /** 1 = greedy (faster) */
+  beam_size?: number | null;
+}
+
+export interface Segment {
+  start_ms: number;
+  end_ms: number;
+  text: string;
+}
+
+export interface TranscribeResult {
+  engine: SttEngine;
+  model: string;
+  language: string;
+  duration_ms: number;
+  segments: Segment[];
+  /** cloud only: USD reported by the API */
+  cost: number | null;
+}
+
+/** Never contains the key itself. */
+export interface CloudKeyStatus {
+  configured: boolean;
+  source: 'saved' | 'env' | null;
+  /** e.g. sk-or-…a1b2 */
+  hint: string | null;
+}
+
+export interface CloudKeyInfo {
+  label: string | null;
+  /** USD; null = unlimited */
+  limit: number | null;
+  usage: number | null;
+}
+
+
+export type TranscriptFormat = 'txt' | 'md' | 'srt' | 'vtt';
+
 /** What the save-to-library dialog returns (SaveAssetDialog.svelte). */
 export interface SaveDetails {
   name: string;
@@ -547,4 +682,221 @@ export interface SaveDetails {
   tags: string[];
   /** overwrite the library asset the item was opened from */
   update: boolean;
+}
+
+// ── combat tracker (crates/core/src/combat) ──
+
+export type CombatSort = 'ALPHA' | 'NUMBER';
+export type CombatDir = 'ASC' | 'DESC';
+
+export interface CombatCondition {
+  id: string;
+  name: string;
+  color: string;
+  /** Turns left; null is unlimited. */
+  turns: number | null;
+  /** Turns spent under it so far. */
+  elapsed: number;
+}
+
+/** A stat cell: the column id plus value, or current/max, or tokenUrl/imageHref. */
+export interface CombatCell {
+  id: string;
+  value?: string | number | boolean | null;
+  current?: number | null;
+  max?: number | null;
+  tokenUrl?: string | null;
+  imageHref?: string | null;
+  isEditable?: boolean;
+}
+
+export interface CombatRow {
+  id: string;
+  name: string;
+  display_name: string | null;
+  custom_name: string | null;
+  source: string | null;
+  scaled_cr: number | null;
+  scaled_summon_spell_level: number | null;
+  scaled_summon_class_level: number | null;
+  hp_current: number | null;
+  hp_max: number | null;
+  /** Temporary hit points. */
+  hp_temp: number | null;
+  initiative: number | null;
+  is_active: boolean;
+  conditions: CombatCondition[];
+  notes: string;
+  is_player_visible: boolean;
+  ordinal: number;
+  cells: CombatCell[];
+  /** Stat block fields changed for this creature (5etools keys: ac, speed, str, …). */
+  overrides: Record<string, unknown> | null;
+  /** Creatures: which side they fight on (null = enemy); 'lair' marks a lair row. */
+  side: 'ally' | 'neutral' | 'lair' | null;
+  /** Play-time bookkeeping: spent uses/recharges by ability name, __la, __ds, __lair. */
+  usage: Record<string, unknown> | null;
+}
+
+export interface CombatColumn {
+  id: string;
+  is_editable: boolean;
+  /** 0 nobody, 1 everyone, 2 player rows only */
+  is_player_visible: number;
+  populate_with: string;
+  abbreviation: string;
+}
+
+export interface CombatCustomCondition {
+  id: string;
+  name: string;
+  color: string;
+  turns: number | null;
+}
+
+export interface Tracker {
+  sort: CombatSort;
+  dir: CombatDir;
+  is_roll_init: boolean;
+  is_roll_hp: boolean;
+  is_roll_groups: boolean;
+  is_reroll_initiative_each_round: boolean;
+  /** Passive initiative (10 + bonus) instead of rolling. */
+  is_passive_init: boolean;
+  is_invert_wound_direction: boolean;
+  import_is_roll_groups: boolean;
+  import_is_add_players: boolean;
+  import_is_append: boolean;
+  is_stats_add_columns: boolean;
+  player_init_show_exact_player_hp: boolean;
+  player_init_show_exact_monster_hp: boolean;
+  player_init_hide_new_monster: boolean;
+  player_init_show_ordinals: boolean;
+  is_notes_shown: boolean;
+  stats_cols: CombatColumn[];
+  conditions_custom: CombatCustomCondition[];
+  rows: CombatRow[];
+  rows_default_party: CombatRow[];
+  /** Defeated creatures set aside (out of the turn order). */
+  defeated: CombatRow[];
+  round: number;
+  notes: string;
+  is_locked: boolean;
+  extra: Record<string, unknown>;
+}
+
+export interface ColumnKind {
+  populate_with: string;
+  abbreviation: string;
+  name: string;
+}
+
+export interface CombatCatalog {
+  /** [name, colour] */
+  conditions: [string, string][];
+  columns: ColumnKind[];
+}
+
+export interface BestiaryEntry {
+  hash: string;
+  name: string;
+  source: string;
+  cr: string | null;
+  hp: number | null;
+  ac: unknown;
+  token_url: string | null;
+  /** Tiny … Gargantuan. */
+  size: string;
+}
+
+export interface BestiaryStatus {
+  base_url: string;
+  synced: boolean;
+  files: number;
+  creatures: number;
+}
+
+export interface EncounterImport {
+  rows_added: number;
+  missing: string[];
+  unscaled: string[];
+}
+
+export interface CombatImport {
+  kind: 'combat' | 'encounter';
+  tracker: Tracker;
+  encounter: EncounterImport | null;
+}
+
+export interface RowPatch {
+  name?: string;
+  custom_name?: string;
+  hp_current?: number;
+  hp_max?: number;
+  hp_temp?: number;
+  damage?: number;
+  initiative?: number;
+  notes?: string;
+  remove_conditions?: string[];
+  /** 5etools stat fields to change for this creature only (null removes one). */
+  stats?: Record<string, unknown>;
+  reset_stats?: boolean;
+}
+
+export interface EncounterCreature {
+  hash: string;
+  count: number;
+  /** 5etools stat fields changed for these copies. */
+  stats?: Record<string, unknown> | null;
+}
+
+export interface EncounterLine {
+  hash: string;
+  name: string;
+  source: string;
+  count: number;
+  cr: string | null;
+  /** The bestiary's CR when the line is scaled. */
+  base_cr: string | null;
+  known: boolean;
+}
+
+export interface EncounterSummary {
+  id: string;
+  name: string;
+  notes: string;
+  kind: 'encounter' | 'combat';
+  creatures: EncounterCreature[];
+  combat: unknown | null;
+  pinned: boolean;
+  created: string;
+  updated: string;
+  lines: EncounterLine[];
+  total: number;
+  xp: number | null;
+}
+
+export interface Hero {
+  id: string;
+  name: string;
+  species: string;
+  class: string;
+  subclass: string;
+  level: number | null;
+  hp_max: number | null;
+  ac: number | null;
+  initiative_bonus: number | null;
+  passive_perception: number | null;
+  speed: number | null;
+  spell_dc: number | null;
+  player: string;
+  notes: string;
+}
+
+export interface Party {
+  id: string;
+  name: string;
+  notes: string;
+  heroes: Hero[];
+  updated: string;
 }

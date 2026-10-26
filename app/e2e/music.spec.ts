@@ -67,3 +67,90 @@ test('playlists: create, play and control', async ({ page }) => {
   await now.getByRole('button', { name: 'Stop playlist' }).click();
   await expect(now).toBeHidden();
 });
+
+test('library: favourite a track, then filter by favourites, length and loop', async ({ page }) => {
+  // Tavern Ambience is a favourite in the mock seed.
+  await page.getByRole('button', { name: 'Add Battle Drums to favourites' }).click();
+  await expect(page.getByRole('button', { name: 'Remove Battle Drums from favourites' })).toHaveAttribute('aria-pressed', 'true');
+  const filters = page.getByRole('group', { name: 'Filters' });
+  await filters.getByRole('button', { name: '★ Favourites' }).click();
+  await expect(page.getByRole('row')).toHaveCount(3); // header + Tavern + Battle Drums
+  await filters.getByLabel('Length').selectOption('mid'); // 1–5 min: Battle Drums (4:05)
+  await expect(page.getByRole('row')).toHaveCount(2);
+  await expect(page.getByRole('row', { name: /Battle Drums/ })).toBeVisible();
+  await filters.getByRole('button', { name: 'Clear filters' }).click();
+  await filters.getByLabel('Loop').selectOption('once');
+  await expect(page.getByRole('row')).toHaveCount(2);
+  await expect(page.getByRole('row', { name: /Thunder Clap/ })).toBeVisible();
+  await expect(page.getByText('1 track of 3')).toBeVisible();
+});
+
+test('library: columns sort by title and length', async ({ page }) => {
+  const firstTitle = () => page.getByRole('row').nth(1);
+  await page.getByRole('button', { name: /^Title/ }).click();
+  await expect(firstTitle()).toContainText('Battle Drums');
+  await page.getByRole('button', { name: /^Title/ }).click();
+  await expect(firstTitle()).toContainText('Thunder Clap');
+  await page.getByRole('button', { name: /^Length/ }).click();
+  await expect(firstTitle()).toContainText('Tavern Ambience'); // longest first
+  await expect(page.getByRole('columnheader', { name: /Length/ })).toHaveAttribute('aria-sort', 'descending');
+});
+
+test('soundscapes: pin keeps a mix at the top', async ({ page }) => {
+  await page.getByRole('button', { name: 'Add Tavern Ambience to mix' }).click();
+  await tab(page, 'Mixer').click();
+  for (const name of ['Alpha', 'Zulu']) {
+    await page.getByRole('button', { name: '💾 Save as New' }).click();
+    await page.getByRole('dialog').getByLabel('Name').fill(name);
+    await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  }
+  await tab(page, 'Soundscapes').click();
+  const names = page.locator('.sc strong');
+  await expect(names).toHaveText(['Alpha', 'Zulu']);
+  await page.getByRole('button', { name: 'Pin Zulu' }).click();
+  await expect(names).toHaveText(['Zulu', 'Alpha']);
+  await expect(page.getByRole('button', { name: 'Unpin Zulu' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('library: category filter, and Add to mix follows the category', async ({ page }) => {
+  const cats = page.getByRole('group', { name: 'Category' });
+  await cats.getByRole('button', { name: 'Soundbites' }).click();
+  await expect(page.getByRole('row')).toHaveCount(2);
+  await expect(page.getByRole('row', { name: /Thunder Clap/ })).toContainText('Soundbite');
+  await cats.getByRole('button', { name: 'All' }).click();
+  await expect(page.getByRole('row')).toHaveCount(4);
+  // YouTube tracks show their thumbnail.
+  await expect(page.getByRole('row', { name: /Tavern Ambience/ }).locator('img')).toHaveAttribute('src', 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg');
+  // Odd URLs and uploads fall back to the category icon.
+  await expect(page.getByRole('row', { name: /Battle Drums/ }).locator('img')).toHaveCount(0);
+
+  // Ambient → ambient channel; soundbite → the soundbite list.
+  await page.getByRole('button', { name: 'Add Tavern Ambience to mix' }).click();
+  await page.getByRole('button', { name: 'Add Thunder Clap to mix' }).click();
+  await tab(page, 'Mixer').click();
+  await expect(page.getByText('(1 channels)')).toBeVisible();
+  await expect(page.getByLabel('Role')).toHaveValue('ambient');
+  await expect(page.getByText('Thunder Clap')).toBeVisible();
+});
+
+test('library: suggested tags are reviewed, then added', async ({ page }) => {
+  await page.getByRole('button', { name: 'Suggest tags…' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Suggested tags' });
+  const list = dlg.getByTestId('tag-suggestions');
+  await expect(list).toContainText('Battle Drums');
+  await expect(list).toContainText('+ combat');
+  await expect(list).toContainText('+ weather');
+  // Skip Thunder Clap.
+  await list.getByRole('listitem').filter({ hasText: 'Thunder Clap' }).getByRole('checkbox').uncheck();
+  await dlg.getByRole('button', { name: 'Add tags to 1 track' }).click();
+  await expect(page.getByRole('row', { name: /Battle Drums/ })).toContainText('combat');
+  await expect(page.getByRole('row', { name: /Thunder Clap/ })).not.toContainText('weather');
+});
+
+test('track dialog: Auto category for new tracks, soundbite turns looping off', async ({ page }) => {
+  await page.getByRole('button', { name: '+ Add Track' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Add track' });
+  await expect(dlg.getByRole('group', { name: 'Category' }).getByRole('button', { name: 'Auto' })).toHaveAttribute('aria-pressed', 'true');
+  await dlg.getByRole('group', { name: 'Category' }).getByRole('button', { name: 'Soundbite' }).click();
+  await expect(dlg.getByLabel('Loop by default')).not.toBeChecked();
+});

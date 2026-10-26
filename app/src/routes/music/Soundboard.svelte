@@ -7,6 +7,7 @@
   import PlayIndicator from '../../lib/components/PlayIndicator.svelte';
   import { BUTTON_COLORS, PLAY_MODE_SYMBOLS, music, type PlayMode, type Soundboard, type SoundboardButton, type Track } from '../../lib/music';
   import { musicUi } from '../../lib/music-ui.svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   let boards = $state<Soundboard[]>([]);
   let boardId = $state<string | null>(null);
@@ -145,7 +146,7 @@
     </div>
   {:else if editing}
     <table>
-      <thead><tr><th>Pos</th><th>Icon</th><th>Label</th><th>Track</th><th>Mode</th><th>Colour</th><th>Vol</th><th>Loop</th><th>Key</th><th></th></tr></thead>
+      <thead><tr><th>Pos</th><th>Icon</th><th>Label</th><th>Track</th><th>Mode <InfoTip label="About button modes" text="One-shot plays the sound once. Restart plays it again from the start on every press. Toggle starts it on the first press and stops it on the next." /></th><th>Colour</th><th>Vol</th><th>Loop</th><th>Key</th><th></th></tr></thead>
       <tbody>
         {#each draft as b, i (i)}
           <tr>

@@ -4,13 +4,16 @@
   // requests are gated so at most one is in flight and the latest state wins.
   import { onDestroy, onMount } from 'svelte';
   import { api, blobUrl, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import { PinchTracker, wheelIntent } from '../../lib/gestures';
   import SaveAssetDialog from '../../lib/components/SaveAssetDialog.svelte';
+  import CreaturePicker from '../../lib/components/CreaturePicker.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import FiltersPanel from '../../lib/components/FiltersPanel.svelte';
   import Slider from '../../lib/components/Slider.svelte';
-  import { type Border, type FilterCatalog, type SourceImage, type TokenParams, type SaveDetails } from '../../lib/types';
+  import { TOKEN_SHAPES, shapePath } from '../../lib/token-shapes';
+  import { type Border, type FilterCatalog, type SourceImage, type TokenParams, type TokenShape, type SaveDetails } from '../../lib/types';
 
   const DRAFT_KEY = 'tokens.cutter';
 
@@ -43,6 +46,19 @@
   let sourceImg: HTMLImageElement | undefined = $state();
 
   const border = $derived(borders.find((b) => b.id === d.params.border) ?? null);
+
+  // Shape picker: the shape follows the chosen border; picking a shape picks
+  // that shape's border of the same kind (plain, thin or none).
+  const SHAPES = TOKEN_SHAPES.map((s) => ({ ...s, path: shapePath(s.id, 1.5, 1.5, 13, 13) }));
+  const shape = $derived<TokenShape>(border?.shape ?? 'circle');
+  const variant = (b: Border) => (b.borderless ? 'none' : b.id.includes('_thin') ? 'thin' : 'plain');
+  function pickShape(s: TokenShape) {
+    if (s === shape) return;
+    const options = borders.filter((b) => b.shape === s);
+    const same = border ? options.find((b) => variant(b) === variant(border)) : undefined;
+    const next = same ?? options[0];
+    if (next) d.params.border = next.id;
+  }
   const bgHex = $derived(
     d.params.bg ? '#' + d.params.bg.map((c) => c.toString(16).padStart(2, '0')).join('') : '#ffffff',
   );
@@ -293,6 +309,20 @@
       onSaveClick();
     } else if (e.key === 'Escape') pipette = false;
   }
+
+  // ── a 5etools creature's token or full art as the source ──
+  let pickOpen = $state(false);
+  async function fromCreature(picked: { entry: { hash: string; name: string; size: string } }[], kind: 'token' | 'art') {
+    const p = picked[0];
+    if (!p) return;
+    try {
+      setSource(await api.imageSourceFromCreature(p.entry.hash, kind));
+      d.name = p.entry.name;
+      d.size = p.entry.size;
+    } catch (e) {
+      app.error(kind === 'art' ? 'Could not load the art (try the token)' : 'Could not load the token', e);
+    }
+  }
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -300,6 +330,7 @@
 <ViewActions>
   <button class="btn" onclick={browse} title="Load an image from disk">Open image…</button>
   <button class="btn" onclick={paste} title="Load the image on the clipboard (Ctrl+V)">Paste</button>
+  <button class="btn" onclick={() => (pickOpen = true)} title="Load a 5etools creature's full art to cut a token from">From 5etools…</button>
   <button class="btn" disabled={!d.source} onclick={savePng} title="Write the token as a PNG file">Save PNG…</button>
   <button class="btn" disabled={!d.source || busy} onclick={addToSheet} title="Put the token on the token sheet">Add to sheet</button>
   <button class="btn primary" disabled={!d.source || busy} onclick={onSaveClick} title="Store the token in the Library (Ctrl+S)">Save to library…</button>
@@ -366,34 +397,44 @@
     </section>
 
     <section class="section">
-      <h3 class="section-title">Border</h3>
+      <h3 class="section-title">Border <InfoTip label="About borders" text="Pick the token's shape, then its border. Thin borders show more of the image; No border only cuts the image to the shape. Ring thickness moves the cut inwards." /></h3>
+      <div class="segmented fill" role="radiogroup" aria-label="Shape">
+        {#each SHAPES as s (s.id)}
+          <button role="radio" aria-checked={shape === s.id} aria-label={s.label} title={s.label} onclick={() => pickShape(s.id)}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d={s.path} fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg>
+          </button>
+        {/each}
+      </div>
       <div class="borders" role="radiogroup" aria-label="Border">
-        {#each borders as b (b.id)}
+        {#each borders.filter((b) => b.shape === shape) as b (b.id)}
           <button
             role="radio"
             aria-checked={d.params.border === b.id}
             class="border"
             class:sel={d.params.border === b.id}
             title={b.name}
+            aria-label={b.name}
             onclick={() => (d.params.border = b.id)}
           >
-            <img src={blobUrl(b.blob)} alt={b.name} />
+            {#if b.borderless}
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d={SHAPES.find((s) => s.id === b.shape)?.path} fill="none" stroke="currentColor" stroke-width="0.6" stroke-dasharray="1.2 1" /></svg>
+            {:else}
+              <img src={blobUrl(b.blob)} alt="" />
+            {/if}
           </button>
         {/each}
         <button class="border add" title="Add border…" aria-label="Add border" onclick={addBorder}>+</button>
       </div>
       <Slider label="Ring thickness %" min={0} max={50} bind:value={d.params.ring_inset_pct} />
-      <p class="note">The thin borders show more of the image.</p>
     </section>
 
     <section class="section">
-      <h3 class="section-title">Filters</h3>
+      <h3 class="section-title">Filters <InfoTip label="About filters" text="Colour and tone filters change the image only, never the border. They run in order, top to bottom." /></h3>
       <FiltersPanel bind:pipeline={d.params.filters} {catalog} />
-      <p class="note">Filters change the image only, never the border.</p>
     </section>
 
     <section class="section">
-      <h3 class="section-title">Background</h3>
+      <h3 class="section-title">Background <InfoTip label="About the background" text="Fills transparent areas behind the image. Use the pipette to pick a colour from the image itself." /></h3>
       <div class="row">
         <div class="segmented" role="group" aria-label="Background">
           <button aria-pressed={d.params.bg === null} onclick={() => (d.params.bg = null)}>None</button>
@@ -460,10 +501,17 @@
     background: var(--surface-2);
     cursor: pointer;
   }
-  .border img {
+  .border img,
+  .border svg {
     width: 100%;
     height: 100%;
     object-fit: contain;
+  }
+  .border svg {
+    color: var(--text-muted);
+  }
+  .segmented + .borders {
+    margin-top: var(--space-2);
   }
   .border.sel {
     border-color: var(--accent);
@@ -478,3 +526,5 @@
     border-top: 1px solid var(--border);
   }
 </style>
+
+<CreaturePicker bind:open={pickOpen} title="Image from 5etools" action="Load image" defaultKind="art" onPick={fromCreature} />

@@ -1,4 +1,4 @@
-//! Token compositing: frame an image inside a circular border ring.
+//! Token compositing: frame an image inside a border (round, square or hexagonal).
 //! Python reference: `ui/token_compositing.py`. Spec: docs/features/token-cutter.md.
 
 use fast_image_resize::{
@@ -46,6 +46,216 @@ pub fn token_preset_names() -> Vec<&'static str> {
         .map(|(n, _)| *n)
         .filter(|n| token_preset_pipeline(n).is_some())
         .collect()
+}
+
+/// Outline of a token: what the border frames, what gets clipped, and the cut line.
+/// The shape comes from the border (its list entry, or [`detect_shape`]), not the params.
+///
+/// Every shape is measured in "radius" units: the unit shape is scaled so its
+/// larger half-extent is 1, so radius `min(w, h) / 2` fits a square canvas.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TokenShape {
+    #[default]
+    Circle,
+    Square,
+    /// Pointy-top regular hexagon (vertices at the top and bottom, flat sides
+    /// left and right; √3/2 as wide as tall).
+    Hex,
+    /// Regular octagon with flat sides at the top, bottom, left and right.
+    Octagon,
+    /// Regular decagon with flat top and bottom (vertices left and right;
+    /// cos 18° ≈ 0.951 as tall as wide).
+    Decagon,
+}
+
+/// A regular polygon: side count, angle of the first side's outward normal
+/// (degrees, y down), and circumradius in radius units.
+struct Polygon {
+    sides: u32,
+    normal_deg: f64,
+    circumradius: f64,
+}
+
+impl Polygon {
+    fn apothem(&self) -> f64 {
+        self.circumradius * (std::f64::consts::PI / f64::from(self.sides)).cos()
+    }
+
+    fn normals(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
+        (0..self.sides).map(|k| {
+            let t = (self.normal_deg + 360.0 * f64::from(k) / f64::from(self.sides)).to_radians();
+            (t.cos(), t.sin())
+        })
+    }
+
+    /// Vertices (unit radius), starting between the first and second normals.
+    fn vertices(&self) -> Vec<(f64, f64)> {
+        let half = 180.0 / f64::from(self.sides);
+        (0..self.sides)
+            .map(|k| {
+                let t = (self.normal_deg + half + 360.0 * f64::from(k) / f64::from(self.sides))
+                    .to_radians();
+                (self.circumradius * t.cos(), self.circumradius * t.sin())
+            })
+            .collect()
+    }
+}
+
+impl TokenShape {
+    pub const ALL: [TokenShape; 5] = [
+        TokenShape::Circle,
+        TokenShape::Square,
+        TokenShape::Hex,
+        TokenShape::Octagon,
+        TokenShape::Decagon,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TokenShape::Circle => "circle",
+            TokenShape::Square => "square",
+            TokenShape::Hex => "hex",
+            TokenShape::Octagon => "octagon",
+            TokenShape::Decagon => "decagon",
+        }
+    }
+
+    fn polygon(self) -> Option<Polygon> {
+        let p = |sides, normal_deg, circumradius| Some(Polygon { sides, normal_deg, circumradius });
+        match self {
+            TokenShape::Circle => None,
+            TokenShape::Square => p(4, 0.0, std::f64::consts::SQRT_2),
+            TokenShape::Hex => p(6, 0.0, 1.0),
+            TokenShape::Octagon => p(8, 0.0, 1.0 / (std::f64::consts::PI / 8.0).cos()),
+            TokenShape::Decagon => p(10, 18.0, 1.0),
+        }
+    }
+
+    /// Half width and half height of the unit shape (the larger one is 1).
+    pub fn extents(self) -> (f64, f64) {
+        match self.polygon() {
+            None => (1.0, 1.0),
+            Some(p) => p
+                .vertices()
+                .iter()
+                .fold((0.0f64, 0.0f64), |(ex, ey), &(x, y)| (ex.max(x.abs()), ey.max(y.abs()))),
+        }
+    }
+
+    /// Whether the point `(x, y)`, relative to the centre and in radius units,
+    /// is inside the shape.
+    pub fn contains(self, x: f64, y: f64) -> bool {
+        match self.polygon() {
+            None => x * x + y * y <= 1.0,
+            Some(p) => {
+                let a = p.apothem() + 1e-12;
+                p.normals().all(|(nx, ny)| x * nx + y * ny <= a)
+            }
+        }
+    }
+
+    /// The outline's corners for radius `r` around `(cx, cy)` (y down);
+    /// empty for a circle.
+    pub fn vertices(self, cx: f64, cy: f64, r: f64) -> Vec<(f64, f64)> {
+        self.polygon()
+            .map(|p| p.vertices().into_iter().map(|(x, y)| (cx + x * r, cy + y * r)).collect())
+            .unwrap_or_default()
+    }
+
+    /// Largest radius whose shape fits a `w`×`h` box.
+    pub fn fit_radius(self, w: f64, h: f64) -> f64 {
+        let (ex, ey) = self.extents();
+        (w / 2.0 / ex).min(h / 2.0 / ey)
+    }
+}
+
+/// Guesses the outline of a border or a finished token from its alpha: the
+/// opaque silhouette (each row filled between its first and last opaque
+/// pixel) is compared with every shape fitted to the same box, and the
+/// closest wins (ties go to the circle, the old default).
+pub fn detect_shape(img: &RgbaImage) -> TokenShape {
+    let Some((x0, y0, x1, y1)) = alpha_bbox(img) else { return TokenShape::Circle };
+    let (bw, bh) = (f64::from(x1 - x0), f64::from(y1 - y0));
+    let step = ((x1 - x0).max(y1 - y0) / 160).max(1) as usize;
+    let spans: Vec<Option<(u32, u32)>> = (y0..y1)
+        .step_by(step)
+        .map(|y| {
+            let opaque = |x: &u32| img.get_pixel(*x, y)[3] >= 128;
+            let first = (x0..x1).find(opaque)?;
+            let last = (x0..x1).rev().find(opaque)?;
+            Some((first, last))
+        })
+        .collect();
+    let (cx, cy) = (f64::from(x0 + x1) / 2.0, f64::from(y0 + y1) / 2.0);
+    let mut best = (usize::MAX, TokenShape::Circle);
+    for shape in TokenShape::ALL {
+        let r = shape.fit_radius(bw, bh);
+        let mut err = 0;
+        for (row, y) in spans.iter().zip((y0..y1).step_by(step)) {
+            let py = (f64::from(y) + 0.5 - cy) / r;
+            for x in (x0..x1).step_by(step) {
+                let filled = row.is_some_and(|(a, b)| (a..=b).contains(&x));
+                if filled != shape.contains((f64::from(x) + 0.5 - cx) / r, py) {
+                    err += 1;
+                }
+            }
+        }
+        if err < best.0 {
+            best = (err, shape);
+        }
+    }
+    best.1
+}
+
+/// Anti-aliased coverage (0–255) of `shape` centred on `(cx, cy)` with radius `r`
+/// (see [`TokenShape::contains`]). Circles use [`ellipse_mask`]'s pixel convention.
+pub fn shape_mask(w: u32, h: u32, shape: TokenShape, cx: f64, cy: f64, r: f64) -> Vec<u8> {
+    if shape == TokenShape::Circle {
+        return ellipse_mask(w, h, cx - r, cy - r, cx + r - 1.0, cy + r - 1.0);
+    }
+    let mut out = vec![0u8; (w * h) as usize];
+    let Some(poly) = shape.polygon() else { return out };
+    if r <= 0.0 {
+        return out;
+    }
+    // Side normals scaled to pixels: `p·n − apothem` is the signed distance (in
+    // pixels) to the nearest side line, so pixels more than a pixel inside or
+    // outside are decided at once and only the edge is supersampled.
+    let normals: Vec<(f64, f64)> = poly.normals().collect();
+    let apothem = poly.apothem() * r;
+    let dist = |px: f64, py: f64| {
+        normals.iter().map(|(nx, ny)| px * nx + py * ny).fold(f64::NEG_INFINITY, f64::max) - apothem
+    };
+    let sub = 1.0 / f64::from(AA);
+    for y in 0..h {
+        let py = f64::from(y) + 0.5 - cy;
+        if py.abs() > r + 2.0 {
+            continue;
+        }
+        for x in 0..w {
+            let d = dist(f64::from(x) + 0.5 - cx, py);
+            let v = if d <= -1.0 {
+                255
+            } else if d >= 1.0 {
+                0
+            } else {
+                let mut hits = 0u32;
+                for sy in 0..AA {
+                    let qy = f64::from(y) + (f64::from(sy) + 0.5) * sub - cy;
+                    for sx in 0..AA {
+                        let qx = f64::from(x) + (f64::from(sx) + 0.5) * sub - cx;
+                        if dist(qx, qy) <= 1e-12 {
+                            hits += 1;
+                        }
+                    }
+                }
+                ((hits * 255 + (AA * AA) / 2) / (AA * AA)) as u8
+            };
+            out[(y * w + x) as usize] = v;
+        }
+    }
+    out
 }
 
 /// Editable token parameters (persisted as the asset's `params_json`).
@@ -170,15 +380,15 @@ pub fn alpha_bbox(img: &RgbaImage) -> Option<(u32, u32, u32, u32)> {
     (x1 > x0 && y1 > y0).then_some((x0, y0, x1, y1))
 }
 
-/// Mask filled inside the border's outer circle (from its alpha bounding box).
-fn outer_ring_mask(border: &RgbaImage) -> Option<Vec<u8>> {
+/// Mask filled inside the border's outer edge (from its alpha bounding box).
+fn outer_ring_mask(border: &RgbaImage, shape: TokenShape) -> Option<Vec<u8>> {
     let (bx0, by0, bx1, by1) = alpha_bbox(border)?;
     let cx = f64::from(bx0 + bx1) / 2.0;
     let cy = f64::from(by0 + by1) / 2.0;
-    let r = f64::from((bx1 - bx0).min(by1 - by0)) / 2.0;
+    let r = shape.fit_radius(f64::from(bx1 - bx0), f64::from(by1 - by0));
     let (w, h) = border.dimensions();
-    // PIL draws ellipse([cx-r, cy-r, cx+r, cy+r]) with an inclusive end coordinate.
-    Some(ellipse_mask(w, h, cx - r, cy - r, cx + r - 1.0, cy + r - 1.0))
+    // Circle: PIL draws ellipse([cx-r, cy-r, cx+r, cy+r]) with an inclusive end coordinate.
+    Some(shape_mask(w, h, shape, cx, cy, r))
 }
 
 /// Cover-fits `img` into `(tw, th)`, applies zoom and pan, and returns the
@@ -251,17 +461,34 @@ fn mul(a: u8, b: u8) -> u8 {
     ((u16::from(a) * u16::from(b) + 127) / 255) as u8
 }
 
-/// Composes the token. Output has the border's dimensions.
+/// Composes the token. Output has the border's dimensions; its outline
+/// (circle, square or hexagon) follows the border ([`detect_shape`]).
 pub fn compose(base: &RgbaImage, border: &RgbaImage, params: &TokenParams) -> RgbaImage {
+    compose_shaped(base, border, detect_shape(border), params)
+}
+
+/// [`compose`] with a known outline. A fully transparent border gives a
+/// borderless token: the image clipped to `shape` (inset by the ring thickness).
+pub fn compose_shaped(
+    base: &RgbaImage,
+    border: &RgbaImage,
+    shape: TokenShape,
+    params: &TokenParams,
+) -> RgbaImage {
     let p = params.clone().clamped();
     let (w, h) = border.dimensions();
     let radius = f64::from(w.min(h)) / 2.0;
     let ei = (p.ring_inset_pct / 100.0 * radius).trunc();
-    let content = ellipse_mask(w, h, ei, ei, f64::from(w) - ei - 1.0, f64::from(h) - ei - 1.0);
+    let content = match shape {
+        TokenShape::Circle => {
+            ellipse_mask(w, h, ei, ei, f64::from(w) - ei - 1.0, f64::from(h) - ei - 1.0)
+        }
+        _ => shape_mask(w, h, shape, f64::from(w) / 2.0, f64::from(h) / 2.0, radius - ei),
+    };
     let mut fitted = fit_with_transform(base, w, h, p.pan, p.zoom);
     // On the border-sized window: preview and export match, and the ring is untouched.
     apply_token_filters(&mut fitted, &p.filters);
-    let outer = outer_ring_mask(border);
+    let outer = outer_ring_mask(border, shape);
 
     let mut out = RgbaImage::new(w, h);
     for (i, (x, y, px)) in out.enumerate_pixels_mut().enumerate() {
@@ -447,6 +674,122 @@ mod tests {
             }
         }
         assert!(m.iter().any(|&v| v > 0 && v < 255), "edges are anti-aliased");
+    }
+
+    /// A frame of `shape`: opaque between radius `r_in` and `r_out` (shape units).
+    fn frame(size: u32, shape: TokenShape, r_in: f64, r_out: f64) -> RgbaImage {
+        let c = f64::from(size) / 2.0;
+        RgbaImage::from_fn(size, size, |x, y| {
+            let (px, py) = (f64::from(x) + 0.5 - c, f64::from(y) + 0.5 - c);
+            let inside = |r: f64| shape.contains(px / r, py / r);
+            if inside(r_out) && !inside(r_in) { Rgba([200, 150, 0, 255]) } else { Rgba([0; 4]) }
+        })
+    }
+
+    #[test]
+    fn shapes_are_detected_from_alpha() {
+        assert_eq!(detect_shape(&ring(100, 40.0, 50.0)), TokenShape::Circle);
+        assert_eq!(detect_shape(&frame(100, TokenShape::Square, 40.0, 50.0)), TokenShape::Square);
+        for shape in TokenShape::ALL {
+            assert_eq!(detect_shape(&frame(100, shape, 40.0, 50.0)), shape, "{shape:?} frame");
+            assert_eq!(detect_shape(&frame(442, shape, 45.0, 221.0)), shape, "{shape:?} big");
+        }
+        assert_eq!(detect_shape(&solid(30, 20, [1, 2, 3, 255])), TokenShape::Square, "opaque");
+        assert_eq!(detect_shape(&RgbaImage::new(8, 8)), TokenShape::Circle);
+        assert_eq!(serde_json::to_string(&TokenShape::Hex).unwrap(), r#""hex""#);
+    }
+
+    #[test]
+    fn square_tokens_fill_the_corners() {
+        let border = frame(100, TokenShape::Square, 42.0, 50.0);
+        let img = solid(300, 200, [10, 200, 30, 255]);
+        let t = compose(&img, &border, &TokenParams::default());
+        assert_eq!(t.get_pixel(1, 1)[3], 255, "the frame's corner is kept");
+        assert_eq!(*t.get_pixel(12, 12), Rgba([10, 200, 30, 255]), "image reaches the corner");
+        let inset =
+            compose(&img, &border, &TokenParams { ring_inset_pct: 30.0, ..Default::default() });
+        assert_eq!(inset.get_pixel(12, 12)[3], 0, "the inset is square too");
+        assert_eq!(*inset.get_pixel(50, 50), Rgba([10, 200, 30, 255]));
+    }
+
+    #[test]
+    fn hex_tokens_are_clipped_to_the_hexagon() {
+        let border = frame(100, TokenShape::Hex, 42.0, 50.0);
+        let t = compose(&solid(100, 100, [255, 0, 0, 255]), &border, &TokenParams::default());
+        assert_eq!(t.get_pixel(50, 1)[3], 255, "top vertex");
+        assert_eq!(t.get_pixel(3, 50)[3], 0, "outside the left side");
+        assert_eq!(t.get_pixel(15, 15)[3], 0, "corner is cut");
+        assert_eq!(*t.get_pixel(50, 50), Rgba([255, 0, 0, 255]));
+        // Borderless: a blank border, the image clipped to the hexagon.
+        let bare = compose_shaped(
+            &solid(100, 100, [255, 0, 0, 255]),
+            &RgbaImage::new(100, 100),
+            TokenShape::Hex,
+            &TokenParams::default(),
+        );
+        assert_eq!(*bare.get_pixel(50, 1), Rgba([255, 0, 0, 255]), "image up to the vertex");
+        assert_eq!(bare.get_pixel(3, 50)[3], 0);
+        let pts = TokenShape::Hex.vertices(50.0, 50.0, 50.0);
+        assert_eq!(pts.len(), 6);
+        assert!(pts.iter().any(|&(x, y)| (x - 50.0).abs() < 1e-9 && y.abs() < 1e-9), "top vertex");
+        assert!(pts.iter().any(|&(x, y)| (x - 93.30127).abs() < 1e-4 && (y - 25.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn shapes_fit_the_canvas_and_match_their_vertices() {
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        for shape in TokenShape::ALL {
+            let (ex, ey) = shape.extents();
+            assert!(close(ex.max(ey), 1.0), "{shape:?} touches the canvas");
+            for (x, y) in shape.vertices(0.0, 0.0, 1.0) {
+                assert!(
+                    shape.contains(x * 0.999, y * 0.999) && !shape.contains(x * 1.01, y * 1.01)
+                );
+            }
+        }
+        assert_eq!(TokenShape::Octagon.vertices(0.0, 0.0, 1.0).len(), 8);
+        assert!(close(TokenShape::Decagon.extents().1, 18f64.to_radians().cos()));
+        assert!(close(TokenShape::Hex.extents().0, 3f64.sqrt() / 2.0));
+        assert!(TokenShape::Octagon.contains(0.0, 1.0) && TokenShape::Octagon.contains(1.0, 0.0));
+        assert!(!TokenShape::Octagon.contains(0.8, 0.8), "the corners are cut");
+    }
+
+    #[test]
+    fn polygon_masks_match_point_tests() {
+        for shape in TokenShape::ALL.into_iter().skip(1) {
+            let (w, h, r) = (61u32, 61u32, 27.3);
+            let m = shape_mask(w, h, shape, 30.5, 30.5, r);
+            for y in 0..h {
+                for x in 0..w {
+                    let (px, py) =
+                        ((f64::from(x) + 0.5 - 30.5) / r, (f64::from(y) + 0.5 - 30.5) / r);
+                    let v = m[(y * w + x) as usize];
+                    // Pixel centres well inside are opaque, well outside are clear.
+                    let inside = |k: f64| shape.contains(px * k, py * k);
+                    if inside(1.0 + 1.5 / r) {
+                        assert_eq!(v, 255, "{shape:?} at {x},{y}");
+                    } else if !inside(1.0 - 1.5 / r) {
+                        assert_eq!(v, 0, "{shape:?} at {x},{y}");
+                    }
+                }
+            }
+            assert!(m.iter().any(|&v| v > 0 && v < 255), "{shape:?} edges are anti-aliased");
+        }
+    }
+
+    /// Timing check: `cargo test -p sleuth-core --release compose_speed -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn compose_speed() {
+        let img = solid(1600, 1200, [90, 60, 30, 255]);
+        for shape in TokenShape::ALL {
+            let border = frame(442, shape, 190.0, 221.0);
+            let t = std::time::Instant::now();
+            for _ in 0..5 {
+                std::hint::black_box(compose_shaped(&img, &border, shape, &TokenParams::default()));
+            }
+            println!("{shape:?}: {:?} per compose", t.elapsed() / 5);
+        }
     }
 
     #[test]

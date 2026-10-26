@@ -980,7 +980,32 @@ mod tests {
         assert_eq!(imaging::dimensions(&png), Some((700, 500)));
         let page = svc.map_preview_page(doc.clone(), 1, 0.5).await.unwrap();
         assert!(imaging::dimensions(&page).is_some());
-        assert!(svc.map_preview_page(doc, 5, 0.5).await.is_err());
+        assert!(svc.map_preview_page(doc.clone(), 5, 0.5).await.is_err());
+
+        // the same 14×10 in map fits one landscape A3 page (16.54×11.69 in)
+        let a3 = MapDoc { format: PageFormat::A3, landscape: true, ..doc };
+        let layout = svc.map_layout(a3.clone()).await.unwrap();
+        assert_eq!(layout.tiles.len(), 1);
+        let page = svc.map_preview_page(a3, 0, 0.5).await.unwrap();
+        assert_eq!(imaging::dimensions(&page), Some((595, 420)));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn big_maps_edit_on_a_2000_px_proxy_and_calibrate() {
+        let (d, svc) = temp_service();
+        let p = d.path().join("Big.png");
+        RgbImage::from_fn(5000, 2500, |x, y| image::Rgb([(x % 251) as u8, (y % 241) as u8, 90]))
+            .save(&p)
+            .unwrap();
+        let doc = svc.map_open_file(p).await.unwrap();
+        let png = svc.map_preview(doc.clone()).await.unwrap();
+        // longest side capped at WORK_MAX, aspect kept (truncated like Python)
+        assert_eq!(imaging::dimensions(&png), Some((WORK_MAX, 1000)));
+
+        assert_eq!(MapDoc { calibration_mm: 25.4, ..doc.clone() }.printed_square_in(), 1.0);
+        let short = MapDoc { calibration_mm: 24.0, ..doc.clone() };
+        assert!((short.printed_square_in() - 25.4 / 24.0).abs() < 1e-12);
+        assert_eq!(MapDoc { calibration_mm: 0.0, ..doc }.printed_square_in(), 1.0);
     }
 
     #[tokio::test(flavor = "multi_thread")]

@@ -16,6 +16,7 @@ sleuth-store = { path = "crates/store" }
 sleuth-service = { path = "crates/service" }
 sleuth-mcp = { path = "crates/mcp" }
 sleuth-legacy = { path = "crates/legacy" }
+sleuth-stt = { path = "crates/stt" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -38,6 +39,7 @@ time = { version = "0.3", features = ["formatting", "macros"] }
 rayon = "1"
 fastrand = "2"
 base64 = "0.22"
+flate2 = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 schemars = "1"
@@ -60,9 +62,19 @@ opt-level = 2
 # they make `tauri dev` and the tests crawl. Keep them optimized in dev too.
 [profile.dev.package.sleuth-core]
 opt-level = 2
+# Incremental builds of optimized crates can reuse stale codegen units and leave
+# the rlib with undefined `.llvm.*` symbols at link time (seen with rustc 1.98
+# when linking the app). These crates gain little from incremental anyway.
+incremental = false
 
 [profile.dev.package.sleuth-pdf]
 opt-level = 2
+incremental = false
+
+# Decoding and resampling hours of audio is per-sample work too.
+[profile.dev.package.sleuth-stt]
+opt-level = 2
+incremental = false
 
 [profile.release]
 lto = "thin"

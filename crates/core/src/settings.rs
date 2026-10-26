@@ -10,7 +10,10 @@ use serde_json::{Map, Value};
 use crate::units::PageFormat;
 
 /// Navigable views. The string ids are stable and persisted (`start_view`).
-pub const ROUTES: [&str; 10] = [
+/// Default 5etools mirror for the combat tracker (a local copy).
+pub const DEFAULT_FIVETOOLS_BASE_URL: &str = "http://localhost:8080";
+
+pub const ROUTES: [&str; 12] = [
     "library",
     "tokens.cutter",
     "tokens.sheet",
@@ -20,6 +23,8 @@ pub const ROUTES: [&str; 10] = [
     "maps.paginator",
     "maps.aoe",
     "music",
+    "combat",
+    "transcribe.file",
     "settings",
 ];
 
@@ -79,6 +84,20 @@ pub enum Theme {
     Dark,
 }
 
+/// Which engine transcribes speech (docs/features/transcribe.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SttEngine {
+    /// Whisper on this computer.
+    #[default]
+    Local,
+    /// An OpenRouter-format API.
+    Cloud,
+}
+
+pub const DEFAULT_STT_CLOUD_BASE_URL: &str = "https://openrouter.ai/api/v1";
+pub const DEFAULT_STT_CLOUD_MODEL: &str = "openai/whisper-1";
+
 /// An `#rrggbb` colour.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -135,6 +154,39 @@ pub struct Settings {
     pub map_overlap_in: f64,
     pub map_align_to_grid: bool,
     pub mcp_http_enabled: bool,
+    pub stt_engine: SttEngine,
+    /// Base URL of the OpenRouter-format API, without a trailing slash.
+    pub stt_cloud_base_url: String,
+    pub stt_cloud_model: String,
+    /// Root of the 5etools site or mirror the combat tracker reads creatures
+    /// from, without a trailing slash (e.g. a local copy on `http://localhost:8080`).
+    pub fivetools_base_url: String,
+    /// Roll initiative for creatures.
+    pub combat_roll_init: bool,
+    /// Roll creature HP instead of the average.
+    pub combat_roll_hp: bool,
+    /// Copies of the same creature share one initiative roll.
+    pub combat_roll_groups: bool,
+    /// Reroll initiative at the start of each round.
+    pub combat_reroll_each_round: bool,
+    /// Track hit points as damage taken.
+    pub combat_hp_as_damage: bool,
+    /// Imported encounters: one roll per creature type.
+    pub combat_import_roll_groups: bool,
+    /// Imported encounters add the party.
+    pub combat_import_add_players: bool,
+    /// Imported encounters add to the current combat.
+    pub combat_import_append: bool,
+    /// Encounter difficulty: apply the 2014 multiplier for the number of enemies.
+    pub combat_xp_multiplier_2014: bool,
+    /// Ask before Reset.
+    pub combat_reset_confirm: bool,
+    /// Reset keeps the players in the tracker (removes only creatures).
+    pub combat_reset_keep_players: bool,
+    /// Show a card with whose turn it is and who is next on each turn.
+    pub combat_turn_popup: bool,
+    /// Initiative is 10 + bonus (passive) instead of a d20 roll.
+    pub combat_passive_initiative: bool,
 }
 
 impl Default for Settings {
@@ -158,6 +210,23 @@ impl Default for Settings {
             map_overlap_in: 0.0,
             map_align_to_grid: false,
             mcp_http_enabled: false,
+            stt_engine: SttEngine::Local,
+            stt_cloud_base_url: DEFAULT_STT_CLOUD_BASE_URL.into(),
+            stt_cloud_model: DEFAULT_STT_CLOUD_MODEL.into(),
+            fivetools_base_url: DEFAULT_FIVETOOLS_BASE_URL.into(),
+            combat_roll_init: true,
+            combat_roll_hp: false,
+            combat_roll_groups: true,
+            combat_reroll_each_round: false,
+            combat_hp_as_damage: false,
+            combat_import_roll_groups: true,
+            combat_import_add_players: true,
+            combat_import_append: false,
+            combat_xp_multiplier_2014: false,
+            combat_reset_confirm: true,
+            combat_reset_keep_players: false,
+            combat_turn_popup: true,
+            combat_passive_initiative: false,
         }
     }
 }
@@ -218,6 +287,13 @@ impl Settings {
                     Err(e) => err(e.to_string()),
                 }
             };
+            (@sheet $field:ident) => {
+                match serde_json::from_value::<PageFormat>(v.clone()) {
+                    Ok(f) if f.is_sheet_format() => self.$field = f,
+                    Ok(_) => err("must be Letter or A4 (A3 is for maps only)".into()),
+                    Err(e) => err(e.to_string()),
+                }
+            };
             ($field:ident, f64, $check:expr, $msg:literal) => {
                 match v.as_f64() {
                     Some(x) if $check(x) => self.$field = x,
@@ -232,9 +308,9 @@ impl Settings {
             },
             "sidebar_collapsed" => set!(sidebar_collapsed, bool),
             "theme" => set!(theme, Theme),
-            "token_page_format" => set!(token_page_format, PageFormat),
-            "object_page_format" => set!(object_page_format, PageFormat),
-            "card_page_format" => set!(card_page_format, PageFormat),
+            "token_page_format" => set!(@sheet token_page_format),
+            "object_page_format" => set!(@sheet object_page_format),
+            "card_page_format" => set!(@sheet card_page_format),
             "map_page_format" => set!(map_page_format, PageFormat),
             "token_cut_border" => set!(token_cut_border, bool),
             "map_cut_border" => set!(map_cut_border, bool),
@@ -247,6 +323,40 @@ impl Settings {
             "map_overlap_in" => set!(map_overlap_in, f64, non_negative, "must be ≥ 0"),
             "map_align_to_grid" => set!(map_align_to_grid, bool),
             "mcp_http_enabled" => set!(mcp_http_enabled, bool),
+            "stt_engine" => set!(stt_engine, SttEngine),
+            "combat_roll_init" => set!(combat_roll_init, bool),
+            "combat_roll_hp" => set!(combat_roll_hp, bool),
+            "combat_roll_groups" => set!(combat_roll_groups, bool),
+            "combat_reroll_each_round" => set!(combat_reroll_each_round, bool),
+            "combat_hp_as_damage" => set!(combat_hp_as_damage, bool),
+            "combat_import_roll_groups" => set!(combat_import_roll_groups, bool),
+            "combat_import_add_players" => set!(combat_import_add_players, bool),
+            "combat_import_append" => set!(combat_import_append, bool),
+            "combat_xp_multiplier_2014" => set!(combat_xp_multiplier_2014, bool),
+            "combat_reset_confirm" => set!(combat_reset_confirm, bool),
+            "combat_reset_keep_players" => set!(combat_reset_keep_players, bool),
+            "combat_turn_popup" => set!(combat_turn_popup, bool),
+            "combat_passive_initiative" => set!(combat_passive_initiative, bool),
+            "fivetools_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
+                Some(u)
+                    if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>
+                {
+                    self.fivetools_base_url = u.to_string()
+                }
+                _ => err("must be an http(s) URL".into()),
+            },
+            "stt_cloud_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
+                Some(u)
+                    if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>
+                {
+                    self.stt_cloud_base_url = u.to_string()
+                }
+                _ => err("must be an http(s) URL".into()),
+            },
+            "stt_cloud_model" => match v.as_str().map(str::trim) {
+                Some(m) if !m.is_empty() => self.stt_cloud_model = m.to_string(),
+                _ => err("must not be empty".into()),
+            },
             _ => err("unknown setting".into()),
         }
     }
@@ -259,7 +369,8 @@ impl Settings {
     pub fn from_legacy_json(v: &Value) -> Self {
         let mut s = Settings::default();
         let Some(obj) = v.as_object() else { return s };
-        let fmt = |v: &Value, d: PageFormat| v.as_str().and_then(PageFormat::parse).unwrap_or(d);
+        let fmt =
+            |v: &Value, d: PageFormat| v.as_str().and_then(PageFormat::parse_sheet).unwrap_or(d);
         for (k, v) in obj {
             match k.as_str() {
                 "start_tab" => {
@@ -384,6 +495,42 @@ mod tests {
         assert_eq!(s.map_square_in, 1.0, "invalid value must not be applied");
         let keys: Vec<_> = errors.keys().map(String::as_str).collect();
         assert_eq!(keys, ["bogus", "cut_line_color", "map_square_in", "start_view"]);
+    }
+
+    #[test]
+    fn a3_is_for_maps_only() {
+        let mut s = Settings::default();
+        let errors = s.apply_patch(&obj(json!({
+            "map_page_format": "A3",
+            "token_page_format": "A3",
+            "object_page_format": "A3",
+            "card_page_format": "A3"
+        })));
+        assert_eq!(s.map_page_format, PageFormat::A3);
+        assert_eq!((s.token_page_format, s.card_page_format), (PageFormat::Letter, PageFormat::A4));
+        let keys: Vec<_> = errors.keys().map(String::as_str).collect();
+        assert_eq!(keys, ["card_page_format", "object_page_format", "token_page_format"]);
+    }
+
+    #[test]
+    fn stt_settings_validate() {
+        let mut s = Settings::default();
+        let errs = s.apply_patch(&obj(json!({
+            "stt_engine": "cloud",
+            "stt_cloud_base_url": " https://example.com/api/v1/ ",
+            "stt_cloud_model": " mistralai/voxtral-mini-transcribe ",
+        })));
+        assert!(errs.is_empty(), "{errs:?}");
+        assert_eq!(s.stt_engine, SttEngine::Cloud);
+        assert_eq!(s.stt_cloud_base_url, "https://example.com/api/v1");
+        assert_eq!(s.stt_cloud_model, "mistralai/voxtral-mini-transcribe");
+        let errs = s.apply_patch(&obj(json!({
+            "stt_engine": "gpu",
+            "stt_cloud_base_url": "ftp://x",
+            "stt_cloud_model": "  ",
+        })));
+        assert_eq!(errs.len(), 3, "{errs:?}");
+        assert_eq!(s.stt_cloud_model, "mistralai/voxtral-mini-transcribe");
     }
 
     #[test]

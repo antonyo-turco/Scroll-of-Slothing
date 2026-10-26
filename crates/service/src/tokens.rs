@@ -10,32 +10,98 @@ use std::sync::Arc;
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use sleuth_core::imaging;
-use sleuth_core::token::{self, TokenParams, compose};
+use sleuth_core::token::{self, TokenParams, TokenShape, compose_shaped, detect_shape};
 use sleuth_core::units::SizeLabel;
 use sleuth_store::{AssetImages, AssetPatch, NewAsset, Store};
 
 use crate::library::{check_size, store_encoded};
 use crate::{Asset, FilterCatalog, FilterPreset, Result, Service, ServiceError};
 
-/// Bundled borders: the Python app's `images/token_borders`, plus thin
-/// versions of both (ring squeezed to 45 % of its width, so more image shows).
-const BUILTIN_BORDERS: &[(&str, &str, &[u8])] = &[
-    ("builtin:roll20", "Roll20 gold", include_bytes!("../../../assets/token_borders/roll20.png")),
+const NONE_PNG: &[u8] = include_bytes!("../../../assets/token_borders/none.png");
+
+/// Bundled borders: the Python app's `images/token_borders`, thin versions of
+/// both (ring squeezed to 45 % of its width, so more image shows), the gold
+/// ring as a square, hexagon, octagon and decagon, normal and thin
+/// (`tools/token_borders/shape_borders.py`), and
+/// a blank "No border" per shape (the image is only clipped to the shape).
+const BUILTIN_BORDERS: &[(&str, &str, TokenShape, &[u8])] = &[
+    (
+        "builtin:roll20",
+        "Roll20 gold",
+        TokenShape::Circle,
+        include_bytes!("../../../assets/token_borders/roll20.png"),
+    ),
     (
         "builtin:roll20_greyscale",
         "Roll20 grey",
+        TokenShape::Circle,
         include_bytes!("../../../assets/token_borders/roll20_greyscale.png"),
     ),
     (
         "builtin:roll20_thin",
         "Roll20 gold, thin",
+        TokenShape::Circle,
         include_bytes!("../../../assets/token_borders/roll20_thin.png"),
     ),
     (
         "builtin:roll20_greyscale_thin",
         "Roll20 grey, thin",
+        TokenShape::Circle,
         include_bytes!("../../../assets/token_borders/roll20_greyscale_thin.png"),
     ),
+    ("builtin:none", "No border", TokenShape::Circle, NONE_PNG),
+    (
+        "builtin:roll20_square",
+        "Roll20 gold, square",
+        TokenShape::Square,
+        include_bytes!("../../../assets/token_borders/roll20_square.png"),
+    ),
+    (
+        "builtin:roll20_square_thin",
+        "Roll20 gold, square, thin",
+        TokenShape::Square,
+        include_bytes!("../../../assets/token_borders/roll20_square_thin.png"),
+    ),
+    ("builtin:none_square", "No border, square", TokenShape::Square, NONE_PNG),
+    (
+        "builtin:roll20_hex",
+        "Roll20 gold, hexagon",
+        TokenShape::Hex,
+        include_bytes!("../../../assets/token_borders/roll20_hex.png"),
+    ),
+    (
+        "builtin:roll20_hex_thin",
+        "Roll20 gold, hexagon, thin",
+        TokenShape::Hex,
+        include_bytes!("../../../assets/token_borders/roll20_hex_thin.png"),
+    ),
+    ("builtin:none_hex", "No border, hexagon", TokenShape::Hex, NONE_PNG),
+    (
+        "builtin:roll20_octagon",
+        "Roll20 gold, octagon",
+        TokenShape::Octagon,
+        include_bytes!("../../../assets/token_borders/roll20_octagon.png"),
+    ),
+    (
+        "builtin:roll20_octagon_thin",
+        "Roll20 gold, octagon, thin",
+        TokenShape::Octagon,
+        include_bytes!("../../../assets/token_borders/roll20_octagon_thin.png"),
+    ),
+    ("builtin:none_octagon", "No border, octagon", TokenShape::Octagon, NONE_PNG),
+    (
+        "builtin:roll20_decagon",
+        "Roll20 gold, decagon",
+        TokenShape::Decagon,
+        include_bytes!("../../../assets/token_borders/roll20_decagon.png"),
+    ),
+    (
+        "builtin:roll20_decagon_thin",
+        "Roll20 gold, decagon, thin",
+        TokenShape::Decagon,
+        include_bytes!("../../../assets/token_borders/roll20_decagon_thin.png"),
+    ),
+    ("builtin:none_decagon", "No border, decagon", TokenShape::Decagon, NONE_PNG),
 ];
 
 const USER_BORDERS_KEY: &str = "token.borders";
@@ -48,6 +114,12 @@ pub struct Border {
     pub blob: String,
     pub width: u32,
     pub height: u32,
+    /// Outline of tokens made with it (user borders: detected when added).
+    #[serde(default)]
+    pub shape: TokenShape,
+    /// A blank border: the image is only clipped to `shape`.
+    #[serde(default)]
+    pub borderless: bool,
 }
 
 /// A source image stored as a blob, ready for editing.
@@ -98,7 +170,7 @@ impl Service {
     pub async fn token_borders_list(&self) -> Result<Vec<Border>> {
         self.blocking(|s| {
             let mut out = Vec::new();
-            for (id, name, bytes) in BUILTIN_BORDERS {
+            for (id, name, shape, bytes) in BUILTIN_BORDERS {
                 let src = store_source(s, bytes)?;
                 out.push(Border {
                     id: (*id).into(),
@@ -107,6 +179,8 @@ impl Service {
                     blob: src.hash,
                     width: src.width,
                     height: src.height,
+                    shape: *shape,
+                    borderless: id.starts_with("builtin:none"),
                 });
             }
             out.extend(Self::user_borders(s)?);
@@ -140,6 +214,8 @@ impl Service {
                 blob: src.hash,
                 width: src.width,
                 height: src.height,
+                shape: detect_shape(&img.to_rgba8()),
+                borderless: false,
             };
             list.push(border.clone());
             s.workspace_set(USER_BORDERS_KEY, &list)?;
@@ -164,7 +240,29 @@ impl Service {
         .await
     }
 
-    async fn border_image(&self, id: &str) -> Result<Arc<RgbaImage>> {
+    async fn border_image(&self, id: &str) -> Result<(Arc<RgbaImage>, TokenShape)> {
+        // Bundled borders: decoded once per process, no store round-trip per render.
+        if let Some(&(_, _, shape, bytes)) = BUILTIN_BORDERS.iter().find(|b| b.0 == id) {
+            static CACHE: std::sync::OnceLock<
+                std::sync::Mutex<std::collections::HashMap<String, Arc<RgbaImage>>>,
+            > = std::sync::OnceLock::new();
+            let cache = CACHE.get_or_init(Default::default);
+            if let Some(img) = cache.lock().expect("border cache").get(id) {
+                return Ok((img.clone(), shape));
+            }
+            let id = id.to_string();
+            let img = tokio::task::spawn_blocking(move || {
+                let img = imaging::decode(bytes)
+                    .map_err(|e| ServiceError::Internal(e.to_string()))?
+                    .to_rgba8();
+                let img = Arc::new(img);
+                cache.lock().expect("border cache").insert(id, img.clone());
+                Ok::<_, ServiceError>(img)
+            })
+            .await
+            .map_err(|e| ServiceError::Internal(e.to_string()))??;
+            return Ok((img, shape));
+        }
         let border = self
             .token_borders_list()
             .await?
@@ -172,7 +270,9 @@ impl Service {
             .find(|b| b.id == id)
             .ok_or_else(|| ServiceError::NotFound(format!("border {id}")))?;
         let svc = self.clone();
-        self.blocking(move |s| svc.inner.images.get(s, &border.blob)).await
+        let shape = border.shape;
+        let img = self.blocking(move |s| svc.inner.images.get(s, &border.blob)).await?;
+        Ok((img, shape))
     }
 
     /// The map filters a token can use, and the map presets built only from them.
@@ -226,12 +326,12 @@ impl Service {
         source: &str,
         params: &TokenParams,
     ) -> Result<RgbaImage> {
-        let border = self.border_image(&params.border).await?;
+        let (border, shape) = self.border_image(&params.border).await?;
         let svc = self.clone();
         let (source, params) = (source.to_string(), params.clone());
         self.blocking(move |s| {
             let base = svc.inner.images.get(s, &source)?;
-            Ok(compose(&base, &border, &params))
+            Ok(compose_shaped(&base, &border, shape, &params))
         })
         .await
     }
@@ -362,14 +462,54 @@ mod tests {
         let (_d, svc) = temp_service();
         let b = svc.token_borders_list().await.unwrap();
         assert_eq!(
-            b.iter().map(|b| (b.id.as_str(), b.width)).collect::<Vec<_>>(),
+            b.iter().map(|b| (b.id.as_str(), b.width, b.shape.as_str())).collect::<Vec<_>>(),
             [
-                ("builtin:roll20", 442),
-                ("builtin:roll20_greyscale", 256),
-                ("builtin:roll20_thin", 442),
-                ("builtin:roll20_greyscale_thin", 256)
+                ("builtin:roll20", 442, "circle"),
+                ("builtin:roll20_greyscale", 256, "circle"),
+                ("builtin:roll20_thin", 442, "circle"),
+                ("builtin:roll20_greyscale_thin", 256, "circle"),
+                ("builtin:none", 442, "circle"),
+                ("builtin:roll20_square", 442, "square"),
+                ("builtin:roll20_square_thin", 442, "square"),
+                ("builtin:none_square", 442, "square"),
+                ("builtin:roll20_hex", 442, "hex"),
+                ("builtin:roll20_hex_thin", 442, "hex"),
+                ("builtin:none_hex", 442, "hex"),
+                ("builtin:roll20_octagon", 442, "octagon"),
+                ("builtin:roll20_octagon_thin", 442, "octagon"),
+                ("builtin:none_octagon", 442, "octagon"),
+                ("builtin:roll20_decagon", 442, "decagon"),
+                ("builtin:roll20_decagon_thin", 442, "decagon"),
+                ("builtin:none_decagon", 442, "decagon"),
             ]
         );
+        // The bundled art matches its declared shape.
+        for border in b.iter().filter(|b| !b.borderless) {
+            let (img, shape) = svc.border_image(&border.id).await.unwrap();
+            assert_eq!((detect_shape(&img), shape), (border.shape, border.shape), "{}", border.id);
+        }
+        assert_eq!(b.iter().filter(|b| b.borderless).count(), TokenShape::ALL.len());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn shaped_and_borderless_tokens_keep_their_shape() {
+        let (_d, svc, src, params) = setup().await;
+        for (border, shape) in [
+            ("builtin:roll20_square", TokenShape::Square),
+            ("builtin:roll20_hex_thin", TokenShape::Hex),
+            ("builtin:none_square", TokenShape::Square),
+            ("builtin:none_hex", TokenShape::Hex),
+            ("builtin:none", TokenShape::Circle),
+            ("builtin:roll20_octagon", TokenShape::Octagon),
+            ("builtin:none_octagon", TokenShape::Octagon),
+            ("builtin:roll20_decagon_thin", TokenShape::Decagon),
+            ("builtin:none_decagon", TokenShape::Decagon),
+        ] {
+            let p = TokenParams { border: border.into(), ..params.clone() };
+            let png = svc.token_render(src.hash.clone(), p, true).await.unwrap();
+            let img = imaging::decode(&png).unwrap().to_rgba8();
+            assert_eq!(detect_shape(&img), shape, "{border}");
+        }
     }
 
     #[tokio::test(flavor = "multi_thread")]

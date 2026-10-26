@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { moveQuadEdge, orderQuad, quadEdges, quadOrder } from './geometry';
+import {
+  HANDLES,
+  handlePoint,
+  moveQuadEdge,
+  orderQuad,
+  quadEdges,
+  quadOrder,
+  resizeRect,
+  snapLine,
+  snapQuarter,
+  type Rect,
+} from './geometry';
 
 type Pt = [number, number];
 // Created clockwise from top-left, like the Reference tool does.
@@ -32,5 +43,44 @@ describe('reference quad', () => {
     expect(dir(m)).toBeCloseTo(dir(skew), 10);
     expect(m[2]).toEqual(skew[2]);
     expect(m[3]).toEqual(skew[3]);
+  });
+});
+
+describe('print region', () => {
+  const r: Rect = [100, 50, 200, 80];
+
+  it('has 8 handles on the corners and edge midpoints', () => {
+    expect(HANDLES).toHaveLength(8);
+    expect(HANDLES.map((h) => handlePoint(r, h))).toEqual([
+      [100, 50], [200, 50], [300, 50], [300, 90], [300, 130], [200, 130], [100, 130], [100, 90],
+    ]);
+  });
+
+  it('a corner handle moves two sides, an edge handle one', () => {
+    expect(resizeRect(r, 'se', 350, 200)).toEqual([100, 50, 250, 150]);
+    expect(resizeRect(r, 'n', 999, 20)).toEqual([100, 20, 200, 110]);
+    expect(resizeRect(r, 'w', 120, 999)).toEqual([120, 50, 180, 80]);
+  });
+
+  it('dragging a handle past the opposite side flips the rect instead of going negative', () => {
+    expect(resizeRect(r, 'e', 40, 0)).toEqual([40, 50, 60, 80]);
+  });
+
+  it('snaps edges to the nearest grid line', () => {
+    expect(snapLine(37, 5, 20)).toBe(45);
+    expect(snapLine(34, 5, 20)).toBe(25);
+    expect(snapLine(-12, 5, 20)).toBe(-15);
+    expect(snapLine(37, 5, 0)).toBe(37); // no grid: no snap
+  });
+});
+
+describe('layout drag', () => {
+  it('snaps the page-grid offset to quarter pages within the tolerance', () => {
+    expect(snapQuarter(52, 200, 5)).toBe(50);
+    expect(snapQuarter(103, 200, 5)).toBe(100);
+    expect(snapQuarter(-148, 200, 5)).toBe(-150);
+    expect(snapQuarter(197, 200, 5)).toBe(200);
+    expect(snapQuarter(70, 200, 5)).toBe(70); // between quarters: free
+    expect(snapQuarter(52, 0, 5)).toBe(52);
   });
 });

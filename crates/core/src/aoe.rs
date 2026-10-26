@@ -547,6 +547,7 @@ pub fn page_inches(format: PageFormat) -> (f64, f64) {
     match format {
         PageFormat::A4 => (8.2677, 11.6929),
         PageFormat::Letter => (8.5, 11.0),
+        PageFormat::A3 => (11.6929, 16.5354),
     }
 }
 
@@ -663,5 +664,20 @@ mod tests {
             render_template(Shape::Square, 15.0, 5.0, 5.0, 60.0, &style, Some("15 ft cube"), 2);
         let (without, _) = render_template(Shape::Square, 15.0, 5.0, 5.0, 60.0, &style, None, 2);
         assert_ne!(with, without);
+    }
+
+    #[test]
+    fn label_halo_clears_the_grid_behind_the_text() {
+        let style = Style { fill_alpha: 0, ..Style::default() };
+        let (with, _) =
+            render_template(Shape::Square, 15.0, 5.0, 5.0, 60.0, &style, Some("15 ft cube"), 1);
+        let (without, _) = render_template(Shape::Square, 15.0, 5.0, 5.0, 60.0, &style, None, 1);
+        let white = image::Rgb([255, 255, 255]);
+        let line = image::Rgb(style.line_rgb);
+        let haloed =
+            with.pixels().zip(without.pixels()).filter(|(a, b)| **a == white && **b != white);
+        assert!(haloed.count() > 0, "white halo erases grid lines around the label");
+        let inked = with.pixels().zip(without.pixels()).filter(|(a, b)| **a == line && **b != line);
+        assert!(inked.count() > 0, "the text itself is in the line colour");
     }
 }

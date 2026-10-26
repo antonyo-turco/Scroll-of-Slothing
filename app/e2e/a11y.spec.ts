@@ -15,6 +15,8 @@ const ROUTES = [
   'maps.paginator',
   'maps.aoe',
   'music',
+  'combat',
+  'transcribe.file',
   'settings',
 ];
 const MUSIC_TABS = ['Mixer', 'Soundscapes', 'Playlists', 'Soundboard'];

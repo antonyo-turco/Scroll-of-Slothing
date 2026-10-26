@@ -252,6 +252,7 @@ impl Service {
         format: Option<PageFormat>,
         mode: Option<SheetMode>,
     ) -> Result<ObjectSheet> {
+        format.map(crate::token_sheet::check_sheet_format).transpose()?;
         self.object_mutate(move |_, sheet| {
             if let Some(f) = format {
                 sheet.format = f;
