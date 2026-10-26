@@ -94,8 +94,11 @@
       <input class="input num" aria-label="Current HP of {name}" value={r.hp_current ?? ''} onchange={(e) => onSetHp('hp_current', e.currentTarget.value)}
         onkeydown={onArrowHp} title="↑/↓ ±1 · Shift ±5 · Ctrl ±10" disabled={locked} />
       <span class="slash">/</span>
-      <input class="input num" aria-label="Max HP of {name}" value={r.hp_max ?? ''} onchange={(e) => onSetHp('hp_max', e.currentTarget.value)}
-        disabled={locked || !editing} title={editing ? 'Max HP' : 'Click ✎ to change the max HP'} />
+      {#if editing && !locked}
+        <input class="input num" aria-label="Max HP of {name}" value={r.hp_max ?? ''} onchange={(e) => onSetHp('hp_max', e.currentTarget.value)} title="Max HP" />
+      {:else}
+        <span class="hp-max" aria-label="Max HP of {name}" title="Click ✎ to change the max HP">{r.hp_max ?? '—'}</span>
+      {/if}
     </div>
     <span class="hpbar" aria-hidden="true"><span style:width="{pct}%" style:background={color}></span></span>
     {#if open === 'hp' && !locked}
@@ -149,6 +152,14 @@
   }
   .slash {
     text-align: center;
+  }
+  /* outside edit mode the max HP is plain text */
+  .hp-max {
+    padding-left: 4px;
+    text-align: left;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
   }
   /* .num sets a narrower width, so this needs the extra classes */
   .input.num.temp {
