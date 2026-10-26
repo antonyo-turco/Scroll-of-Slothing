@@ -10,6 +10,7 @@
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import type { CardOptions, CardTemplates, DeckLayout, DeckSummary, Flip, PageFormat } from '../../lib/types';
   import CardPage from './CardPage.svelte';
+  import CompendiumDialog from './CompendiumDialog.svelte';
 
   const EDITOR_KEY = 'cards.editor';
   // Python button order (the JSON map itself is unordered).
@@ -35,6 +36,7 @@
   let refOpen = $state(false);
   let saveOpen = $state(false);
   let zoomPage = $state<number | null>(null);
+  let compendiumOpen = $state(false);
   let editor: HTMLTextAreaElement | undefined = $state();
 
   const frontCount = $derived(layout?.pages.filter((p) => !p.back).length ?? 0);
@@ -92,6 +94,12 @@
       editor?.focus();
       editor?.setSelectionRange(s.markdown.length, s.markdown.length);
     });
+  }
+
+  function appendCards(markdown: string, count: number) {
+    const cur = s.markdown.replace(/\s+$/, '');
+    s.markdown = cur ? `${cur}\n\n---\n\n${markdown}` : markdown;
+    app.toast('success', `Added ${count} card${count === 1 ? '' : 's'}`);
   }
 
   async function loadFile() {
@@ -193,6 +201,7 @@
       {#each TEMPLATE_ORDER.filter((t) => templates?.templates[t]) as t (t)}
         <button class="btn" onclick={() => insertTemplate(t)}>{t}</button>
       {/each}
+      <button class="btn" onclick={() => (compendiumOpen = true)} title="Add cards for 5etools spells and items">Spells &amp; items…</button>
       <div class="spacer"></div>
       <select
         class="input decks"
@@ -266,6 +275,8 @@
     </div>
   </section>
 </div>
+
+<CompendiumDialog bind:open={compendiumOpen} onAdd={appendCards} />
 
 <Modal title="Card format reference" bind:open={refOpen} width={640}>
   <pre class="ref">{templates?.reference}</pre>

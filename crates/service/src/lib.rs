@@ -8,6 +8,7 @@ mod cards;
 mod clipboard;
 mod clocks;
 mod combat;
+mod compendium;
 mod cutouts;
 mod error;
 mod events;
@@ -41,6 +42,10 @@ pub use sleuth_core::clocks::{AutoAdvance, Clock, ClockEvent};
 pub use combat::{
     BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CreatureImage, DENC_FORMAT,
     EncounterCreature, EncounterLine, EncounterSummary, Hero, Party, RowPatch, SavedEncounter,
+};
+pub use compendium::{
+    CompendiumCards, CompendiumEntry, CompendiumKind, CompendiumQuery, CompendiumRef,
+    CompendiumStatus,
 };
 pub use cutouts::CutoutDraft;
 pub use error::{ErrorCode, ServiceError};

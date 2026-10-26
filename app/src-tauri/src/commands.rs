@@ -16,7 +16,8 @@ use sleuth_core::token::TokenParams;
 use sleuth_core::units::PageFormat;
 use sleuth_service::{
     Asset, AssetPage, AssetPatch, AssetQuery, BestiaryEntry, BestiaryStatus, Border, CardOptions,
-    CardSummary, CloudKeyInfo, CloudKeyStatus, CombatCatalog, CombatImport, CutoutDraft, Deck,
+    CardSummary, CloudKeyInfo, CompendiumCards, CompendiumEntry, CompendiumQuery, CompendiumRef,
+    CompendiumStatus, CloudKeyStatus, CombatCatalog, CombatImport, CutoutDraft, Deck,
     DeckSummary, EncounterCreature, EncounterSummary, ExportWhat, Hero, ImportFile, ImportReport,
     JobId, JobStatus, LegacyImportOptions, ObjectItemPatch, ObjectSheet, Party, RenameOutcome,
     RowPatch, Service, ServiceError, SettingsUpdate, SheetItemPatch, SheetLayout, SourceImage,
@@ -1112,6 +1113,33 @@ pub async fn bestiary_get(svc: Svc<'_>, hash: String) -> Res<Value> {
 #[tauri::command]
 pub async fn bestiary_sync(svc: Svc<'_>) -> Res<JobId> {
     svc.bestiary_sync().await
+}
+
+// ── spell and item cards ──
+
+#[tauri::command]
+pub async fn compendium_status(svc: Svc<'_>) -> Res<CompendiumStatus> {
+    svc.compendium_status().await
+}
+
+#[tauri::command]
+pub async fn compendium_sync(svc: Svc<'_>) -> Res<JobId> {
+    svc.compendium_sync().await
+}
+
+#[tauri::command]
+pub async fn compendium_search(svc: Svc<'_>, query: CompendiumQuery) -> Res<Vec<CompendiumEntry>> {
+    svc.compendium_search(query).await
+}
+
+#[tauri::command]
+pub async fn compendium_get(svc: Svc<'_>, item: CompendiumRef) -> Res<Value> {
+    svc.compendium_get(item).await
+}
+
+#[tauri::command]
+pub async fn compendium_cards(svc: Svc<'_>, items: Vec<CompendiumRef>) -> Res<CompendiumCards> {
+    svc.compendium_cards(items).await
 }
 
 // ── saved encounters ──

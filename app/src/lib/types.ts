@@ -816,6 +816,52 @@ export interface BestiaryStatus {
   creatures: number;
 }
 
+// ── spell and item cards (docs/features/spell-item-cards.md) ──
+export type CompendiumKind = 'spell' | 'item';
+
+export interface CompendiumStatus {
+  base_url: string;
+  synced: boolean;
+  spells: number;
+  items: number;
+}
+
+export interface CompendiumQuery {
+  kind: CompendiumKind;
+  query: string;
+  /** Spell level, 0 for cantrips. */
+  level: number | null;
+  class: string | null;
+  rarity: string | null;
+  newest_only: boolean;
+  limit: number | null;
+}
+
+export interface CompendiumEntry {
+  kind: CompendiumKind;
+  /** 5etools hash, e.g. `fireball_xphb`. */
+  id: string;
+  name: string;
+  source: string;
+  detail: string;
+  level: number | null;
+  rarity: string | null;
+  classes: string[];
+  concentration: boolean;
+  reprinted: boolean;
+}
+
+export interface CompendiumRef {
+  kind: CompendiumKind;
+  id: string;
+}
+
+export interface CompendiumCards {
+  markdown: string;
+  cards: number;
+  missing: string[];
+}
+
 export interface EncounterImport {
   rows_added: number;
   missing: string[];

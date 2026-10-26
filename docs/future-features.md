@@ -23,9 +23,8 @@ A single During page for what players find and buy, quick to use mid-session.
   planner).
 
 ### Spell and item cards (Before)
-Search 5etools spells and items and print reference cards through the card pipeline.
-- Needs double-sided printing first: text that overflows the front continues on the back, with
-  fronts and backs aligned for duplex or manual flipping.
+Picked up 2026-10-26: spec in `features/spell-item-cards.md` (Phase 12). Double-sided printing
+was already in the card printer.
 
 ### Handouts (Before)
 A general Handouts destination; the current **Cards** tool becomes one of its tabs. Other tabs:

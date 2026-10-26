@@ -94,6 +94,8 @@ You write cards in markdown, preview them exactly as they will print, and export
 - Each one appends its template, adding a `---` separator if the deck already has content.
 - The template text matches Python's `TEMPLATES` (see below).
 
+**Spells & items…:** adds cards for 5etools spells and items from the mirror (`spell-item-cards.md`).
+
 **Help ("?"):** the format reference, with a "Copy" button. The text is Python's `REFERENCE_TEXT`.
 
 **Deck actions**

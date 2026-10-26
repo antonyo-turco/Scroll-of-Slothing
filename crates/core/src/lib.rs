@@ -5,6 +5,7 @@ pub mod aoe;
 pub mod cards;
 pub mod clocks;
 pub mod combat;
+pub mod compendium;
 pub mod cutout;
 pub mod fonts;
 pub mod imaging;

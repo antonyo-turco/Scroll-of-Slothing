@@ -1610,6 +1610,48 @@ impl SleuthServer {
     }
 
     #[tool(
+        description = "Spell and item cards: whether the 5etools mirror's spells and items were synced (setting fivetools_base_url) and how many there are."
+    )]
+    async fn compendium_status(&self) -> ToolResult {
+        done(self.svc.compendium_status().await)
+    }
+
+    #[tool(
+        description = "Download the mirror's data/spells/*.json, items.json, items-base.json and magicvariants.json into the local cache so spell and item search and cards work offline (job; result: spells, items)."
+    )]
+    async fn compendium_sync(&self) -> ToolResult {
+        done(self.svc.compendium_sync().await)
+    }
+
+    #[tool(
+        description = "Search the synced 5etools spells (kind: spell) or items (kind: item) by name, prefix matches first. Filters: level (0 = cantrip) and class (e.g. Wizard) for spells, rarity (common, uncommon, rare, very rare, legendary, artifact, none) for items; newest_only leaves out entries reprinted in a newer book. Returns id, name, source, detail."
+    )]
+    async fn compendium_search(&self, Parameters(p): Parameters<CompendiumSearchParams>) -> ToolResult {
+        let q = sleuth_service::CompendiumQuery {
+            kind: p.kind.into(),
+            query: p.query.unwrap_or_default(),
+            level: p.level,
+            class: p.class,
+            rarity: p.rarity,
+            newest_only: p.newest_only.unwrap_or(false),
+            limit: p.limit,
+        };
+        done(self.svc.compendium_search(q).await)
+    }
+
+    #[tool(description = "A synced spell's or item's full 5etools JSON, by kind and id (from compendium_search).")]
+    async fn compendium_get(&self, Parameters(p): Parameters<CompendiumRefParams>) -> ToolResult {
+        done(self.svc.compendium_get(p.into()).await)
+    }
+
+    #[tool(
+        description = "Card markdown for spells and items (items [{kind, id}] from compendium_search), separated by ---, ready to append to a deck for cards_validate, cards_export_pdf or decks_save. Ids not in the synced data are listed in missing."
+    )]
+    async fn compendium_cards(&self, Parameters(p): Parameters<CompendiumCardsParams>) -> ToolResult {
+        done(self.svc.compendium_cards(p.items.into_iter().map(Into::into).collect()).await)
+    }
+
+    #[tool(
         description = "Session planner: the sessions (id, name, date, item count, checklist done/total) and which one is current. Starred items (pinned assets, encounters and soundscapes, favourite tracks) join the current session on their own."
     )]
     async fn planner_list(&self) -> ToolResult {
@@ -2728,6 +2770,55 @@ pub struct BestiarySearchParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct BestiaryHashParams {
     pub hash: String,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum CompendiumKindParam {
+    Spell,
+    Item,
+}
+
+impl From<CompendiumKindParam> for sleuth_service::CompendiumKind {
+    fn from(k: CompendiumKindParam) -> Self {
+        match k {
+            CompendiumKindParam::Spell => sleuth_service::CompendiumKind::Spell,
+            CompendiumKindParam::Item => sleuth_service::CompendiumKind::Item,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CompendiumSearchParams {
+    pub kind: CompendiumKindParam,
+    pub query: Option<String>,
+    /// Spell level, 0 for cantrips.
+    pub level: Option<i64>,
+    /// A class that has the spell, e.g. "Wizard".
+    pub class: Option<String>,
+    /// Item rarity, e.g. "very rare".
+    pub rarity: Option<String>,
+    /// Leave out entries reprinted in a newer book.
+    pub newest_only: Option<bool>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CompendiumRefParams {
+    pub kind: CompendiumKindParam,
+    /// 5etools hash from compendium_search, e.g. fireball_xphb.
+    pub id: String,
+}
+
+impl From<CompendiumRefParams> for sleuth_service::CompendiumRef {
+    fn from(p: CompendiumRefParams) -> Self {
+        sleuth_service::CompendiumRef { kind: p.kind.into(), id: p.id }
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CompendiumCardsParams {
+    pub items: Vec<CompendiumRefParams>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]

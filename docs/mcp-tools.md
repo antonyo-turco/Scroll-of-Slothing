@@ -81,6 +81,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `token_sheet_add_creatures` | 9 | 5etools creature tokens onto the token sheet, sized from each creature |
 | `bestiary_legendary_group` | 9 | Lair actions and regional effects of a creature's legendary group (synced as `legendarygroups.json`) |
 | `bestiary_status` / `bestiary_sync` / `bestiary_search` / `bestiary_get` | 9 | Local cache of the 5etools mirror's bestiary (setting `fivetools_base_url`): sync (job), search, full stat block |
+| `compendium_status` / `compendium_sync` / `compendium_search` / `compendium_get` / `compendium_cards` | 12 | Spell and item cards: local cache of the 5etools mirror's spells and items (sync job), search with level, class and rarity filters, full JSON, and card markdown for a deck (unknown ids are reported) |
 | `transcript_export` | 8 | Render segments as txt, md, srt or vtt; optionally write to a path |
 
 Music plays in the desktop app. When the standalone `sleuth-mcp` server changes music state, the change is stored, and the running app applies it to its audio engine.
