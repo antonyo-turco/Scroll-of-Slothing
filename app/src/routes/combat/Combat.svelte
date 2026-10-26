@@ -45,7 +45,7 @@
   let status = $state<BestiaryStatus | null>(null);
   let syncJobId = $state<string | null>(null);
   const syncJob = $derived(syncJobId ? app.jobs.find((j) => j.id === syncJobId) : undefined);
-  /** Rows open for editing (pen): name, HP max and notes. */
+  /** Rows open for editing (pen): name, HP max, stat columns and notes. */
   let editing = $state<Set<string>>(new Set());
   // ── reset: a popup with "keep the party" and "don't ask again" (both also in Settings → Combat) ──
   let resetOpen = $state(false);
@@ -1098,7 +1098,11 @@
                     {:else if c.populate_with === 'image'}
                       {#if cell.tokenUrl}<img class="token" src={cell.tokenUrl} alt="" />{/if}
                     {:else}
-                      <input class="input" aria-label="{c.abbreviation || 'Value'} for {label(r)}" bind:value={cell.value} onchange={commit} disabled={locked || !c.is_editable} />
+                      {#if editing.has(r.id) && !locked && c.is_editable}
+                        <input class="input" aria-label="{c.abbreviation || 'Value'} for {label(r)}" bind:value={cell.value} onchange={commit} />
+                      {:else}
+                        <span class="stat-val" aria-label="{c.abbreviation || 'Value'} for {label(r)}">{cell.value ?? ''}</span>
+                      {/if}
                     {/if}
                   </td>
                 {/each}
@@ -1110,7 +1114,7 @@
                     onDeathSaves={(s2, f) => setDeathSaves(r, s2, f)} onDefeat={() => defeat(r)} />
                 </td>
                 <td class="acts">
-                  <button class="btn ghost icon" class:on={!!r.notes} aria-pressed={editing.has(r.id)} aria-label="Edit {label(r)}" title="Edit name and max HP" onclick={() => toggleEdit(r.id)} disabled={locked}><Icon name="pencil" size={17} /></button>
+                  <button class="btn ghost icon" class:on={!!r.notes} aria-pressed={editing.has(r.id)} aria-label="Edit {label(r)}" title="Edit name, max HP and stats" onclick={() => toggleEdit(r.id)} disabled={locked}><Icon name="pencil" size={17} /></button>
                   {#if r.source}
                     <button class="btn ghost icon" aria-label="Add another {r.name}" title="Add another (Shift: reroll initiative and HP)" disabled={locked}
                       onclick={(e) => op(api.combatDuplicate(r.id, e.shiftKey))}><Icon name="copy" size={17} /></button>
@@ -1638,6 +1642,14 @@
   }
   .stat .input {
     width: 56px;
+  }
+  /* outside edit mode a stat is plain text, the width of its input */
+  .stat-val {
+    display: inline-block;
+    min-width: 56px;
+    text-align: center;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
   }
   .num {
     width: 52px;

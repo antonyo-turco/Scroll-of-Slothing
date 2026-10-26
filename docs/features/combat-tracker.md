@@ -60,8 +60,9 @@ Tracker, Encounters and Parties.
 
 ## Tracker
 - **Rows.** A coloured left edge tells combatants apart: heroes blue; creatures by side,
-  enemies red (default), allies white, neutral black (picked when adding them). Names and max
-  HP change only after the row's pencil (edit); creatures get a custom name, players their
+  enemies red (default), allies white, neutral black (picked when adding them). Names, max
+  HP and stat column values (AC, PP…; checkboxes and legendary actions stay clickable) change
+  only after the row's pencil (edit); creatures get a custom name, players their
   name. The ⓘ after a name shows the creature's type, CR, AC and HP (or the hero's sheet) on
   hover. Clicking a name shows that row in the side panel ("Selected"); Next turn goes back to
   the current turn. Action buttons sit in fixed slots so heroes and creatures line up.
