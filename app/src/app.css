@@ -496,8 +496,6 @@ button.list-row {
   border-color: var(--focus);
   box-shadow: 0 0 0 2px var(--focus);
 }
-  color: #e0a400;
-}
 
 .card {
   background: var(--surface);
