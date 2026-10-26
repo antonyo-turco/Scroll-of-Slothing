@@ -4,12 +4,14 @@
   // Styled like the music library (.list-row in app.css).
   import { onMount } from 'svelte';
   import { api, isTauri, pickFile, pickSavePath } from '../../lib/api';
+  import Icon from '../../lib/components/Icon.svelte';
   import InfoTip from '../../lib/components/InfoTip.svelte';
+  import { printTokens } from './combat-tokens';
   import Modal from '../../lib/components/Modal.svelte';
   import { app } from '../../lib/state.svelte';
   import { difficulty, RATING_LABEL, xpOf } from '../../lib/difficulty';
   import { CRS, scaleCreature } from '../../lib/scale';
-  import type { BestiaryEntry, CombatImport, EncounterCreature, EncounterSummary, Party } from '../../lib/types';
+  import type { BestiaryEntry, CombatImport, EncounterCreature, EncounterSummary, Party, SessionView } from '../../lib/types';
 
   let { onStarted }: { onStarted: (r: CombatImport) => void } = $props();
 
@@ -23,7 +25,40 @@
     } catch (e) {
       app.error('Could not load encounters', e);
     }
+    await loadNext();
   }
+
+  // ── the next session (Planner): which encounters it uses ──
+  let next = $state<SessionView | null>(null);
+  let nextOnly = $state(false);
+  async function loadNext() {
+    try {
+      const { current } = await api.plannerList();
+      next = current ? await api.plannerSessionGet(current) : null;
+    } catch {
+      next = null;
+    }
+  }
+  /** Encounter ids in the next session: kept ones, and pinned ones that join on their own. */
+  const inNext = $derived(new Set(next?.entries.filter((x) => x.kind === 'encounter').map((x) => x.ref_id) ?? []));
+  const keptItem = (e: EncounterSummary) => next?.items.find((i) => i.kind === 'encounter' && i.ref_id === e.id) ?? null;
+  async function toggleNext(e: EncounterSummary) {
+    try {
+      const item = keptItem(e);
+      if (item && next) next = await api.plannerItemRemove(next.id, item.id);
+      else {
+        const s = next ?? (await api.plannerSessionCreate(null, true));
+        next = await api.plannerItemsAdd(s.id, [{ kind: 'encounter', ref_id: e.id }]);
+        app.toast('success', `“${e.name}” is in ${next.name}`);
+      }
+    } catch (err) {
+      app.error('Could not update the next session', err);
+    }
+  }
+  const nextTitle = (e: EncounterSummary) =>
+    keptItem(e) ? `In ${next?.name ?? 'the next session'}: click to take it out`
+    : inNext.has(e.id) ? `In ${next?.name ?? 'the next session'} because it is pinned; click to keep it there`
+    : 'Add to the next session (Planner)';
   onMount(() => void load());
   let seen = app.dataVersion;
   $effect(() => {
@@ -36,10 +71,11 @@
   const shown = $derived(
     list.filter((e) => {
       const q = query.trim().toLowerCase();
+      if (nextOnly && !inNext.has(e.id)) return false;
       return !q || e.name.toLowerCase().includes(q) || e.lines.some((l) => l.name.toLowerCase().includes(q));
     }),
   );
-  const COLUMNS = '1fr 110px 90px 90px 110px 150px 32px';
+  const COLUMNS = '1fr 110px 90px 90px 110px 270px 32px';
   const summary = (e: EncounterSummary) =>
     e.lines.map((l) => (l.count > 1 ? `${l.count} × ${l.name}` : l.name)).join(', ') || 'No creatures';
 
@@ -245,6 +281,10 @@
 <div class="enc">
   <div class="view-toolbar">
     <input class="input search" type="search" placeholder="Search encounters" aria-label="Search encounters" bind:value={query} />
+    <button class="btn" aria-pressed={nextOnly} onclick={() => (nextOnly = !nextOnly)} disabled={!next}
+      title={next ? `Show only the encounters of ${next.name} (Planner)` : 'No next session in the Planner yet'}>
+      <Icon name="calendar" size={16} /> Next session{inNext.size ? ` (${inNext.size})` : ''}
+    </button>
     <span class="grow"></span>
     <button class="btn" onclick={saveCurrent} title="Save the tracker as it is now (rows, HP, conditions, round)">Save current combat</button>
     <button class="btn" onclick={() => (importOpen = true)}>Import…</button>
@@ -293,6 +333,10 @@
                   onclick={(ev) => (ev.stopPropagation(), void start(e, true))}>+</button>
                 <button class="btn ghost" title="Edit" aria-label="Edit {e.name}" onclick={(ev) => (ev.stopPropagation(), openEditor(e))}>✎</button>
               {/if}
+              <button class="btn ghost" class:on={inNext.has(e.id)} aria-pressed={inNext.has(e.id)} title={nextTitle(e)} aria-label="Next session: {e.name}"
+                onclick={(ev) => (ev.stopPropagation(), void toggleNext(e))}><Icon name="calendar" size={16} /></button>
+              <button class="btn ghost" title="Print its tokens (adds them to Tokens → Sheet)" aria-label="Print the tokens of {e.name}"
+                onclick={(ev) => (ev.stopPropagation(), void printTokens(e.lines.filter((l) => l.known)))}><Icon name="token" size={16} /></button>
               <button class="btn ghost" title="Copy the 5etools link" aria-label="Copy the 5etools link of {e.name}" onclick={(ev) => (ev.stopPropagation(), void copyLink(e))}>🔗</button>
               <button class="btn ghost" class:danger={confirmDelete === e.id} title={confirmDelete === e.id ? 'Click again to delete' : 'Delete'} aria-label="Delete {e.name}"
                 onclick={(ev) => (ev.stopPropagation(), void remove(e))}>{confirmDelete === e.id ? 'Delete?' : '✕'}</button>
@@ -424,6 +468,10 @@
 </Modal>
 
 <style>
+  .actions .btn.on {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
   .enc {
     height: 100%;
     display: flex;

@@ -6,6 +6,7 @@
 
   type Mon = Record<string, unknown>;
   export type RollRequest = { entry: string; kind: 'hit' | 'damage'; value: string; shift: boolean; ctrl: boolean };
+  export type RefTag = { kind: 'spell' | 'item'; name: string; source: string };
   let {
     mon,
     hero,
@@ -14,6 +15,7 @@
     usage = null,
     onRoll,
     onUse,
+    onRef,
     lair = null,
   }: {
     mon: Mon | null;
@@ -24,12 +26,14 @@
     usage?: Record<string, unknown> | null;
     onRoll?: (r: RollRequest) => void;
     onUse?: (key: string, spent: number) => void;
+    /** With it, `{@spell}` and `{@item}` tags are buttons that open the card. */
+    onRef?: (r: RefTag) => void;
     /** A legendary group (lair actions, regional effects) to show instead of a creature. */
     lair?: Mon | null;
   } = $props();
 
   // ── roll buttons: text and roll segments of a 5etools string ──
-  type Seg = { text: string } | { roll: 'hit' | 'damage'; value: string; label: string };
+  type Seg = { text: string } | { roll: 'hit' | 'damage'; value: string; label: string } | { ref: RefTag; label: string };
   function segs(raw: string): Seg[] {
     const out: Seg[] = [];
     const re = /\{@(\w+)\s*([^}]*)\}/g;
@@ -46,6 +50,10 @@
         else out.push({ text: plain(m[0]) });
       }
       else if (onRoll && tag === 'd20') out.push({ roll: 'hit', value: body, label: Number(body) >= 0 ? `+${body}` : body });
+      else if (onRef && (tag === 'spell' || tag === 'item') && body) {
+        const p = m[2].split('|');
+        out.push({ ref: { kind: tag, name: body, source: p[1]?.trim() ?? '' }, label: p[2]?.trim() || body });
+      }
       else out.push({ text: plain(m[0]) });
       last = m.index + m[0].length;
     }
@@ -151,25 +159,57 @@
       return { key: bare(raw), name: bare(raw), uses: usesOf(raw), recharge: rechargeOf(raw), text: paras(b.entries ?? b.headerEntries) };
     });
   };
-  const spellcasting = () => {
+  // ── spellcasting: lines of spells (tags kept), with slot and per-day pips ──
+  /** One spell of a list: `{@spell fireball}`, or `{entry, hidden}` in newer data. */
+  const spellText = (x: unknown): string =>
+    typeof x === 'string' ? x : x && typeof x === 'object' ? String((x as Record<string, unknown>).entry ?? '') : '';
+  const spellList = (v: unknown): string[] => (Array.isArray(v) ? v.map(spellText).filter(Boolean) : []);
+  /** A pool of uses: `key` in `usage`, `max` of them. */
+  type Pool = { key: string; max: number; label: string };
+  type CastLine = { label: string; pool: Pool | null; spells: { text: string; pool: Pool | null }[] };
+  type Caster = { key: string; name: string; text: string[]; lines: CastLine[] };
+  const casters = $derived.by<Caster[]>(() => {
     const v = mon?.spellcasting;
     if (!Array.isArray(v)) return [];
     return v.map((sc: Record<string, unknown>) => {
-      const lines = paras(sc.headerEntries);
-      const will = sc.will ? [`At will: ${str(sc.will)}`] : [];
-      const daily = sc.daily ? Object.entries(sc.daily as Record<string, unknown>).map(([k, x]) => `${k.replace('e', '/day each').replace(/^(\d)$/, '$1/day')}: ${str(x)}`) : [];
-      const spells = sc.spells ? Object.entries(sc.spells as Record<string, Record<string, unknown>>).map(([lvl, x]) => `${lvl === '0' ? 'Cantrips' : `Level ${lvl}`}${x.slots ? ` (${x.slots} slots)` : ''}: ${str(x.spells)}`) : [];
       const n = bare(String(sc.name ?? 'Spellcasting'));
-      return { key: n, name: n, uses: 0, recharge: 0, text: [...lines, ...will, ...daily, ...spells] };
+      const lines: CastLine[] = [];
+      const plainLine = (label: string, list: unknown) => lines.push({ label, pool: null, spells: spellList(list).map((text) => ({ text, pool: null })) });
+      if (sc.will) plainLine('At will', sc.will);
+      for (const [k, x] of Object.entries((sc.daily ?? {}) as Record<string, unknown>)) {
+        const each = k.endsWith('e');
+        const max = parseInt(k, 10) || 1;
+        const label = `${max}/day${each ? ' each' : ''}`;
+        lines.push({
+          label,
+          // "3/day": one pool for the line; "3/day each": a pool per spell
+          pool: each ? null : { key: `${n}:${k}`, max, label },
+          spells: spellList(x).map((text) => ({ text, pool: each ? { key: `${n}:${k}:${plain(text).toLowerCase()}`, max, label } : null })),
+        });
+      }
+      for (const [k, x] of Object.entries((sc.weekly ?? {}) as Record<string, unknown>)) {
+        const max = parseInt(k, 10) || 1;
+        lines.push({ label: `${max}/week${k.endsWith('e') ? ' each' : ''}`, pool: null, spells: spellList(x).map((text) => ({ text, pool: null })) });
+      }
+      for (const [lvl, x] of Object.entries((sc.spells ?? {}) as Record<string, Record<string, unknown>>)) {
+        const slots = Number(x.slots) || 0;
+        const label = lvl === '0' ? 'Cantrips' : `Level ${lvl}`;
+        lines.push({
+          label: x.lower ? `Levels ${x.lower}–${lvl}` : label,
+          pool: slots ? { key: `${n}:slot${lvl}`, max: slots, label: `${label} slots` } : null,
+          spells: spellList(x.spells).map((text) => ({ text, pool: null })),
+        });
+      }
+      return { key: n, name: n, text: [...paras(sc.headerEntries), ...paras(sc.footerEntries)], lines };
     });
-  };
+  });
   /** The ability the pointer is in, so a crit carries over to its damage roll. */
   let currentEntry = $state('');
   const SECTIONS: [string, string][] = [['action', 'Actions'], ['bonus', 'Bonus actions'], ['reaction', 'Reactions'], ['legendary', 'Legendary actions'], ['mythic', 'Mythic actions']];
 </script>
 
 {#snippet text(line: string)}
-  {#each segs(line) as sg, i (i)}{#if 'roll' in sg}<button class="roll {sg.roll}" title={sg.roll === 'hit' ? 'Roll to hit (Shift: advantage, Ctrl: disadvantage)' : 'Roll damage (Shift: critical)'}
+  {#each segs(line) as sg, i (i)}{#if 'ref' in sg}<button class="ref" title="Show the {sg.ref.kind} card" onclick={() => onRef?.(sg.ref)}>{sg.label}</button>{:else if 'roll' in sg}<button class="roll {sg.roll}" title={sg.roll === 'hit' ? 'Roll to hit (Shift: advantage, Ctrl: disadvantage)' : 'Roll damage (Shift: critical)'}
       onclick={(e) => onRoll?.({ entry: currentEntry, kind: sg.roll, value: sg.value, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey })}>{sg.label}</button>{:else}{plain(sg.text)}{/if}{/each}
 {/snippet}
 
@@ -193,6 +233,30 @@
     {:else if b.uses}<span class="muted">({b.uses}/Day)</span>{/if}
     {' '}{#each b.text as line, i (i)}{@render text(line)}{' '}{/each}
   </p>
+{/snippet}
+
+{#snippet pool(p: Pool)}
+  {#if onUse}
+    <span class="pips use-pill" role="group" aria-label="{p.label}: {p.max - spent(p.key)} of {p.max} left">
+      {#each Array(p.max) as _, i (i)}
+        <button class="pip" class:used={i >= p.max - spent(p.key)} aria-label="{p.label} {i + 1}"
+          onclick={() => onUse!(p.key, i >= p.max - spent(p.key) ? spent(p.key) - 1 : spent(p.key) + 1)}></button>
+      {/each}
+      <span class="pips-label">{p.max - spent(p.key)}/{p.max}</span>
+    </span>
+  {/if}
+{/snippet}
+
+{#snippet caster(sc: Caster)}
+  <div class="entry caster">
+    <p class="entry"><b>{sc.name}.</b> {#each sc.text as line, i (i)}{@render text(line)}{' '}{/each}</p>
+    {#each sc.lines as l, i (i)}
+      <p class="cast-line">
+        <span class="cast-label">{l.label}:</span>{#if l.pool}{@render pool(l.pool)}{/if}
+        {#each l.spells as s, j (j)}{#if j}{', '}{/if}<span class="spell" class:spent={s.pool && spent(s.pool.key) >= s.pool.max}>{@render text(s.text)}{#if s.pool}{@render pool(s.pool)}{/if}</span>{/each}
+      </p>
+    {/each}
+  </div>
 {/snippet}
 
 <div class="sb" data-testid="stat-block">
@@ -220,7 +284,8 @@
       {#if mon.languages}<dt>Languages</dt><dd>{str(mon.languages)}</dd>{/if}
       <dt>CR</dt><dd>{str(mon.cr) || '—'}</dd>
     </dl>
-    {#each [...blocks('trait'), ...spellcasting()] as b, i (i)}{@render entry(b)}{/each}
+    {#each blocks('trait') as b, i (i)}{@render entry(b)}{/each}
+    {#each casters as sc (sc.key)}{@render caster(sc)}{/each}
     {#each SECTIONS as [key, title] (key)}
       {#if blocks(key).length}
         <h4>
@@ -348,6 +413,36 @@
   .roll.damage {
     border-color: color-mix(in srgb, #d9381e 55%, var(--border));
     background: color-mix(in srgb, #d9381e 14%, transparent);
+  }
+  .caster {
+    display: grid;
+    gap: 2px;
+  }
+  .cast-line {
+    margin: 0;
+    padding-left: var(--space-3);
+  }
+  .cast-label {
+    font-style: italic;
+    margin-right: 4px;
+  }
+  .spell.spent {
+    color: var(--text-muted);
+    text-decoration: line-through;
+  }
+  .ref {
+    display: inline;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px dashed var(--accent);
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-style: italic;
+    cursor: pointer;
+  }
+  .ref:hover {
+    color: var(--accent);
   }
   .roll:hover {
     filter: brightness(1.25);

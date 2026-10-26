@@ -32,12 +32,23 @@ const COLUMNS: CombatCatalog['columns'] = [
 interface Mon {
   name: string; source: string; hp: number; formula: string; ac: number; dex: number; pp: number;
   speed: number; cr: string; la: number | null;
+  /** 5etools fields passed through to the stat block (spellcasting, treasure…). */
+  [extra: string]: unknown;
 }
 const BESTIARY: Mon[] = [
   { name: 'Goblin', source: 'MM', hp: 7, formula: '2d6', ac: 15, dex: 14, pp: 9, speed: 30, cr: '1/4', la: null },
   { name: 'Goblin Boss', source: 'MM', hp: 21, formula: '6d6', ac: 17, dex: 14, pp: 9, speed: 30, cr: '1', la: null },
   { name: 'Ogre', source: 'MM', hp: 59, formula: '7d10+21', ac: 11, dex: 8, pp: 8, speed: 40, cr: '2', la: null },
   { name: 'Adult Red Dragon', source: 'MM', hp: 256, formula: '19d12+133', ac: 19, dex: 10, pp: 23, speed: 80, cr: '17', la: 3 },
+  {
+    name: 'Mage', source: 'XMM', hp: 81, formula: '18d8', ac: 15, dex: 14, pp: 11, speed: 30, cr: '6', la: null,
+    treasure: ['arcana', 'individual'],
+    spellcasting: [{
+      name: 'Spellcasting', headerEntries: ['The mage casts one of the following spells, using Intelligence as the spellcasting ability (spell save {@dc 14}):'],
+      will: ['{@spell Detect Magic|XPHB}', '{@spell Light|XPHB}', '{@spell Mage Hand|XPHB}'],
+      daily: { '2e': ['{@spell Fireball|XPHB}', '{@spell Invisibility|XPHB}'], '1': ['{@spell Cone of Cold|XPHB}', '{@spell Fly|XPHB}'] },
+    }],
+  },
 ];
 const hashOf = (m: { name: string; source: string }) => encodeURIComponent(`${m.name}_${m.source}`.toLowerCase());
 const mod = (score: number) => Math.floor((score - 10) / 2);

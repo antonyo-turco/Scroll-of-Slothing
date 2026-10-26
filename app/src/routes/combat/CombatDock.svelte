@@ -5,22 +5,29 @@
   import { RATING_LABEL } from '../../lib/difficulty';
   import type { CombatRow } from '../../lib/types';
   import type { Fight } from './combat-ui';
+  import type { Fallen } from './RewardsDialog.svelte';
 
   let {
     defeated,
     fight,
+    fallen = null,
     locked,
     label,
     onRestore,
     onRemove,
+    onRewards,
   }: {
     defeated: CombatRow[];
     fight: Fight | null;
+    /** Every enemy is down: the fallen, for the rewards. */
+    fallen?: Fallen[] | null;
     locked: boolean;
     label: (r: CombatRow) => string;
     onRestore: (r: CombatRow) => void;
     onRemove: (r: CombatRow) => void;
+    onRewards: () => void;
   } = $props();
+  const fallenXp = $derived((fallen ?? []).reduce((a, f) => a + (f.xp ?? 0), 0));
 </script>
 
 <div class="dock">
@@ -41,7 +48,13 @@
       </ul>
     </details>
   {/if}
-  {#if fight}
+  {#if fallen}
+    <div class="diffbar over" data-testid="combat-over">
+      <span class="db-title">Fight over</span>
+      <span class="grow muted">Every enemy is down: {fallen.length} defeated, {fallenXp.toLocaleString()} XP</span>
+      <button class="btn primary" onclick={onRewards}>Rewards…</button>
+    </div>
+  {:else if fight}
     <div class="diffbar" data-testid="combat-difficulty">
       <span class="db-title">Difficulty</span>
       <span class="db-rating rating-{fight.d.rating}">{RATING_LABEL[fight.d.rating]}</span>
@@ -122,6 +135,9 @@
     gap: 12px;
     height: 44px;
     padding: 0 14px;
+  }
+  .diffbar.over {
+    background: color-mix(in srgb, #2fb344 12%, var(--surface-2));
   }
   .db-title {
     font-weight: 600;

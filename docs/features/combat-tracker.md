@@ -139,6 +139,28 @@ Tracker, Encounters and Parties.
 - **Keyboard.** Tabbing into a row's HP or temp box opens its ± strip (Esc closes it), ↑/↓
   step the value, Shift+Enter (or Shift+Space) on a name selects the row, the ⓘ and condition
   tips open on focus, and the side panel's edge resizes with ←/→.
+- **Spells and items.** `{@spell}` and `{@item}` tags in the side panel are links that open the
+  spell's or item's card text from the synced spells and items (`compendium_cards`; see
+  `spell-item-cards.md`). The tag's source is tried first (PHB for spells and DMG for items when
+  it names none), then the newest printing with the same name; if it isn't synced, the popup
+  says so.
+- **Spellcasting.** Each spellcasting block lists its spells line by line (at will, N/day,
+  N/day each, N/week, each level), with the spells as links. Spell slots per level and "N/day"
+  lines get one pool of pips; "N/day each" gets pips per spell, and a spell with none left is
+  struck through. They live in `usage` under `<block name>:slot<level>`, `<block name>:<N>` and
+  `<block name>:<N>e:<spell>`.
+- **Print tokens.** *Print tokens* in the top bar adds one token per creature still in the fight
+  (not lairs or the defeated) to Tokens → Sheet, at each creature's size, and opens the sheet
+  (`token_sheet_add_creatures`). Each saved encounter has the same button for its creatures and
+  counts. Creatures without a token on the mirror are listed in the message; the rest are still
+  added.
+- **Rewards.** When every enemy (creatures with no side) is set aside or at 0 HP, the dock shows
+  *Fight over* with the XP in place of the difficulty strip. *Rewards…* lists the defeated with
+  CR and XP, splits the total among the heroes in the tracker (the number can be changed;
+  leftovers shown), and rolls each creature's individual treasure from the 2024 DMG (CR 0–4
+  3d6 gp, 5–10 2d8 × 10 gp, 11–16 2d10 × 10 pp, 17+ 2d8 × 100 pp; `app/src/lib/rewards.ts`).
+  A 2024 creature's treasure themes (`treasure`: Arcana, Armaments, Implements, Relics) are
+  listed for hoard rolls by hand. *Copy* and *Add to encounter notes* keep the summary.
 - **Group actions.** Shift+click rows to select them; a bar offers an amount with Damage, Heal
   and Temp HP, a group saving throw (ability and DC; each creature rolls its own save bonus or
   ability modifier, heroes roll their own), *Half on save* for damage, and a condition for
@@ -166,7 +188,12 @@ current combat* or a `#combat=` link; it keeps each creature's changes).
   (`{"format": "sleuth-encounters", "version": 1, "encounters": [...]}`); importing adds copies
   with new ids.
 - ▶ rolls a creature list into the tracker with the import settings (or loads a snapshot,
-  replacing the tracker), + adds it to the current combat, 🔗 copies its 5etools link.
+  replacing the tracker), + adds it to the current combat, 🔗 copies its 5etools link, and the
+  token button prints its creatures' tokens (see Play aids).
+- **Next session.** The calendar button adds the encounter to the Planner's next session (making
+  one if there is none) or takes it out; it is lit for encounters already in it, including
+  pinned ones that join on their own. *Next session* in the toolbar shows only those. The
+  Planner's *Start* rolls one into the tracker (`session-planner.md`).
 
 ## Parties
 Saved hero parties (workspace `combat.parties`). A hero has name, species, class and subclass
@@ -216,4 +243,5 @@ load; they are still written into links so 5etools reads them.
 - [ ] Tauri commands and MCP tools (documented; not yet covered by `mcp_e2e.rs`)
 - [x] Saved encounters (create, import 5etools files and links, snapshots, start, link) and hero parties: service tests, e2e
 - [x] UI: tracker under During, add creature dialog, conditions, columns, settings, mock backend, axe in both themes
+- [ ] Spell and item links, spellcasting pips, print tokens, next-session encounters, rewards: tests to write
 - [ ] Tracker rework (HP strips, temp HP, defeated, difficulty strip, side panel editor, sides, turn card), homebrew, `.denc`, creature tokens: tests to write (service tests exist for homebrew, temp HP and `.denc` but have not been run)

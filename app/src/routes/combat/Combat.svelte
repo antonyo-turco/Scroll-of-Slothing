@@ -20,6 +20,10 @@
   import GroupBar from './GroupBar.svelte';
   import HpCell from './HpCell.svelte';
   import RollsWindow from './RollsWindow.svelte';
+  import RefCard, { type RefRequest } from './RefCard.svelte';
+  import { printTokens } from './combat-tokens';
+  import RewardsDialog, { type Fallen } from './RewardsDialog.svelte';
+  import { treasureThemes } from '../../lib/rewards';
   import type { ConcAlert, EditorPatch, Fight, LegendItem, RechargeNote, RollLine, TurnCard, Who } from './combat-ui';
   import { rollAttack, rollFormula } from '../../lib/dice';
   import { crOfMon, scaleCreature } from '../../lib/scale';
@@ -326,6 +330,8 @@
     if (notes.length) showRecharge(notes);
   }
   // ── recharge notice: a reminder to roll for spent recharge abilities at turn start ──
+  /** The spell or item card open from a stat block tag. */
+  let refReq = $state<RefRequest | null>(null);
   let rechargeNotice = $state<{ id: number; items: RechargeNote[] } | null>(null);
   let rechargeSeq = 0;
   function showRecharge(items: RechargeNote[]) {
@@ -425,6 +431,27 @@
       pos: Math.min(100, (d.adjusted / max) * 100),
     };
   });
+
+  // ── end of the fight: every enemy down, rewards on offer ──
+  const enemyCr = (r: CombatRow) => {
+    const m = merged(r);
+    return (m?.cr && typeof m.cr === 'object' ? (m.cr as { cr?: string }).cr : (m?.cr as string | undefined)) ?? null;
+  };
+  /** Enemies set aside or at 0 HP; null while one still stands. */
+  const fallen = $derived.by((): Fallen[] | null => {
+    if (!t) return null;
+    const up = t.rows.filter((r) => r.source && !r.side);
+    if (up.some((r) => !isDown(r))) return null;
+    const down = [...t.defeated.filter((r) => r.source && !r.side), ...up];
+    if (!down.length) return null;
+    return down.map((r) => ({ id: r.id, name: label(r), cr: enemyCr(r), xp: xpOf(enemyCr(r)), themes: treasureThemes(merged(r)) }));
+  });
+  let rewardsOpen = $state(false);
+  const addNote = (text: string) => {
+    if (!t) return;
+    t.notes = t.notes.trim() ? `${t.notes.trimEnd()}\n\n${text}` : text;
+    commit();
+  };
 
   // ── defeated creatures ──
   let notesOpen = $state(false);
@@ -738,6 +765,9 @@
     mons[h] = null;
     void api.bestiaryGet(h).then((m) => (mons[h] = m)).catch(() => {});
   }
+  /** Every creature still in the fight (not lairs, not the defeated) to the token sheet. */
+  const printFightTokens = () =>
+    printTokens((t?.rows ?? []).filter((r) => r.source && r.side !== 'lair').map((r) => ({ hash: hashOf(r), name: r.name, count: 1 })));
   const monOf = (r: CombatRow) => (r.source ? mons[hashOf(r)] ?? null : null);
   const heroOf = (r: CombatRow) =>
     r.source ? null : parties.flatMap((p) => p.heroes).find((h) => h.name.trim().toLowerCase() === r.name.trim().toLowerCase()) ?? null;
@@ -944,6 +974,7 @@
 </ViewActions>
 {#if tab === 'tracker'}
 <ViewActions>
+  <button class="btn" onclick={printFightTokens} disabled={!t?.rows.some((r) => r.source && r.side !== 'lair')} title="Add a token for every creature in the fight to Tokens → Sheet">Print tokens</button>
   <button class="btn" onclick={() => (linkOpen = true)} disabled={locked} title="Open a 5etools #combat= or #encounter= link">Open link…</button>
   <button class="btn" onclick={copyLink} title="Copy a 5etools DM Screen link that restores this combat">Copy combat link</button>
   <button class="btn primary" onclick={() => turn(api.combatNextTurn())} disabled={!t?.rows.length}>Next turn</button>
@@ -1094,8 +1125,8 @@
           </tbody>
         </table>
       {/if}
-      {#if (t && t.defeated.length) || fight}
-        <CombatDock defeated={t?.defeated ?? []} {fight} {locked} {label} onRestore={restore} onRemove={removeDefeated} />
+      {#if (t && t.defeated.length) || fight || fallen}
+        <CombatDock defeated={t?.defeated ?? []} {fight} {fallen} {locked} {label} onRestore={restore} onRemove={removeDefeated} onRewards={() => (rewardsOpen = true)} />
       {/if}
     </div>
     <div class="statusbar" data-testid="combat-status">
@@ -1134,7 +1165,7 @@
         {/if}
         <StatBlock mon={focus.side === 'lair' ? null : merged(focus)} hero={heroOf(focus)} name={label(focus)} sub={focus.display_name ?? undefined}
           lair={focus.side === 'lair' ? lairOf(focus) : null} usage={focus.usage}
-          onRoll={(q) => doRoll(focus!, q)} onUse={(key, n) => { setUsage(focus!, key, Math.max(0, n)); commit(); }} />
+          onRoll={(q) => doRoll(focus!, q)} onRef={(q) => (refReq = q)} onUse={(key, n) => { setUsage(focus!, key, Math.max(0, n)); commit(); }} />
         {#if active.length > 1}<p class="note">Also acting: {active.slice(1).map(label).join(', ')}</p>{/if}
       {:else}
         <p class="note">The stat block of whoever's turn it is shows here. Press <b>Next turn</b> to start.</p>
@@ -1172,6 +1203,10 @@
   onDismissConc={(id) => (concAlerts = concAlerts.filter((x) => x.id !== id))} onRecharged={markRecharged} />
 
 <AddCreatureDialog bind:open={addOpen} {status} onAdd={addCreature} />
+
+<RefCard bind:req={refReq} />
+
+<RewardsDialog bind:open={rewardsOpen} fallen={fallen ?? []} heroes={t?.rows.filter(isHero).length ?? 0} onNote={addNote} />
 
 <CreatureEditor row={statRow} base={statRow ? monOf(statRow) : null} title={statRow ? label(statRow) : 'creature'}
   onClose={() => (statEditId = null)} onApply={applyEdit} onScale={scaleEdited} onReset={resetEdited} />

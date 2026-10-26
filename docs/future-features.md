@@ -38,9 +38,9 @@ Clocks picked up 2026-10-25: spec in `features/clocks.md` (Phase 11). Still to d
   example one segment every 10 minutes), with a notification on each segment and when it fills.
 
 ### Rewards when a fight ends (During)
-When every enemy in the combat tracker is down, offer the end-of-fight rewards: split the
-defeated creatures' XP among the party and roll on each creature's treasure tables, if it has
-any.
+Picked up 2026-10-26: XP split and individual treasure in `features/combat-tracker.md` (Play
+aids, *Rewards*). Hoard and magic-item rolls on the creature's treasure themes are left to the
+Tables page above.
 
 ## Deferred
 Possible later, out of bounds for now:
