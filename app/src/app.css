@@ -214,18 +214,40 @@ select.input {
   font-weight: 600;
 }
 
-/* ── detail lists: one look for the Library list view and the Music library ──
-   .list-head and .list-row share a grid-template-columns set by the page. */
+/* ══ Collections: lists, list boxes, row detail, pills, chips, tiles ══
+   One look for every list of things in the app. docs/styleguide.md says
+   which to use where; views only set their grid-template-columns. */
+
+/* view switch (Cards / List / Pills…): icon buttons at the right of the toolbar band */
+.segmented.views button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+}
+
+/* ── lists: a sticky header and rows sharing the page's grid-template-columns ── */
+.list-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-2) var(--space-4) 0;
+}
 .list-head {
   display: grid;
   align-items: center;
   gap: var(--space-3);
-  min-height: 32px;
+  min-height: 36px;
   padding: 0 calc(var(--space-2) + 1px);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
+}
+.list-wrap .list-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
 }
 .list-head .sort {
   border: 0;
@@ -244,12 +266,13 @@ select.input {
   display: grid;
   align-items: center;
   gap: var(--space-3);
-  height: 48px;
+  min-height: 56px;
   padding: 0 var(--space-2);
   border: 1px solid transparent;
   border-bottom-color: var(--border);
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 15px;
+  cursor: default;
 }
 .list-row:hover {
   background: var(--surface-2);
@@ -258,13 +281,17 @@ select.input {
 .list-row.selected {
   background: var(--accent-soft);
 }
+.list-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
 .list-row > * {
   min-width: 0;
 }
 .list-thumb {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   display: grid;
@@ -280,6 +307,11 @@ select.input {
 .list-thumb.cover img {
   object-fit: cover;
 }
+/* the name cell: title over a muted subtitle */
+.list-name {
+  display: grid;
+  gap: 1px;
+}
 .list-title {
   font-weight: 600;
   white-space: nowrap;
@@ -288,33 +320,172 @@ select.input {
 }
 .list-sub,
 .list-muted {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.list-pill {
-  display: inline-flex;
+/* row actions: same-size icon slots so every row lines up; .slot keeps an empty place */
+.list-actions {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-muted);
+  gap: 2px;
   white-space: nowrap;
+}
+.list-actions .btn {
+  min-width: 36px;
+  justify-content: center;
+  padding-inline: 6px;
+}
+.list-actions .slot {
+  display: inline-block;
+  width: 36px;
 }
 .list-star {
   border: 0;
   background: none;
   padding: 0 4px;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
   color: var(--text-muted);
   cursor: pointer;
 }
 .list-star.on {
+  color: #e0a400;
+}
+/* row detail: the bar that opens under a clicked row with big labelled buttons */
+.list-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+}
+.list-more .btn {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 136px;
+  height: auto;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.list-more .btn[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── list box: a bordered, scrolling list inside a dialog (pickers) ── */
+.list-box {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+/* a whole row that is one button (pick rows) */
+button.list-row {
+  width: 100%;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* ── pills: small read-only labels (kind, source, state) ── */
+.pill,
+.list-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pill.accent {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.pill.ok {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--text);
+}
+.pill.warn {
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  color: var(--text);
+}
+.pill.bad {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--text);
+}
+
+/* ── chips: toggle buttons for filters and tags (aria-pressed), in a .chip-bar ── */
+.chip-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--text-muted);
+}
+.chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── tiles: a responsive grid of cards (boards, galleries) ── */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 240px), 1fr));
+  align-content: start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  overflow: auto;
+}
+.tile {
+  position: relative;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 80ms, box-shadow 80ms;
+}
+.tile:hover {
+  border-color: var(--text-muted);
+}
+.tile.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.tile.selected {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
   color: #e0a400;
 }
 

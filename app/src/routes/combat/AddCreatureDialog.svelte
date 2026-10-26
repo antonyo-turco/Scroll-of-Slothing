@@ -96,7 +96,7 @@
           {#each sources as src (src)}<option value={src}>{src}</option>{/each}
         </select>
       </div>
-      <div class="pick-list" role="listbox" aria-label="Creatures">
+      <div class="list-box" role="listbox" aria-label="Creatures">
         {#each shown as h (h.hash)}
           <button class="list-row pick-row" role="option" aria-selected={pick?.hash === h.hash} class:selected={pick?.hash === h.hash}
             onclick={() => choose(h)} ondblclick={add}>
@@ -161,20 +161,9 @@
     display: flex;
     gap: var(--space-2);
   }
-  .pick-list {
-    flex: 1;
-    overflow: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
+  /* token, name, CR, HP */
   .pick-row {
-    width: 100%;
-    grid-template-columns: 40px minmax(0, 1fr) auto 64px;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-    cursor: pointer;
-    font: inherit;
+    grid-template-columns: 44px minmax(0, 1fr) auto 64px;
   }
   .hp {
     text-align: center;

@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { api } from '../../lib/api';
   import Modal from '../../lib/components/Modal.svelte';
+  import { byText, ColumnSort } from '../../lib/column-sort.svelte';
   import { app } from '../../lib/state.svelte';
   import { CLASSES, CLASS_NAMES } from '../../lib/dnd-classes';
   import type { Hero, Party, Tracker } from '../../lib/types';
@@ -30,6 +31,13 @@
   });
 
   const COLUMNS = '1fr 80px 90px 150px';
+  type Col = 'name' | 'heroes' | 'level';
+  const sort = new ColumnSort<Col>('name', true, ['name']);
+  const sorted = $derived(sort.apply(list, {
+    name: (a, b) => byText(a.name, b.name),
+    heroes: (a, b) => a.heroes.length - b.heroes.length,
+    level: (a, b) => (avgLevel(a) ?? 0) - (avgLevel(b) ?? 0),
+  }, (a, b) => byText(a.name, b.name)));
   const heroLine = (h: Hero) =>
     [h.name || 'Hero', [h.species, h.class].filter(Boolean).join(' '), h.subclass, h.level ? `lv ${h.level}` : ''].filter(Boolean).join(' · ');
   const avgLevel = (p: Party) => {
@@ -137,21 +145,21 @@
     {#if list.length}
       <div class="list" role="table" aria-label="Parties">
         <div class="list-head" role="row" style:grid-template-columns={COLUMNS}>
-          <span role="columnheader">Party</span>
-          <span role="columnheader">Heroes</span>
-          <span role="columnheader">Avg. level</span>
+          {#each [['name', 'Party'], ['heroes', 'Heroes'], ['level', 'Avg. level']] as [k, l] (k)}
+            <span role="columnheader" aria-sort={sort.aria(k as Col)}><button class="sort" onclick={() => sort.by(k as Col)}>{l}{sort.arrow(k as Col)}</button></span>
+          {/each}
           <span role="columnheader"><span class="visually-hidden">Actions</span></span>
         </div>
-        {#each list as p (p.id)}
+        {#each sorted as p (p.id)}
           <div class="list-row" class:selected={selected === p.id} role="row" tabindex="0" style:grid-template-columns={COLUMNS}
             onclick={() => (selected = p.id)} ondblclick={() => openEditor(p)} onkeydown={(e) => e.key === 'Enter' && openEditor(p)}>
-            <span role="cell" class="title-cell">
+            <span role="cell" class="list-name">
               <span class="list-title">{p.name}</span>
               <span class="list-sub" title={p.heroes.map(heroLine).join('\n')}>{p.heroes.map(heroLine).join(', ') || 'No heroes'}</span>
             </span>
             <span role="cell" class="num">{p.heroes.length}</span>
             <span role="cell" class="num list-muted">{avgLevel(p) ?? '—'}</span>
-            <span role="cell" class="actions">
+            <span role="cell" class="list-actions">
               <button class="btn ghost" title="Add to the tracker" aria-label="Add {p.name} to the tracker" onclick={(e) => (e.stopPropagation(), void add(p, false))}>▶</button>
               <button class="btn ghost" title="Add and make it the default party (restored on Reset)" aria-label="Make {p.name} the default party"
                 onclick={(e) => (e.stopPropagation(), void add(p, true))}>⚑</button>
@@ -230,30 +238,8 @@
   .grow {
     flex: 1;
   }
-  .list-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: var(--space-2) var(--space-4) 0;
-  }
-  .list-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--surface-2);
-  }
-  .list-row:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: -2px;
-  }
-  .title-cell {
-    display: grid;
-  }
   .num {
     font-variant-numeric: tabular-nums;
-  }
-  .actions {
-    white-space: nowrap;
   }
   .field {
     font-size: 12px;

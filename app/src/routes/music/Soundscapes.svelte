@@ -96,7 +96,7 @@
           <button class="btn ghost" aria-label="Delete {s.name}" onclick={() => remove(s)}>✕</button>
         </div>
         {#if s.tags.length}
-          <div class="tags">{#each s.tags as t (t)}<span class="pill">{t}</span>{/each}</div>
+          <div class="tags">{#each s.tags as t (t)}<span class="pill accent">{t}</span>{/each}</div>
         {/if}
         {#if open[s.id]}
           <ul class="summary">
@@ -177,12 +177,6 @@
     display: flex;
     gap: 4px;
     margin-top: 6px;
-  }
-  .pill {
-    font-size: 11px;
-    padding: 1px 8px;
-    border-radius: 999px;
-    background: var(--accent-soft);
   }
   .summary {
     margin: var(--space-2) 0 0;

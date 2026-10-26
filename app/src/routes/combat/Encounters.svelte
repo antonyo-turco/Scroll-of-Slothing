@@ -6,6 +6,7 @@
   import { api, isTauri, pickFile, pickSavePath } from '../../lib/api';
   import Icon from '../../lib/components/Icon.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
+  import { byText, ColumnSort } from '../../lib/column-sort.svelte';
   import InfoTip from '../../lib/components/InfoTip.svelte';
   import { printTokens } from './combat-tokens';
   import Modal from '../../lib/components/Modal.svelte';
@@ -77,14 +78,25 @@
     shownParty
       ? difficulty(e.lines.map((l) => ({ xp: xpOf(l.cr), count: l.count })), shownParty.heroes.map((h) => h.level ?? 1), use2014).rating
       : null;
+  // sortable columns; pinned encounters stay on top
+  type Col = 'name' | 'kind' | 'creatures' | 'xp' | 'difficulty' | 'changed';
+  const RATING_ORDER: Rating[] = ['trivial', 'low', 'moderate', 'high', 'deadly', 'tpk'];
+  const sort = new ColumnSort<Col>('changed', false, ['name', 'kind']);
   const shown = $derived(
-    list.filter((e) => {
+    sort.apply(list.filter((e) => {
       const q = query.trim().toLowerCase();
       if (nextOnly && !inNext.has(e.id)) return false;
       if (kindFilter !== 'all' && e.kind !== kindFilter) return false;
       if (ratingFilter && encRating(e) !== ratingFilter) return false;
       return !q || e.name.toLowerCase().includes(q) || e.lines.some((l) => l.name.toLowerCase().includes(q));
-    }),
+    }), {
+      name: (a, b) => byText(a.name, b.name),
+      kind: (a, b) => byText(a.kind, b.kind),
+      creatures: (a, b) => a.total - b.total,
+      xp: (a, b) => (a.xp ?? -1) - (b.xp ?? -1),
+      difficulty: (a, b) => RATING_ORDER.indexOf(encRating(a) ?? 'trivial') - RATING_ORDER.indexOf(encRating(b) ?? 'trivial'),
+      changed: (a, b) => a.updated.localeCompare(b.updated),
+    }, (a, b) => byText(a.name, b.name)).sort((a, b) => Number(b.pinned) - Number(a.pinned)),
   );
   const COLUMNS = '1fr 110px 90px 90px 120px 110px 170px 32px';
   const summary = (e: EncounterSummary) =>
@@ -330,12 +342,12 @@
     {#if shown.length}
       <div class="list" role="table" aria-label="Encounters">
         <div class="list-head" role="row" style:grid-template-columns={COLUMNS}>
-          <span role="columnheader">Name</span>
-          <span role="columnheader">Kind</span>
-          <span role="columnheader">Creatures</span>
-          <span role="columnheader">XP</span>
-          <span role="columnheader" title={shownParty ? `For ${shownParty.name}` : 'Save a party to rate encounters'}>Difficulty</span>
-          <span role="columnheader">Changed</span>
+          {#each [['name', 'Name'], ['kind', 'Kind'], ['creatures', 'Creatures'], ['xp', 'XP'], ['difficulty', 'Difficulty'], ['changed', 'Changed']] as [k, l] (k)}
+            <span role="columnheader" aria-sort={sort.aria(k as Col)}
+              title={k === 'difficulty' ? (shownParty ? `For ${shownParty.name}` : 'Save a party to rate encounters') : undefined}>
+              <button class="sort" onclick={() => sort.by(k as Col)}>{l}{sort.arrow(k as Col)}</button>
+            </span>
+          {/each}
           <span role="columnheader"><span class="visually-hidden">Actions</span></span>
           <span role="columnheader" title="Pinned">★</span>
         </div>
@@ -351,7 +363,7 @@
             ondblclick={() => start(e)}
             onkeydown={(ev) => ev.key === 'Enter' && start(e)}
           >
-            <span role="cell" class="title-cell">
+            <span role="cell" class="list-name">
               <span class="list-title" title={e.name}>{e.name}</span>
               <span class="list-sub" title={summary(e)}>{summary(e)}{e.notes ? ` · ${e.notes}` : ''}</span>
             </span>
@@ -360,7 +372,7 @@
             <span role="cell" class="num list-muted">{e.xp?.toLocaleString() ?? '—'}</span>
             <span role="cell">{#if encRating(e)}<span class="diff-pill rating-{encRating(e)}">{RATING_LABEL[encRating(e)!]}</span>{:else}<span class="list-muted">—</span>{/if}</span>
             <span role="cell" class="list-muted num">{e.updated.slice(0, 10)}</span>
-            <span role="cell" class="actions">
+            <span role="cell" class="list-actions">
               <button class="btn ghost" title={e.kind === 'combat' ? 'Load this combat (replaces the tracker)' : 'Roll into the tracker'} aria-label="Start {e.name}"
                 onclick={(ev) => (ev.stopPropagation(), void start(e))}>▶</button>
               {#if e.kind === 'encounter'}
@@ -381,17 +393,17 @@
           </div>
           {#if selected === e.id}
             <!-- more for the selected encounter: big buttons with their names -->
-            <div class="row-more" role="group" aria-label="More for {e.name}">
-              <button class="btn more-btn" class:on={inNext.has(e.id)} aria-pressed={inNext.has(e.id)} title={nextTitle(e)} onclick={() => toggleNext(e)}>
+            <div class="list-more" role="group" aria-label="More for {e.name}">
+              <button class="btn" aria-pressed={inNext.has(e.id)} title={nextTitle(e)} onclick={() => toggleNext(e)}>
                 <Icon name="calendar" size={22} />
                 <span>{keptItem(e) ? 'In next session' : inNext.has(e.id) ? 'In next session (pinned)' : 'Add to next session'}</span>
               </button>
-              <button class="btn more-btn" title="Adds a token for each creature to Tokens → Sheet" onclick={() => printTokens(e.lines.filter((l) => l.known))}>
+              <button class="btn" title="Adds a token for each creature to Tokens → Sheet" onclick={() => printTokens(e.lines.filter((l) => l.known))}>
                 <Icon name="token" size={22} />
                 <span>Print tokens</span>
               </button>
-              <button class="btn more-btn" title="Copy a link that opens it on the 5etools DM Screen" onclick={() => copyLink(e)}>
-                <span class="more-glyph" aria-hidden="true">🔗</span>
+              <button class="btn" title="Copy a link that opens it on the 5etools DM Screen" onclick={() => copyLink(e)}>
+                <Icon name="copy" size={22} />
                 <span>Copy 5etools link</span>
               </button>
             </div>
@@ -533,34 +545,6 @@
     font-size: 14px;
     color: var(--r, var(--text-muted));
   }
-  .actions .slot {
-    display: inline-block;
-    width: 36px;
-  }
-  .row-more {
-    display: flex;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4) var(--space-4);
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
-  }
-  .more-btn {
-    display: grid;
-    justify-items: center;
-    gap: 6px;
-    min-width: 132px;
-    padding: 10px 14px;
-    font-size: 13px;
-  }
-  .more-btn.on {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-  }
-  .more-glyph {
-    font-size: 20px;
-    line-height: 22px;
-  }
   .enc {
     height: 100%;
     display: flex;
@@ -573,43 +557,10 @@
   .grow {
     flex: 1;
   }
-  .list-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: var(--space-2) var(--space-4) 0;
-  }
-  .list-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--surface-2);
-  }
-  .list-row {
-    cursor: default;
-  }
-  .list-row:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: -2px;
-  }
-  .title-cell {
-    display: grid;
-  }
   .num {
     font-variant-numeric: tabular-nums;
   }
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    white-space: nowrap;
-  }
   /* same-size slots, so every row's buttons line up */
-  .actions .btn {
-    min-width: 36px;
-    justify-content: center;
-    padding-inline: 6px;
-  }
   .dot {
     width: 8px;
     height: 8px;

@@ -6,6 +6,7 @@
   import { onMount, tick } from 'svelte';
   import { api } from '../../lib/api';
   import Icon from '../../lib/components/Icon.svelte';
+  import InfoTip from '../../lib/components/InfoTip.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import { clocks } from '../../lib/clocks.svelte';
   import { isFull, isRunning, progress, timerText } from '../../lib/clocks';
@@ -80,7 +81,7 @@
         <button class="btn" disabled={!timed.some((c) => !isRunning(c) && !isFull(c))} onclick={() => clocks.runAll(true)}>Start all timers</button>
         <button class="btn" disabled={!running.length} onclick={() => clocks.runAll(false)}>Pause all timers</button>
         <div class="spacer"></div>
-        <span class="hint">Click a segment to fill up to it; click the last filled one to empty it.</span>
+        <InfoTip label="How to fill a clock" text="Click a segment to fill up to it; click the last filled one to empty it. Double-click a clock on the board to open it in Detail." />
         <div class="segmented views" role="group" aria-label="View">
           {#each VIEWS as v (v.id)}
             <button aria-pressed={view === v.id} aria-label="{v.label} view" title="{v.label} view" onclick={() => setView(v.id)}>
@@ -98,8 +99,8 @@
             <div class="row" id="clock-row-{c.id}" data-testid="clock-row" onclick={() => select(c)} onfocusin={() => select(c)}>
               <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
               <article
-                class="clock card"
-                class:selected={c.id === clocks.selected}
+                class="clock tile"
+                class:active={c.id === clocks.selected}
                 class:full={isFull(c)}
                 tabindex="0"
                 aria-label="{c.name}, {c.filled} of {c.segments}"
@@ -124,12 +125,12 @@
           {/each}
         </div>
       {:else}
-      <div class="stage-area grid">
+      <div class="stage-area tile-grid" style:--tile-min="260px">
         {#each list as c (c.id)}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
           <article
-            class="clock card"
-            class:selected={c.id === clocks.selected}
+            class="clock tile"
+            class:active={c.id === clocks.selected}
             class:full={isFull(c)}
             tabindex="0"
             aria-label="{c.name}, {c.filled} of {c.segments}"
@@ -181,28 +182,12 @@
     margin: 0 auto;
     text-align: center;
   }
-  .hint {
-    color: var(--text-muted);
-    font-size: 14px;
-  }
-  .grid {
-    overflow: auto;
-    padding: var(--space-4);
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    align-content: start;
-    gap: var(--space-4);
-  }
   .clock {
     display: grid;
     justify-items: center;
     gap: var(--space-3);
     padding: var(--space-4);
     cursor: default;
-    border: 2px solid var(--border);
-  }
-  .clock.selected {
-    border-color: var(--accent);
   }
   .clock:focus-visible {
     outline: 2px solid var(--accent);

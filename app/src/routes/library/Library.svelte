@@ -9,7 +9,7 @@
   import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
   import ViewActions from '../../lib/components/ViewActions.svelte';
-  import { ASSET_KINDS, KIND_LABELS, SIZE_LABELS, type Asset } from '../../lib/types';
+  import { ASSET_KINDS, KIND_LABELS, SIZE_LABELS, type Asset, type AssetSort } from '../../lib/types';
   import AssetCard, { ROW_COLUMNS, VARIANT_SIZE, type CardVariant } from './AssetCard.svelte';
   import AssetInspector from './AssetInspector.svelte';
   import ImportDialog from './ImportDialog.svelte';
@@ -38,6 +38,10 @@
     view = v;
     void api.workspaceSet(VIEW_KEY, v).catch(() => {});
   }
+  const headSort = (s: AssetSort) => {
+    lib.sort = s;
+    void lib.refresh();
+  };
   const topTags = $derived(lib.allTags.filter((t) => t.count > 0).slice(0, 24));
 
   onMount(() => {
@@ -195,10 +199,10 @@
     </div>
 
     {#if topTags.length}
-      <div class="tagbar" role="group" aria-label="Tag filter">
+      <div class="tagbar chip-bar" role="group" aria-label="Tag filter">
         {#each topTags as t (t.id)}
           <button
-            class="tag"
+            class="chip"
             aria-pressed={lib.tags.some((x) => x.toLowerCase() === t.name.toLowerCase())}
             onclick={() => lib.toggleTag(t.name)}>{t.name} <span class="muted">{t.count}</span></button
           >
@@ -245,8 +249,15 @@
         </div>
       {:else}
         {#if view === 'row'}
-          <div class="list-head" style:grid-template-columns={ROW_COLUMNS} aria-hidden="true">
-            <span></span><span>Name</span><span>Kind</span><span>Size</span><span>Tags</span><span>Updated</span><span>★</span>
+          <!-- column sorts map onto the library's own sorts (the Sort menu shows the same choice) -->
+          <div class="list-head" style:grid-template-columns={ROW_COLUMNS}>
+            <span></span>
+            <button class="sort" aria-pressed={lib.sort.startsWith('name')} onclick={() => headSort(lib.sort === 'name_asc' ? 'name_desc' : 'name_asc')}>Name{lib.sort === 'name_asc' ? ' ▲' : lib.sort === 'name_desc' ? ' ▼' : ''}</button>
+            <button class="sort" aria-pressed={lib.sort === 'kind'} onclick={() => headSort('kind')}>Kind{lib.sort === 'kind' ? ' ▲' : ''}</button>
+            <button class="sort" aria-pressed={lib.sort === 'size'} onclick={() => headSort('size')}>Size{lib.sort === 'size' ? ' ▲' : ''}</button>
+            <span>Tags</span>
+            <button class="sort" aria-pressed={lib.sort === 'newest' || lib.sort === 'oldest'} onclick={() => headSort(lib.sort === 'newest' ? 'oldest' : 'newest')}>Updated{lib.sort === 'newest' ? ' ▼' : lib.sort === 'oldest' ? ' ▲' : ''}</button>
+            <span aria-hidden="true">★</span>
           </div>
         {/if}
         <VirtualGrid
@@ -349,19 +360,6 @@
   .tagbar {
     padding-top: 0;
   }
-  .tag {
-    border: 1px solid var(--border);
-    background: var(--surface);
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .tag[aria-pressed='true'] {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
   .clear {
     font-size: 12px;
     min-height: 26px;
@@ -388,11 +386,6 @@
   }
   .list-head {
     margin-right: var(--space-2);
-  }
-  .views button {
-    display: inline-flex;
-    align-items: center;
-    padding: 0 var(--space-2);
   }
   .empty {
     height: 100%;

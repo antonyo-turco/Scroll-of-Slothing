@@ -69,10 +69,10 @@
   <div class="cp" class:multi>
     <div class="cp-left">
       <input class="input big" type="search" aria-label="Search the bestiary" placeholder="Search creatures…" bind:value={query} oninput={search} />
-      <ul class="cp-list" aria-label="Creatures">
+      <ul class="list-box cp-list" aria-label="Creatures">
         {#each hits as h (h.hash)}
           <li>
-            <button class:sel={picked.some((p) => p.entry.hash === h.hash)} onclick={() => choose(h)} aria-label="Pick {h.name} ({h.source})">
+            <button class="list-row" class:selected={picked.some((p) => p.entry.hash === h.hash)} onclick={() => choose(h)} aria-label="Pick {h.name} ({h.source})">
               <span class="thumb">{#if h.token_url}<img src={h.token_url} alt="" loading="lazy" />{/if}</span>
               <span class="nm">{h.name}</span>
               <span class="meta">{h.source} · CR {h.cr ?? '—'} · {h.size}</span>
@@ -86,9 +86,9 @@
     {#if multi}
       <div class="cp-right">
         <h3>Tokens to add</h3>
-        <ul class="cp-picked">
+        <ul class="list-box cp-picked">
           {#each picked as p, i (p.entry.hash)}
-            <li>
+            <li class="list-row">
               <span class="thumb">{#if p.entry.token_url}<img src={p.entry.token_url} alt="" />{/if}</span>
               <span class="nm">{p.entry.name} <span class="meta">{p.entry.source}</span></span>
               <span class="stepper">
@@ -142,42 +142,11 @@
     height: 40px;
     font-size: 15px;
   }
-  .cp-list,
-  .cp-picked {
-    flex: 1;
-    overflow: auto;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-  .cp-list button {
-    width: 100%;
-    display: grid;
+  /* token, name, source/CR or stepper */
+  .cp-list .list-row,
+  .cp-picked .list-row {
     grid-template-columns: 40px minmax(0, 1fr) auto;
-    gap: var(--space-3);
-    align-items: center;
     padding: 6px 12px;
-    border: 0;
-    border-bottom: 1px solid var(--border);
-    background: transparent;
-    color: var(--text);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .cp-list button:hover,
-  .cp-list button.sel {
-    background: var(--accent-soft);
-  }
-  .cp-picked li {
-    display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) auto;
-    gap: var(--space-3);
-    align-items: center;
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--border);
   }
   .cp-picked li.pad,
   .cp-list li.pad {

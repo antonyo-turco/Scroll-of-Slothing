@@ -163,7 +163,7 @@
     <label class="check"><input type="checkbox" bind:checked={loop} /> Loop by default</label>
     <div class="field">
       <span class="label">Tags</span>
-      <div class="chips">
+      <div class="chip-bar">
         {#each tags as t (t)}
           <button type="button" class="chip" aria-pressed="true" title="Remove" onclick={() => (tags = tags.filter((x) => x !== t))}>{t} ✕</button>
         {/each}
@@ -211,25 +211,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    align-items: center;
-  }
-  .chip {
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .chip[aria-pressed='true'] {
-    background: var(--accent-soft);
-    border-color: var(--accent);
   }
   .tag-input {
     width: 110px;

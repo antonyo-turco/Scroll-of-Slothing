@@ -42,6 +42,8 @@ Built from shared pieces: classes in `app/src/app.css` and two components.
 | Status line | `.statusbar` | Size, counts, page summary, gesture hints, warnings. |
 | Inspector | `aside.inspector`, `var(--inspector-w)` = 320 px | Settings in `.section` blocks with a small uppercase `.section-title`. Rare options go in a collapsed `<details class="section">` ("Advanced"). When there are too many for one scroll, the inspector gets tabs (`.inspector-tabs`, the Map Paginator's Scale / Pages / Look). Destructive or end-of-list actions go in a sticky `.inspector-footer`. |
 
+Lists, list detail, pickers, pills, chips, tile grids and view switches follow `styleguide.md`.
+
 Rows inside sections use `.field` (label above), `.prop` (label left, 92 px), `.pair` (two columns), `.range` (label, slider, value), `.check` and `.note` (`.ok`, `.bad`, `.warn`). Suggestions use a `.callout`.
 
 Per view:

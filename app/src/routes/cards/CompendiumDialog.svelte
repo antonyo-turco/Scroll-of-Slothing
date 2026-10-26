@@ -145,7 +145,7 @@
             <input type="checkbox" bind:checked={newestOnly} /> Newest printings only
           </label>
         </div>
-        <div class="pick-list" role="listbox" aria-label={kind === 'spell' ? 'Spells' : 'Items'} aria-multiselectable="true">
+        <div class="list-box" role="listbox" aria-label={kind === 'spell' ? 'Spells' : 'Items'} aria-multiselectable="true">
           {#each hits as h (key(h))}
             <div class="list-row pick-row" class:selected={focus === h}>
               <input type="checkbox" aria-label="Add {h.name} ({h.source})" checked={pickedKeys.has(key(h))} onchange={() => toggle(h)} />
@@ -200,12 +200,6 @@
   }
   .pick-filters select {
     width: auto;
-  }
-  .pick-list {
-    flex: 1;
-    overflow: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
   }
   .pick-row {
     grid-template-columns: 28px minmax(0, 1fr) auto;

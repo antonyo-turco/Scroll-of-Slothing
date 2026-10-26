@@ -181,7 +181,7 @@
       oninput={(e) => masterVolume(+e.currentTarget.value)}
     />
     <span class="num">{dragging.__master ?? st?.master_volume ?? 100}</span>
-    {#if st?.ducked}<span class="pill">ducked</span>{/if}
+    {#if st?.ducked}<span class="pill accent">ducked</span>{/if}
     {#if st && !st.engine_attached}<span class="muted small">no audio engine attached</span>{/if}
   </div>
 
@@ -227,7 +227,7 @@
   </div>
 
   <div class="toolbar">
-    <h2>Soundbites <InfoTip label="About soundbites" text="Short sounds that play on their own at random times between the minimum and maximum interval, such as birds or distant thunder." /> <PlayIndicator status={musicUi.oneshotStatus} /> {#if st?.soundbites_running}<span class="pill">running</span>{/if}</h2>
+    <h2>Soundbites <InfoTip label="About soundbites" text="Short sounds that play on their own at random times between the minimum and maximum interval, such as birds or distant thunder." /> <PlayIndicator status={musicUi.oneshotStatus} /> {#if st?.soundbites_running}<span class="pill ok">running</span>{/if}</h2>
     <div class="spacer"></div>
     {#if st?.sfx_queue}<span class="muted small">{st.sfx_queue} queued</span>{/if}
     <button class="btn" onclick={openSoundbite}>+ Soundbite</button>
@@ -407,14 +407,6 @@
   }
   .small {
     font-size: 12px;
-  }
-  .pill {
-    font-size: 11px;
-    padding: 1px 8px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--text);
-    font-weight: 500;
   }
   .empty {
     margin: 0;

@@ -247,10 +247,10 @@
       {#if filtersActive}<button class="btn ghost clear" onclick={clearFilters}>Clear filters</button>{/if}
     </div>
     {#if allTags.length}
-      <div class="tagbar" role="group" aria-label="Tag filter">
+      <div class="tagbar chip-bar" role="group" aria-label="Tag filter">
         {#each allTags as t (t)}
           <button
-            class="tag"
+            class="chip"
             aria-pressed={selectedTags.includes(t)}
             onclick={() => ((selectedTags = selectedTags.includes(t) ? selectedTags.filter((x) => x !== t) : [...selectedTags, t]), void load())}
           >{t}</button>
@@ -285,7 +285,7 @@
             onkeydown={(e) => e.key === 'Enter' && preview(t)}
           >
             {@render thumb(t)}
-            <span role="cell" class="title-cell">
+            <span role="cell" class="list-name">
               <span class="list-title" title={t.title}>
                 {#if previewId === t.id && musicUi.state?.previewing}<PlayIndicator status={musicUi.previewStatus ?? 'loading'} />{/if}
                 {t.title}
@@ -297,7 +297,7 @@
             <span role="cell" class="num">{formatDuration(t.duration)}</span>
             <span role="cell">{t.loop_by_default ? 'yes' : 'no'}</span>
             <span role="cell" class="list-muted num">{t.added_at.slice(0, 10)}</span>
-            <span role="cell" class="actions">
+            <span role="cell" class="list-actions">
               <button class="btn ghost" title="Preview 10 s" aria-label="Preview {t.title}" onclick={(e) => (e.stopPropagation(), void preview(t))}>▶</button>
               <button class="btn ghost" title={t.category === 'soundbite' ? 'Add to soundbites' : 'Add to mix'} aria-label="Add {t.title} to mix" onclick={(e) => (e.stopPropagation(), void addToMix(t))}>{flash === t.id ? '✓' : '+'}</button>
               <button class="btn ghost" title="Edit" aria-label="Edit {t.title}" onclick={(e) => (e.stopPropagation(), openDialog(t))}>✎</button>
@@ -390,24 +390,6 @@
     padding-block: 0;
     font-size: 12px;
   }
-  .chip,
-  .tag {
-    border: 1px solid var(--border);
-    background: var(--surface);
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .chip {
-    padding: 3px 12px;
-  }
-  .chip[aria-pressed='true'],
-  .tag[aria-pressed='true'] {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
   .clear {
     font-size: 12px;
     min-height: 26px;
@@ -416,37 +398,8 @@
     flex: 1 1 200px;
     max-width: 320px;
   }
-  .list-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: var(--space-2) var(--space-4) 0;
-  }
-  .list-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--surface-2);
-  }
-  .list-row {
-    cursor: default;
-  }
-  .list-row:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: -2px;
-  }
-  .title-cell {
-    display: grid;
-  }
   .num {
     font-variant-numeric: tabular-nums;
-  }
-  .actions {
-    white-space: nowrap;
-    text-align: right;
-  }
-  .actions .btn {
-    padding: 2px 6px;
   }
   .dot {
     width: 7px;

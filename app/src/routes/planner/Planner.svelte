@@ -13,12 +13,12 @@
   import type { PlanEntry, PlannerSummary, PlanSection, SessionView } from '../../lib/types';
   import AddToSession from './AddToSession.svelte';
 
-  const SECTIONS: { id: PlanSection; label: string; empty: string }[] = [
-    { id: 'music', label: 'Music', empty: 'Soundscapes, playlists and tracks to have ready.' },
-    { id: 'encounters', label: 'Encounters', empty: 'Saved encounters from Combat.' },
-    { id: 'tokens', label: 'Tokens and cut-outs', empty: 'They print together on one sheet.' },
-    { id: 'maps', label: 'Maps', empty: 'Maps saved from the Map Paginator print their pages.' },
-    { id: 'handouts', label: 'Handouts', empty: 'Card decks from Handouts.' },
+  const SECTIONS: { id: PlanSection; label: string; about: string }[] = [
+    { id: 'music', label: 'Music', about: 'Soundscapes, playlists and tracks to have ready.' },
+    { id: 'encounters', label: 'Encounters', about: 'Saved encounters from Combat.' },
+    { id: 'tokens', label: 'Tokens and cut-outs', about: 'They print together on one sheet.' },
+    { id: 'maps', label: 'Maps', about: 'Maps saved from the Map Paginator print their pages.' },
+    { id: 'handouts', label: 'Handouts', about: 'Card decks from Handouts.' },
   ];
 
   let summary = $state<PlannerSummary>({ sessions: [], current: null });
@@ -219,12 +219,10 @@
             {@const list = bySection.get(sec.id) ?? []}
             <section class="plan-section" aria-label={sec.label}>
               <header>
-                <h2>{sec.label} <span class="count">{list.length}</span></h2>
+                <h2>{sec.label} <span class="count">{list.length}</span> <InfoTip label="About {sec.label}" text={sec.about} /></h2>
                 <button class="btn" onclick={() => (addFor = sec.id)}>+ Add</button>
               </header>
-              {#if !list.length}
-                <p class="hint">{sec.empty}</p>
-              {:else}
+              {#if list.length}
                 <ul>
                   {#each list as e (`${e.kind}:${e.ref_id}`)}
                     <li class="entry" class:missing={e.missing} data-testid="plan-entry">
@@ -301,12 +299,11 @@
               value={s.notes} onchange={(e) => patch({ notes: e.currentTarget.value })}></textarea>
           </section>
           <section class="section">
-            <h3 class="section-title">Printing</h3>
+            <h3 class="section-title">Printing <InfoTip label="About printing" text="Print all writes one PDF of the session's tokens and cut-outs, each map's saved pages and each card deck into a folder you pick." /></h3>
             <label class="check">
               <input type="checkbox" checked={s.include_token_sheet} onchange={(e) => patch({ include_token_sheet: e.currentTarget.checked })} />
               Also print the Token Sheet's contents
             </label>
-            <p class="note">Print all writes one PDF of the session's tokens and cut-outs, each map's saved pages and each card deck into a folder you pick.</p>
           </section>
           <div class="inspector-footer">
             {#if confirmDelete}
@@ -381,11 +378,6 @@
     margin-left: 6px;
     font-size: 14px;
     font-weight: 500;
-    color: var(--text-muted);
-  }
-  .hint {
-    margin: var(--space-2) 0 0;
-    font-size: 15px;
     color: var(--text-muted);
   }
   ul {

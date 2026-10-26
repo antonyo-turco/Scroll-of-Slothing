@@ -129,16 +129,16 @@
       {/if}
       <input class="input grow" type="search" placeholder="Filter by name…" aria-label="Filter by name" bind:value={query} />
     </div>
-    <ul class="rows" aria-label="Items">
+    <ul class="list-box rows" aria-label="Items">
       {#each shown as r (key(r))}
         {@const already = planned.has(key(r))}
         <li>
-          <label class="row" class:on={picked.has(key(r))} class:already>
+          <label class="list-row row" class:selected={picked.has(key(r))} class:already>
             <input type="checkbox" checked={already || picked.has(key(r))} disabled={already} onchange={() => toggle(r)} />
-            {#if r.thumb}<img src={blobUrl(r.thumb)} alt="" loading="lazy" />{/if}
-            <span class="what">
-              <span class="name">{r.name}</span>
-              <span class="detail">{already ? 'already in the session' : r.detail}{#if r.starred}<span class="star">★ Starred</span>{/if}</span>
+            {#if r.thumb}<img src={blobUrl(r.thumb)} alt="" loading="lazy" />{:else}<span></span>{/if}
+            <span class="list-name">
+              <span class="list-title">{r.name}</span>
+              <span class="list-sub">{already ? 'already in the session' : r.detail}{#if r.starred}<span class="star">★ Starred</span>{/if}</span>
             </span>
           </label>
         </li>
@@ -165,58 +165,26 @@
     flex: 1;
   }
   .rows {
-    list-style: none;
-    margin: 0;
-    padding: 0;
     height: 55vh;
-    overflow: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
   }
+  /* checkbox, thumbnail, name */
   .row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
+    grid-template-columns: 18px 44px minmax(0, 1fr);
     padding: var(--space-2) var(--space-3);
-    border-bottom: 1px solid var(--border);
     cursor: pointer;
-  }
-  .row:hover {
-    background: var(--surface-2);
-  }
-  .row.on {
-    background: var(--accent-soft);
-  }
-  .row.already {
-    opacity: 0.6;
-    cursor: default;
   }
   .row input {
     width: 18px;
     height: 18px;
-    flex: none;
   }
   .row img {
     width: 44px;
     height: 44px;
     object-fit: contain;
-    flex: none;
   }
-  .what {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-  }
-  .name {
-    font-size: 16px;
-    font-weight: 600;
-  }
-  .detail {
-    font-size: 14px;
-    color: var(--text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .row.already {
+    opacity: 0.6;
+    cursor: default;
   }
   .star {
     margin-left: var(--space-2);
