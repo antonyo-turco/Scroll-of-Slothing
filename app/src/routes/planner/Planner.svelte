@@ -18,7 +18,7 @@
     { id: 'encounters', label: 'Encounters', empty: 'Saved encounters from Combat.' },
     { id: 'tokens', label: 'Tokens and cut-outs', empty: 'They print together on one sheet.' },
     { id: 'maps', label: 'Maps', empty: 'Maps saved from the Map Paginator print their pages.' },
-    { id: 'handouts', label: 'Handouts', empty: 'Card decks from Cards.' },
+    { id: 'handouts', label: 'Handouts', empty: 'Card decks from Handouts.' },
   ];
 
   let summary = $state<PlannerSummary>({ sessions: [], current: null });
@@ -144,7 +144,7 @@
     }
   }
   const OPEN_LABEL: Record<string, string> = {
-    asset: 'Open', encounter: 'Start', soundscape: 'Load', playlist: 'Play', track: 'Music', deck: 'Cards',
+    asset: 'Open', encounter: 'Start', soundscape: 'Load', playlist: 'Play', track: 'Music', deck: 'Handouts',
   };
   const openTitle = (e: PlanEntry) =>
     e.kind === 'encounter' ? 'Start it in the combat tracker (with the tracker\'s import settings)'

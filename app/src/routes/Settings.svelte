@@ -12,7 +12,7 @@
 
   // vertical tabs: one functionality per tab
   const TABS = [
-    ['general', 'General'], ['printing', 'Cut guides'], ['tokens', 'Tokens & cut-outs'], ['cutouts', 'Cards'],
+    ['general', 'General'], ['printing', 'Cut guides'], ['tokens', 'Tokens & cut-outs'], ['cutouts', 'Handouts'],
     ['maps', 'Maps'], ['transcription', 'Transcription'], ['combat', 'Combat'], ['data', 'Data'],
   ] as const;
   let tab = $state<(typeof TABS)[number][0]>('general');
@@ -254,7 +254,7 @@
     </section>
     {:else if tab === 'cutouts'}
     <section class="card">
-      <h2>Cards</h2>
+      <h2>Handouts</h2>
       <div class="field"><span class="label">Card page format</span>{@render formatPicker('card_page_format')}</div>
     </section>
     {:else if tab === 'maps'}

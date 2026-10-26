@@ -15,7 +15,8 @@
   const commands: Command[] = [
     ...ALL_VIEWS.map((v) => {
       const d = findView(v.id)!.dest;
-      const label = d.views.length > 1 ? `Go to ${d.label} › ${v.label}` : `Go to ${d.label}`;
+      // "Handouts › Cards" keeps a view findable by its own name
+      const label = d.views.length > 1 || v.label !== d.label ? `Go to ${d.label} › ${v.label}` : `Go to ${d.label}`;
       return { id: `go:${v.id}`, label, run: () => app.navigate(v.id) };
     }),
     { id: 'toggle-sidebar', label: 'Toggle sidebar', run: () => app.toggleSidebar() },

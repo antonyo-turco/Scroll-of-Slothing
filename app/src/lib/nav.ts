@@ -40,7 +40,8 @@ export const DESTINATIONS: Destination[] = [
     { id: 'cutouts.cutter', label: 'Cut-out cutter', phase: 3, load: () => import('../routes/cutouts/ObjectCutter.svelte') },
     { id: 'tokens.sheet', label: 'Sheet', phase: 2, load: () => import('../routes/tokens/TokenSheet.svelte') },
   ] },
-  { id: 'cards', label: 'Cards', icon: 'cards',
+  // Handouts: the card printer is its first tab; the ids stay 'cards' (persisted).
+  { id: 'cards', label: 'Handouts', icon: 'cards',
     views: [{ id: 'cards', label: 'Cards', phase: 4, load: () => import('../routes/cards/Cards.svelte') }] },
   { id: 'maps', label: 'Maps', icon: 'map', views: [
     { id: 'maps.paginator', label: 'Paginator', phase: 5, load: () => import('../routes/maps/MapPaginator.svelte') },

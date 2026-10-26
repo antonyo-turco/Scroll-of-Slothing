@@ -1,5 +1,7 @@
 # Cards
 
+The card printer is the Cards tab of the **Handouts** section (renamed from "Cards" on 2026-10-26; route and setting ids stay `cards`).
+
 You write cards in markdown, preview them exactly as they will print, and export them to PDF as poker-size cards, 3×3 per page. Optionally the PDF is double-sided, with text that doesn't fit on the front continuing on the back.
 
 ## Deck format (markdown)

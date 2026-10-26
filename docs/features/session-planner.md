@@ -22,7 +22,7 @@ Route `planner`, in the rail right under Library (above the **Before** group), s
 - Other sessions show only their planned items.
 
 ## Using it at the table
-Each line has an action: **Open** (an asset in its editor), **Start** (an encounter in the combat tracker, with the tracker's import settings), **Load** (a soundscape into the mixer), **Play** (a playlist), **Music** / **Cards** (go to the tool).
+Each line has an action: **Open** (an asset in its editor), **Start** (an encounter in the combat tracker, with the tracker's import settings), **Load** (a soundscape into the mixer), **Play** (a playlist), **Music** / **Handouts** (go to the tool).
 
 ## Print all
 `planner_print` writes everything printable of a session into a folder you pick, as one background job:

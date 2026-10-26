@@ -50,7 +50,7 @@ Per view:
 - **Token Sheet / Object Sheet**: page preview in the centre, paper options and the pager in the toolbar band, the items on the right, Clear all in the inspector footer. Add images and Export PDF are in the top bar.
 - **Map Paginator**: canvas tools in the toolbar band; the inspector has three tabs that follow the workflow: **Scale** (detect or set the square size, grid position), **Pages** (paper, print area, pages and their preview, Advanced) and **Look** (printed grid lines, embedded-grid removal, filters). Choosing a canvas tool brings up the tab it edits.
 - **AoE templates**: preview mode in the toolbar band, settings in the inspector, exports in the top bar.
-- **Cards**: two equal panes (`.view.split`): the Markdown editor and the page previews, each with its toolbar band and status line. File actions are in the top bar.
+- **Handouts → Cards**: two equal panes (`.view.split`): the Markdown editor and the page previews, each with its toolbar band and status line. File actions are in the top bar.
 - **Music**: its five tabs are in the top bar. Each tab has a toolbar band, a scrolling body and a centred empty state. Stop Music stays at the right end of the top bar; the Mixer adds its `.dmix` actions before it.
 
 "Save to library" in the editors always opens the same dialog (`SaveAssetDialog.svelte`). It asks for the name, the print size (tokens and cut-outs) and the tags, prefilled from the file or the library asset. For an item opened from the library it offers **Update existing** or **Save as new**. The editors have no name or size fields of their own. Tags use the shared chip input (`TagInput.svelte`), also used by the Library inspector.
