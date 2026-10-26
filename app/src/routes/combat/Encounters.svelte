@@ -75,7 +75,7 @@
       return !q || e.name.toLowerCase().includes(q) || e.lines.some((l) => l.name.toLowerCase().includes(q));
     }),
   );
-  const COLUMNS = '1fr 110px 90px 90px 110px 270px 32px';
+  const COLUMNS = '1fr 110px 90px 90px 110px 170px 32px';
   const summary = (e: EncounterSummary) =>
     e.lines.map((l) => (l.count > 1 ? `${l.count} × ${l.name}` : l.name)).join(', ') || 'No creatures';
 
@@ -313,7 +313,8 @@
             role="row"
             tabindex="0"
             style:grid-template-columns={COLUMNS}
-            onclick={() => (selected = e.id)}
+            aria-expanded={selected === e.id}
+            onclick={() => (selected = selected === e.id ? null : e.id)}
             ondblclick={() => start(e)}
             onkeydown={(ev) => ev.key === 'Enter' && start(e)}
           >
@@ -331,13 +332,11 @@
               {#if e.kind === 'encounter'}
                 <button class="btn ghost" title="Add to the current combat" aria-label="Add {e.name} to the current combat"
                   onclick={(ev) => (ev.stopPropagation(), void start(e, true))}>+</button>
-                <button class="btn ghost" title="Edit" aria-label="Edit {e.name}" onclick={(ev) => (ev.stopPropagation(), openEditor(e))}>✎</button>
+                <button class="btn ghost" title="Edit" aria-label="Edit {e.name}" onclick={(ev) => (ev.stopPropagation(), openEditor(e))}><Icon name="pencil" size={16} /></button>
+              {:else}
+                <!-- snapshots can't be added or edited: keep the slots so the columns line up -->
+                <span class="slot"></span><span class="slot"></span>
               {/if}
-              <button class="btn ghost" class:on={inNext.has(e.id)} aria-pressed={inNext.has(e.id)} title={nextTitle(e)} aria-label="Next session: {e.name}"
-                onclick={(ev) => (ev.stopPropagation(), void toggleNext(e))}><Icon name="calendar" size={16} /></button>
-              <button class="btn ghost" title="Print its tokens (adds them to Tokens → Sheet)" aria-label="Print the tokens of {e.name}"
-                onclick={(ev) => (ev.stopPropagation(), void printTokens(e.lines.filter((l) => l.known)))}><Icon name="token" size={16} /></button>
-              <button class="btn ghost" title="Copy the 5etools link" aria-label="Copy the 5etools link of {e.name}" onclick={(ev) => (ev.stopPropagation(), void copyLink(e))}>🔗</button>
               <button class="btn ghost" class:danger={confirmDelete === e.id} title={confirmDelete === e.id ? 'Click again to delete' : 'Delete'} aria-label="Delete {e.name}"
                 onclick={(ev) => (ev.stopPropagation(), void remove(e))}>{confirmDelete === e.id ? 'Delete?' : '✕'}</button>
             </span>
@@ -346,6 +345,23 @@
                 onclick={(ev) => (ev.stopPropagation(), void togglePin(e))}>{e.pinned ? '★' : '☆'}</button>
             </span>
           </div>
+          {#if selected === e.id}
+            <!-- more for the selected encounter: big buttons with their names -->
+            <div class="row-more" role="group" aria-label="More for {e.name}">
+              <button class="btn more-btn" class:on={inNext.has(e.id)} aria-pressed={inNext.has(e.id)} title={nextTitle(e)} onclick={() => toggleNext(e)}>
+                <Icon name="calendar" size={22} />
+                <span>{keptItem(e) ? 'In next session' : inNext.has(e.id) ? 'In next session (pinned)' : 'Add to next session'}</span>
+              </button>
+              <button class="btn more-btn" title="Adds a token for each creature to Tokens → Sheet" onclick={() => printTokens(e.lines.filter((l) => l.known))}>
+                <Icon name="token" size={22} />
+                <span>Print tokens</span>
+              </button>
+              <button class="btn more-btn" title="Copy a link that opens it on the 5etools DM Screen" onclick={() => copyLink(e)}>
+                <span class="more-glyph" aria-hidden="true">🔗</span>
+                <span>Copy 5etools link</span>
+              </button>
+            </div>
+          {/if}
         {/each}
       </div>
     {:else}
@@ -468,9 +484,33 @@
 </Modal>
 
 <style>
-  .actions .btn.on {
+  .actions .slot {
+    display: inline-block;
+    width: 36px;
+  }
+  .row-more {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+  }
+  .more-btn {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    min-width: 132px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .more-btn.on {
+    border-color: var(--accent);
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .more-glyph {
+    font-size: 20px;
+    line-height: 22px;
   }
   .enc {
     height: 100%;
@@ -510,7 +550,16 @@
     font-variant-numeric: tabular-nums;
   }
   .actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
     white-space: nowrap;
+  }
+  /* same-size slots, so every row's buttons line up */
+  .actions .btn {
+    min-width: 36px;
+    justify-content: center;
+    padding-inline: 6px;
   }
   .dot {
     width: 8px;
