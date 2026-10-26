@@ -84,13 +84,30 @@
 
   // refetch after changes from elsewhere (MCP, a finished sync)
   let seenVersion = app.dataVersion;
+  /** A reload held back while a tracker field is being typed in; done when focus leaves. */
+  let reloadHeld = false;
+  const typingInTracker = () => {
+    const el = document.activeElement;
+    return !!el?.closest('.tracker') && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement);
+  };
   $effect(() => {
     if (app.dataVersion !== seenVersion) {
       seenVersion = app.dataVersion;
-      if (!saveTimer) void load();
+      // a reload would overwrite what is being typed (a new player's name, HP)
+      if (saveTimer || typingInTracker()) reloadHeld = true;
+      else void load();
       void api.partiesList().then((p) => (parties = p)).catch(() => {});
     }
   });
+  function trackerFocusOut() {
+    // after the field's change event, which saves (and returns the fresh tracker)
+    setTimeout(() => {
+      if (reloadHeld && !saveTimer && !typingInTracker()) {
+        reloadHeld = false;
+        void load();
+      }
+    }, 0);
+  }
   $effect(() => {
     const job = syncJob;
     if (!job || job.state === 'running') return;
@@ -154,6 +171,13 @@
     if (k === 'y' || (k === 'z' && e.shiftKey)) return void (e.preventDefault(), travel('redo'));
   }
 
+  /** A new player row opens for editing, so its name can be typed straight away. */
+  async function addPlayer() {
+    const before = new Set(t?.rows.map((r) => r.id));
+    await op(api.combatAddPlayer());
+    const added = t?.rows.find((r) => !before.has(r.id));
+    if (added) editing = new Set([...editing, added.id]);
+  }
   async function op(p: Promise<Tracker>, what = 'Could not update the tracker') {
     try {
       setTracker(await p);
@@ -169,6 +193,8 @@
     saveTimer = setTimeout(async () => {
       saveTimer = null;
       if (t) await op(api.combatSet($state.snapshot(t) as Tracker), 'Could not save the tracker');
+      // the save returns the latest tracker, so a held reload has nothing left to fetch
+      if (!typingInTracker()) reloadHeld = false;
     }, 250);
   }
 
@@ -763,7 +789,9 @@
     const h = hashOf(r);
     if (h in mons) return;
     mons[h] = null;
-    void api.bestiaryGet(h).then((m) => (mons[h] = m)).catch(() => {});
+    void api.bestiaryGet(h).then((m) => {
+      mons[h] = m;
+    }).catch(() => {});
   }
   /** Every creature still in the fight (not lairs, not the defeated) to the token sheet. */
   const printFightTokens = () =>
@@ -1002,7 +1030,7 @@
         <button aria-pressed={t?.sort === 'ALPHA'} onclick={() => op(api.combatSort('ALPHA'))} title="Sort by name; again to flip">Name{sortLabel('ALPHA')}</button>
       </div>
       <span class="sep"></span>
-      <button class="btn" onclick={() => op(api.combatAddPlayer())} disabled={locked}>+ Player</button>
+      <button class="btn" onclick={addPlayer} disabled={locked}>+ Player</button>
       <button class="btn" onclick={() => (addOpen = true)} disabled={locked}>+ Creature…</button>
       <button class="btn ghost icon" onclick={() => travel('undo')} disabled={!history.undo.length} aria-label="Undo" title="Undo (Ctrl+Z)"><Icon name="undo" size={17} /></button>
       <button class="btn ghost icon redo" onclick={() => travel('redo')} disabled={!history.redo.length} aria-label="Redo" title="Redo (Ctrl+Y)"><Icon name="undo" size={17} /></button>
@@ -1030,7 +1058,7 @@
           <GroupBar count={selRows.length} {locked} bind:amount={groupAmount} bind:ability={saveAbility} bind:dc={saveDc} bind:half={halfOnSave}
             onHp={groupHp} onSaves={groupSaves} onCondition={groupCondition} onClear={clearSelection} />
         {/if}
-        <table class="tracker" data-testid="combat-table">
+        <table class="tracker" data-testid="combat-table" onfocusout={trackerFocusOut}>
           <thead>
             <tr>
               <th class="init-th">Init</th>

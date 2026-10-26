@@ -292,7 +292,9 @@ impl Service {
             for e in c.list.iter().filter(|e| e.kind == q.kind) {
                 if q.newest_only && e.reprinted
                     || q.level.is_some_and(|l| e.level != Some(l))
-                    || class.as_ref().is_some_and(|k| !e.classes.iter().any(|x| x.to_lowercase() == *k))
+                    || class
+                        .as_ref()
+                        .is_some_and(|k| !e.classes.iter().any(|x| x.to_lowercase() == *k))
                     || rarity.as_ref().is_some_and(|r| e.rarity.as_ref() != Some(r))
                 {
                     continue;
@@ -322,7 +324,10 @@ impl Service {
                 CompendiumKind::Item => c.items.get(&id).cloned(),
             };
             hit.ok_or_else(|| {
-                ServiceError::NotFound(format!("{:?} {:?} (sync spells and items first?)", r.kind, r.id))
+                ServiceError::NotFound(format!(
+                    "{:?} {:?} (sync spells and items first?)",
+                    r.kind, r.id
+                ))
             })
         })
         .await
@@ -388,7 +393,9 @@ impl Service {
             let index_bytes = get("spells/index.json")?;
             let index: HashMap<String, String> =
                 serde_json::from_slice(&index_bytes).map_err(|e| {
-                    ServiceError::InvalidInput(format!("index.json is not a 5etools spell index: {e}"))
+                    ServiceError::InvalidInput(format!(
+                        "index.json is not a 5etools spell index: {e}"
+                    ))
                 })?;
             std::fs::write(stmp.join("index.json"), &index_bytes).map_err(io)?;
             let files: Vec<&String> =
@@ -439,8 +446,11 @@ mod tests {
     fn seed(root: &Path) {
         let s = spells_dir(root);
         std::fs::create_dir_all(&s).unwrap();
-        std::fs::write(s.join("index.json"), r#"{"PHB": "spells-phb.json", "XPHB": "spells-xphb.json"}"#)
-            .unwrap();
+        std::fs::write(
+            s.join("index.json"),
+            r#"{"PHB": "spells-phb.json", "XPHB": "spells-xphb.json"}"#,
+        )
+        .unwrap();
         let spell = |src: &str, extra: Value| {
             let mut v = json!({"name": "Fireball", "source": src, "level": 3, "school": "V",
                 "time": [{"number": 1, "unit": "action"}],
@@ -457,8 +467,11 @@ mod tests {
             .to_string(),
         )
         .unwrap();
-        std::fs::write(s.join("spells-xphb.json"), json!({"spell": [spell("XPHB", json!({}))]}).to_string())
-            .unwrap();
+        std::fs::write(
+            s.join("spells-xphb.json"),
+            json!({"spell": [spell("XPHB", json!({}))]}).to_string(),
+        )
+        .unwrap();
         std::fs::write(
             s.join(SPELL_EXTRA),
             json!({"XPHB": {"Fireball": {"class": [{"name": "Sorcerer"}, {"name": "Wizard"}]}},
@@ -515,15 +528,24 @@ mod tests {
         assert_eq!((st.synced, st.spells, st.items), (true, 3, 4));
 
         let all = svc.compendium_search(q(CompendiumKind::Spell, "")).await.unwrap();
-        assert_eq!(all.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["fireball_phb", "fireball_xphb", "light_phb"]);
+        assert_eq!(
+            all.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+            ["fireball_phb", "fireball_xphb", "light_phb"]
+        );
         let newest = svc
-            .compendium_search(CompendiumQuery { newest_only: true, ..q(CompendiumKind::Spell, "fire") })
+            .compendium_search(CompendiumQuery {
+                newest_only: true,
+                ..q(CompendiumKind::Spell, "fire")
+            })
             .await
             .unwrap();
         assert_eq!(newest.len(), 1);
         assert_eq!(newest[0].classes, ["Sorcerer", "Wizard"]);
         let wiz = svc
-            .compendium_search(CompendiumQuery { class: Some("wizard".into()), ..q(CompendiumKind::Spell, "") })
+            .compendium_search(CompendiumQuery {
+                class: Some("wizard".into()),
+                ..q(CompendiumKind::Spell, "")
+            })
             .await
             .unwrap();
         assert_eq!(wiz.len(), 1);
@@ -534,7 +556,10 @@ mod tests {
         assert_eq!(cantrips[0].detail, "Evocation cantrip");
 
         let rare = svc
-            .compendium_search(CompendiumQuery { rarity: Some("Rare".into()), ..q(CompendiumKind::Item, "bag") })
+            .compendium_search(CompendiumQuery {
+                rarity: Some("Rare".into()),
+                ..q(CompendiumKind::Item, "bag")
+            })
             .await
             .unwrap();
         assert_eq!(rare.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["Bag of Tricks"]);
@@ -558,7 +583,10 @@ mod tests {
         assert_eq!(parsed[1].body, "A +1 bonus.");
 
         let full = svc
-            .compendium_get(CompendiumRef { kind: CompendiumKind::Item, id: "Bag%20of%20Tricks_XDMG".into() })
+            .compendium_get(CompendiumRef {
+                kind: CompendiumKind::Item,
+                id: "Bag%20of%20Tricks_XDMG".into(),
+            })
             .await
             .unwrap();
         assert_eq!(full["entries"][0], "Big inside.");
@@ -624,7 +652,10 @@ mod tests {
             }
         }
         let fb = svc
-            .compendium_cards(vec![CompendiumRef { kind: CompendiumKind::Spell, id: "fireball_xphb".into() }])
+            .compendium_cards(vec![CompendiumRef {
+                kind: CompendiumKind::Spell,
+                id: "fireball_xphb".into(),
+            }])
             .await
             .unwrap();
         println!("{}", fb.markdown);

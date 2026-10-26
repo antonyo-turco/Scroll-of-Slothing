@@ -86,7 +86,9 @@ test('cloud: key in Settings, confirm once, cost in the status bar', async ({ pa
   await expect(page.getByRole('button', { name: 'Transcribe file' })).toBeDisabled();
 
   // Save and test a key in Settings (hash navigation keeps the in-memory mock).
+  // the link opens Settings on its Transcription tab
   await page.getByRole('button', { name: 'Add one in Settings' }).click();
+  await expect(page.getByRole('tab', { name: 'Transcription' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('key-status')).toContainText('No key yet');
   await page.getByLabel('OpenRouter API key').fill('sk-or-v1-0123456789abcd');
   await page.getByRole('button', { name: 'Save key' }).click();
@@ -111,6 +113,7 @@ test('cloud: key in Settings, confirm once, cost in the status bar', async ({ pa
 
 test('settings: a rejected key is reported, bad URLs are refused', async ({ page }) => {
   await page.evaluate(() => (location.hash = '#/settings'));
+  await page.getByRole('tab', { name: 'Transcription' }).click();
   await page.getByLabel('OpenRouter API key').fill('sk-or-bad-key-0000');
   await page.getByRole('button', { name: 'Save key' }).click();
   await page.getByRole('button', { name: 'Test key' }).click();

@@ -166,7 +166,9 @@ fn fill_placeholders(s: &str, item: &Value) -> String {
     let re = VAR.get_or_init(|| Regex::new(r"\{=(\w+)(?:/(\w+))?\}").expect("valid regex"));
     re.replace_all(s, |c: &regex::Captures| {
         let v = match (&c[1], item.get(&c[1])) {
-            ("dmgType", Some(Value::String(t))) => lookup(&DAMAGE_TYPES, t).unwrap_or(t).to_string(),
+            ("dmgType", Some(Value::String(t))) => {
+                lookup(&DAMAGE_TYPES, t).unwrap_or(t).to_string()
+            }
             (_, Some(Value::String(v))) => v.clone(),
             (_, Some(Value::Number(n))) => n.to_string(),
             ("baseName", _) => generic_base(item).to_string(),
@@ -354,9 +356,9 @@ fn cell(c: &Value) -> String {
             let roll = o.get("roll").unwrap_or(&Value::Null);
             let pad = roll.get("pad").and_then(Value::as_bool).unwrap_or(false);
             let num = |k: &str| {
-                roll.get(k).and_then(Value::as_i64).map(|n| {
-                    if pad { format!("{n:02}") } else { n.to_string() }
-                })
+                roll.get(k)
+                    .and_then(Value::as_i64)
+                    .map(|n| if pad { format!("{n:02}") } else { n.to_string() })
             };
             match (num("exact"), num("min"), num("max")) {
                 (Some(x), _, _) => x,
@@ -376,7 +378,8 @@ fn table(o: &Map<String, Value>, out: &mut Vec<String>) {
         if cells.len() == 2 { cells.join(" — ") } else { cells.join(" · ") }
     };
     if let Some(labels) = o.get("colLabels").and_then(Value::as_array) {
-        let l: Vec<String> = labels.iter().map(|x| clean(&plain(x.as_str().unwrap_or("")))).collect();
+        let l: Vec<String> =
+            labels.iter().map(|x| clean(&plain(x.as_str().unwrap_or("")))).collect();
         if l.iter().any(|x| !x.is_empty()) {
             out.push(format!("**{}**", join(l)));
         }
@@ -541,7 +544,8 @@ fn spell_duration(spell: &Value) -> String {
 /// A spell as one card: level and school, casting time, range, components,
 /// duration and classes as stats, then its text and higher-level text.
 pub fn spell_card(spell: &Value, classes: &[String]) -> String {
-    let mut md = format!("# {}\n**Type:** Spell\n", clean(&str_of(spell, "name").unwrap_or_default()));
+    let mut md =
+        format!("# {}\n**Type:** Spell\n", clean(&str_of(spell, "name").unwrap_or_default()));
     let mut stat = |k: &str, v: String| {
         if !v.is_empty() {
             md.push_str(&format!("**{k}:** {v}\n"));
@@ -589,7 +593,9 @@ impl ItemRefs {
         };
         for (key, map) in [("itemType", &mut refs.types), ("itemProperty", &mut refs.properties)] {
             for x in base.get(key).and_then(Value::as_array).into_iter().flatten() {
-                if let (Some(a), Some(n)) = (x.get("abbreviation").and_then(Value::as_str), name_of(x)) {
+                if let (Some(a), Some(n)) =
+                    (x.get("abbreviation").and_then(Value::as_str), name_of(x))
+                {
                     // the first (older) printing wins only when no newer one names it
                     map.insert(a.to_uppercase(), n);
                 }
@@ -609,10 +615,7 @@ fn rarity_color(rarity: &str) -> Option<&'static str> {
 
 /// `"Wondrous item"`, `"Martial Weapon (longsword)"`, `"Potion"`, `"Weapon (any sword)"`.
 pub fn item_kind(item: &Value, refs: &ItemRefs) -> String {
-    let base = item
-        .get("baseItem")
-        .and_then(Value::as_str)
-        .map(|b| strip_source(b).to_lowercase());
+    let base = item.get("baseItem").and_then(Value::as_str).map(|b| strip_source(b).to_lowercase());
     let type_name = item.get("type").and_then(Value::as_str).map(|t| {
         let abbr = strip_source(t).to_uppercase();
         refs.types.get(&abbr).cloned().unwrap_or(abbr)
@@ -878,7 +881,10 @@ mod tests {
     #[test]
     fn spell_cards_parse_back() {
         let md = spell_card(&fireball(), &["Sorcerer".into(), "Wizard".into()]);
-        assert!(md.starts_with("# Fireball\n**Type:** Spell\n**Level:** 3rd-level Evocation\n"), "{md}");
+        assert!(
+            md.starts_with("# Fireball\n**Type:** Spell\n**Level:** 3rd-level Evocation\n"),
+            "{md}"
+        );
         let c = &parse(&md)[0];
         assert_eq!(c.title, "Fireball");
         assert_eq!(c.kind, "Spell");
@@ -968,7 +974,9 @@ mod tests {
         assert_eq!(item["source"], "XDMG");
         let md = item_card(&item, &refs());
         assert!(md.contains("**Kind:** Weapon (any)\n"), "{md}");
-        assert!(md.ends_with("You have a +1 bonus to attack and damage rolls made with this magic weapon."));
+        assert!(md.ends_with(
+            "You have a +1 bonus to attack and damage rolls made with this magic weapon."
+        ));
     }
 
     #[test]
@@ -977,7 +985,12 @@ mod tests {
             "inherits": {"source": "DMG", "rarity": "very rare",
                 "entries": ["There are both {@i {=baseName/l}s of dragon slaying}. {=baseName/at} of slaying is rare."]}});
         let md = item_card(&variant_as_item(&v), &refs());
-        assert!(md.ends_with("There are both *ammunitions of dragon slaying*. An ammunition of slaying is rare."), "{md}");
+        assert!(
+            md.ends_with(
+                "There are both *ammunitions of dragon slaying*. An ammunition of slaying is rare."
+            ),
+            "{md}"
+        );
         let w = json!({"name": "Sword", "requires": [{"sword": true}], "dmgType": "S",
             "entries": ["{=baseName/a} deals {=dmgType} damage."]});
         assert_eq!(item_card(&w, &refs()).lines().last(), Some("a weapon deals slashing damage."));

@@ -24,6 +24,8 @@ class AppState {
   dataVersion = $state(0);
   /** One-shot request for an editor view to open a library asset. */
   openRequest = $state<{ route: string; assetId: number } | null>(null);
+  /** One-shot: the Settings tab to open on the next visit (e.g. 'transcription'). */
+  settingsTab = $state<string | null>(null);
   #bumpTimer: ReturnType<typeof setTimeout> | null = null;
   #toastSeq = 0;
   #unlisten: (() => void) | null = null;

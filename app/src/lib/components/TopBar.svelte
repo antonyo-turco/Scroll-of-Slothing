@@ -72,8 +72,9 @@
     border-radius: 4px;
     color: var(--text-muted);
   }
-  /* narrow windows: the palette shrinks to its icon to leave room for actions */
-  @container (max-width: 980px) {
+  /* narrow windows: the palette shrinks to its icon to leave room for actions
+     (sized for the 15 px type scale: the cutters' four actions need ~1150 px) */
+  @container (max-width: 1180px) {
     .wide {
       display: none;
     }

@@ -775,7 +775,7 @@ mod tests_support {
             {"name": "Goblin", "source": "MM", "hp": {"average": 7, "formula": "2d6"}, "ac": [{"ac": 15}],
              "dex": 14, "cr": "1/4", "hasToken": true},
             {"name": "Goblin Boss", "source": "MM", "_copy": {"name": "Goblin", "source": "MM"}, "cr": "1"},
-            {"name": "Ogre", "source": "MM", "hp": {"average": 59, "formula": "7d10+21"}, "ac": [11], "dex": 8}
+            {"name": "Ogre", "source": "MM", "hp": {"average": 59, "formula": "7d10+21"}, "ac": [11], "dex": 8, "cr": "2"}
         ]});
         std::fs::write(dir.join("bestiary-mm.json"), mm.to_string()).unwrap();
     }
@@ -814,8 +814,19 @@ mod tests {
         assert!(svc.combat_add_creature("nope_mm".into(), 1, None, None, None).await.is_err());
         assert!(svc.combat_add_creature("goblin_mm".into(), 0, None, None, None).await.is_err());
 
+        // copies roll together by default (combat_roll_groups), so they share one initiative
+        let inits: Vec<_> =
+            t.rows.iter().filter(|r| r.name == "Goblin").map(|r| r.initiative).collect();
+        assert!(inits.windows(2).all(|w| w[0] == w[1]), "copies share a roll: {inits:?}");
+
+        // exactly one turn group acts: Vex alone, or both goblins together
         let t = svc.combat_next_turn().await.unwrap();
-        assert_eq!(t.active().len(), 1);
+        let active = t.active();
+        assert!(matches!(active.len(), 1 | 2), "{} active", active.len());
+        assert!(
+            active.iter().all(|r| r.name == active[0].name && r.initiative == active[0].initiative),
+            "the active rows are one turn group"
+        );
         let goblin = t.rows.iter().find(|r| r.name == "Goblin").unwrap().id.clone();
         let t =
             svc.combat_add_condition(goblin.clone(), "prone".into(), None, Some(2)).await.unwrap();

@@ -38,7 +38,6 @@ use tokio::sync::broadcast;
 pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
 pub use cards::{CardOptions, CardSummary};
 pub use clocks::{ClockNew, ClockPatch, ClockTick, FiredEvent};
-pub use sleuth_core::clocks::{AutoAdvance, Clock, ClockEvent};
 pub use combat::{
     BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CreatureImage, DENC_FORMAT,
     EncounterCreature, EncounterLine, EncounterSummary, Hero, Party, RowPatch, SavedEncounter,
@@ -62,6 +61,7 @@ pub use music::{
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use planner::{PlanEntry, PlanRef, PlannerSummary, SessionPatch, SessionSummary, SessionView};
 pub use settings::SettingsUpdate;
+pub use sleuth_core::clocks::{AutoAdvance, Clock, ClockEvent};
 pub use sleuth_core::planner::{CheckItem, RefKind, Section};
 pub use sleuth_store::{
     Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome,

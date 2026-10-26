@@ -367,7 +367,7 @@
         {:else}
           <p class="note warn" data-testid="cloud-key">
             No OpenRouter key yet.
-            <button class="btn ghost link" onclick={() => app.navigate('settings')}>Add one in Settings</button>
+            <button class="btn ghost link" onclick={() => ((app.settingsTab = 'transcription'), app.navigate('settings'))}>Add one in Settings</button>
           </p>
         {/if}
       {:else}

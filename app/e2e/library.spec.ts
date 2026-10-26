@@ -77,7 +77,12 @@ test('list and pill views show the same assets and are remembered', async ({ pag
   const view = page.getByRole('group', { name: 'View' });
   await view.getByRole('button', { name: 'List view' }).click();
   await expect(page.getByTestId('asset-card')).toHaveCount(7);
-  await expect(page.getByText('Updated', { exact: true })).toBeVisible();
+  // the list's column headers sort, and follow the Sort menu (newest first by default)
+  const updated = page.getByRole('button', { name: /^Updated/ });
+  await expect(updated).toHaveText('Updated ▼');
+  await page.getByRole('button', { name: /^Name/ }).click();
+  await expect(page.getByRole('button', { name: /^Name/ })).toHaveText('Name ▲');
+  await expect(page.getByLabel('Sort')).toHaveValue('name_asc');
   // Rows still select and pin.
   const first = page.getByTestId('asset-card').first();
   await first.getByRole('button', { name: /^Pin / }).click();

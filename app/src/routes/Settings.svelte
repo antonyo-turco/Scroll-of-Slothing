@@ -15,7 +15,11 @@
     ['general', 'General'], ['printing', 'Cut guides'], ['tokens', 'Tokens & cut-outs'], ['cutouts', 'Handouts'],
     ['maps', 'Maps'], ['transcription', 'Transcription'], ['combat', 'Combat'], ['data', 'Data'],
   ] as const;
-  let tab = $state<(typeof TABS)[number][0]>('general');
+  type TabId = (typeof TABS)[number][0];
+  // another view can ask for a tab (app.settingsTab), e.g. Transcribe's "Add one in Settings"
+  const asked = TABS.find(([id]) => id === app.settingsTab)?.[0];
+  app.settingsTab = null;
+  let tab = $state<TabId>(asked ?? 'general');
   let errors = $state<Record<string, string>>({});
   let confirmingReset = $state(false);
   let dataDir = $state('');

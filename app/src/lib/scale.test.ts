@@ -13,8 +13,9 @@ describe('CR scaling', () => {
     expect(s.cr).toBe('5');
     expect((s.ac as { ac: number }[])[0].ac).toBe(17); // 13 → 15
     const hp = s.hp as { average: number; formula: string };
-    expect(hp.average).toBeGreaterThan(100);
-    expect(hp.formula).toMatch(/^\d+d6$/);
+    // HP scales by the table's midpoint ratio, (131 + 145) / (36 + 49): 7 → ~23, kept as d6s
+    expect(hp.formula).toBe('7d6');
+    expect(hp.average).toBe(24);
     const line = (s.action as { entries: string[] }[])[0].entries[0];
     expect(line).toContain('{@hit 7}'); // 3 → 6 attack bonus
     expect(line).toContain('DC 14'); // 13 → 15 DC

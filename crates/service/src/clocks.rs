@@ -359,7 +359,11 @@ mod tests {
     async fn tick_reports_the_events_it_reaches() {
         let (_d, svc) = temp_service();
         let k = svc
-            .clocks_create(ClockNew { segments: Some(6), every_secs: Some(60), ..Default::default() })
+            .clocks_create(ClockNew {
+                segments: Some(6),
+                every_secs: Some(60),
+                ..Default::default()
+            })
             .await
             .unwrap();
         let k = svc

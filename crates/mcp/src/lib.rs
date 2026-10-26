@@ -1630,7 +1630,10 @@ impl SleuthServer {
     #[tool(
         description = "Search the synced 5etools spells (kind: spell) or items (kind: item) by name, prefix matches first. Filters: level (0 = cantrip) and class (e.g. Wizard) for spells, rarity (common, uncommon, rare, very rare, legendary, artifact, none) for items; newest_only leaves out entries reprinted in a newer book. Returns id, name, source, detail."
     )]
-    async fn compendium_search(&self, Parameters(p): Parameters<CompendiumSearchParams>) -> ToolResult {
+    async fn compendium_search(
+        &self,
+        Parameters(p): Parameters<CompendiumSearchParams>,
+    ) -> ToolResult {
         let q = sleuth_service::CompendiumQuery {
             kind: p.kind.into(),
             query: p.query.unwrap_or_default(),
@@ -1643,7 +1646,9 @@ impl SleuthServer {
         done(self.svc.compendium_search(q).await)
     }
 
-    #[tool(description = "A synced spell's or item's full 5etools JSON, by kind and id (from compendium_search).")]
+    #[tool(
+        description = "A synced spell's or item's full 5etools JSON, by kind and id (from compendium_search)."
+    )]
     async fn compendium_get(&self, Parameters(p): Parameters<CompendiumRefParams>) -> ToolResult {
         done(self.svc.compendium_get(p.into()).await)
     }
@@ -1651,7 +1656,10 @@ impl SleuthServer {
     #[tool(
         description = "Card markdown for spells and items (items [{kind, id}] from compendium_search), separated by ---, ready to append to a deck for cards_validate, cards_export_pdf or decks_save. Ids not in the synced data are listed in missing."
     )]
-    async fn compendium_cards(&self, Parameters(p): Parameters<CompendiumCardsParams>) -> ToolResult {
+    async fn compendium_cards(
+        &self,
+        Parameters(p): Parameters<CompendiumCardsParams>,
+    ) -> ToolResult {
         done(self.svc.compendium_cards(p.items.into_iter().map(Into::into).collect()).await)
     }
 

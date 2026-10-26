@@ -36,10 +36,12 @@ test('command palette navigates', async ({ page }) => {
 
 test('settings validate and persist within the session', async ({ page }) => {
   await page.goto('/#/settings');
+  await page.getByRole('tab', { name: 'Maps' }).click();
   const square = page.getByLabel('1 square on paper');
   await square.fill('-1');
   await square.blur();
   await expect(page.getByText('must be > 0')).toBeVisible();
+  await page.getByRole('tab', { name: 'General' }).click();
   await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });

@@ -65,7 +65,7 @@ impl ClockEvent {
     pub fn fires_at(&self, segment: u32) -> bool {
         match self.repeat {
             _ if segment == self.at => true,
-            Some(r) if r > 0 && segment > self.at => (segment - self.at) % r == 0,
+            Some(r) if r > 0 && segment > self.at => (segment - self.at).is_multiple_of(r),
             _ => false,
         }
     }
