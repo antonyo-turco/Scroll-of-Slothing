@@ -61,6 +61,9 @@ enum Cmd {
         /// local | cloud (default: the `stt_engine` setting).
         #[arg(long)]
         engine: Option<String>,
+        /// Cloud: an endpoint id added in Settings (default: openrouter).
+        #[arg(long)]
+        endpoint: Option<String>,
         /// Local: a model id (see `sleuth stt models`). Cloud: an OpenRouter model id.
         #[arg(long)]
         model: Option<String>,
@@ -361,6 +364,7 @@ async fn main() -> Result<()> {
         Cmd::Transcribe {
             file,
             engine,
+            endpoint,
             model,
             language,
             format,
@@ -388,6 +392,7 @@ async fn main() -> Result<()> {
             };
             let opts = TranscribeOptions {
                 engine,
+                endpoint,
                 model,
                 language: Some(language),
                 glossary,
