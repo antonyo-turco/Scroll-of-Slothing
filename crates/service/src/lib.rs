@@ -74,8 +74,8 @@ pub use sleuth_store::{
 };
 pub use sleuth_stt::cloud::{CloudModelSpec, KeyInfo as CloudKeyInfo};
 pub use stt::{
-    CloudKeyStatus, EngineEstimate, SttModel, TranscribeEstimate, TranscribeOptions,
-    TranscribeResult,
+    CloudKeyStatus, EngineEstimate, LastTranscript, SttEndpoint, SttEndpointInfo, SttEndpointInput,
+    SttModel, TranscribeEstimate, TranscribeOptions, TranscribeResult,
 };
 pub use token_sheet::{
     CreatureToken, PlacedItem, SheetItem, SheetItemPatch, SheetLayout, TokenSheet,

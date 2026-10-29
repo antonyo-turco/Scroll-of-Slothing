@@ -12,7 +12,7 @@ use sleuth_core::stt::{
     Correction, Corrections, ExportFormat, GREEDY_FACTOR, Segment, blend_speed, estimate_secs,
     export, glossary_prompt,
 };
-use sleuth_stt::cloud::{self, CloudConfig, CloudModelSpec, KeyInfo};
+use sleuth_stt::cloud::{self, ApiFormat, ChunkReply, CloudConfig, CloudModelSpec, KeyInfo};
 use sleuth_stt::local::{LocalModel, LocalOptions};
 use sleuth_stt::{SttError, audio, models};
 
@@ -21,6 +21,8 @@ use crate::{JobCtx, JobId, Result, Service, ServiceError};
 /// Workspace entry with the speeds measured on this machine
 /// (`local:<model>` at beam 5, and `cloud`), in seconds of work per audio second.
 const SPEEDS_KEY: &str = "transcribe.speeds";
+/// Workspace entry with the last finished transcription ([`LastTranscript`]).
+const LAST_KEY: &str = "transcribe.last";
 /// Fixed costs added to estimates and removed from measurements.
 const LOCAL_OVERHEAD_S: f64 = 1.0;
 const CLOUD_OVERHEAD_S: f64 = 3.0;
@@ -29,6 +31,12 @@ const MIN_MEASURED_AUDIO_MS: u64 = 15_000;
 
 /// Glossary prompts longer than this are cut; Whisper only keeps ~224 prompt tokens.
 const PROMPT_MAX_CHARS: usize = 600;
+/// Workspace entry with the user's own endpoints (`Vec<SttEndpoint>`).
+const ENDPOINTS_KEY: &str = "transcribe.endpoints";
+/// Workspace entry with the cloud chunks of an unfinished transcription ([`Partial`]).
+const PARTIAL_KEY: &str = "transcribe.partial";
+/// Id of the built-in OpenRouter endpoint (its address is the `stt_cloud_base_url` setting).
+pub const OPENROUTER_ID: &str = "openrouter";
 /// Credential-store entry for the OpenRouter key.
 const CLOUD_KEY: &str = "openrouter_api_key";
 /// Used when no key is saved (handy for the CLI and the standalone MCP server).
@@ -93,6 +101,9 @@ pub struct TranscribeEstimate {
 pub struct TranscribeOptions {
     /// Default: the `stt_engine` setting.
     pub engine: Option<SttEngine>,
+    /// Cloud only: an endpoint id from [`Service::stt_endpoints_list`]
+    /// (default `openrouter`).
+    pub endpoint: Option<String>,
     /// Local: a model id from [`Service::stt_models_list`] (default
     /// `large-v3-turbo-q5_0`). Cloud: the API's model id (default: the
     /// `stt_cloud_model` setting).
@@ -120,6 +131,61 @@ pub struct TranscribeResult {
     pub segments: Vec<Segment>,
     /// Cloud only: what the API reported it charged, in USD.
     pub cost: Option<f64>,
+}
+
+/// The last finished transcription and its audio file. Saved by the Job itself,
+/// so a result is kept even when no view is watching (or the app restarts).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LastTranscript {
+    pub path: String,
+    pub result: TranscribeResult,
+}
+
+/// A cloud speech-to-text server the user added in Settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SttEndpoint {
+    pub id: String,
+    pub name: String,
+    /// e.g. `http://localhost:8000/v1`, no trailing slash.
+    pub base_url: String,
+    pub format: ApiFormat,
+    /// Model ids offered in the pickers; any other id can still be typed.
+    pub models: Vec<String>,
+}
+
+/// An endpoint as listed: the built-in one or a custom one, plus whether its key is set.
+#[derive(Debug, Clone, Serialize)]
+pub struct SttEndpointInfo {
+    #[serde(flatten)]
+    pub endpoint: SttEndpoint,
+    pub builtin: bool,
+    pub key_configured: bool,
+    pub key_hint: Option<String>,
+}
+
+/// What Settings sends to add or change a custom endpoint.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SttEndpointInput {
+    /// Set to change an existing endpoint.
+    pub id: Option<String>,
+    pub name: String,
+    pub base_url: String,
+    #[serde(default)]
+    pub format: ApiFormat,
+    #[serde(default)]
+    pub models: Vec<String>,
+    /// `None` keeps the saved key; an empty string removes it. Servers
+    /// without authentication need no key.
+    pub api_key: Option<String>,
+}
+
+/// Chunks of an unfinished cloud transcription, saved as they arrive so a failure,
+/// a cancel or a crash doesn't cost the parts that were already paid for.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Partial {
+    /// Which audio, model and endpoint the chunks belong to.
+    fingerprint: String,
+    chunks: Vec<Option<ChunkReply>>,
 }
 
 /// Whether a cloud API key is available. The key itself is never returned.
@@ -157,6 +223,21 @@ fn joined<T>(r: std::result::Result<Result<T>, tokio::task::JoinError>) -> Resul
 enum Plan {
     Local { model: String },
     Cloud(CloudConfig),
+}
+
+fn endpoint_key_name(id: &str) -> String {
+    format!("stt_endpoint_key:{id}")
+}
+
+fn slug(name: &str) -> String {
+    let s: String = name
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let s = s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
+    if s.is_empty() { "endpoint".into() } else { s }
 }
 
 impl Service {
@@ -321,6 +402,151 @@ impl Service {
         Ok(model)
     }
 
+    // ── cloud endpoints ──
+
+    fn custom_endpoints(&self) -> Vec<SttEndpoint> {
+        self.store().workspace_get(ENDPOINTS_KEY).ok().flatten().unwrap_or_default()
+    }
+
+    fn endpoints_now(&self) -> Result<Vec<SttEndpointInfo>> {
+        let settings = self.store().load_settings()?;
+        let builtin = SttEndpoint {
+            id: OPENROUTER_ID.into(),
+            name: "OpenRouter".into(),
+            base_url: settings.stt_cloud_base_url,
+            format: ApiFormat::OpenRouter,
+            models: cloud::MODELS.iter().map(|m| m.id.to_string()).collect(),
+        };
+        let status = self.cloud_key_status_now()?;
+        let mut out = vec![SttEndpointInfo {
+            endpoint: builtin,
+            builtin: true,
+            key_configured: status.configured,
+            key_hint: status.hint,
+        }];
+        for e in self.custom_endpoints() {
+            let key = self.inner.secrets.get(&endpoint_key_name(&e.id))?.filter(|k| !k.is_empty());
+            out.push(SttEndpointInfo {
+                key_hint: key.as_deref().map(key_hint),
+                key_configured: key.is_some(),
+                builtin: false,
+                endpoint: e,
+            });
+        }
+        Ok(out)
+    }
+
+    /// The built-in OpenRouter endpoint followed by the user's own.
+    pub async fn stt_endpoints_list(&self) -> Result<Vec<SttEndpointInfo>> {
+        let svc = self.clone();
+        joined(tokio::task::spawn_blocking(move || svc.endpoints_now()).await)
+    }
+
+    /// Adds a custom endpoint, or changes the one named by `input.id`.
+    pub async fn stt_endpoint_save(&self, input: SttEndpointInput) -> Result<Vec<SttEndpointInfo>> {
+        let name = input.name.trim().to_string();
+        if name.is_empty() {
+            return Err(ServiceError::InvalidInput("the endpoint needs a name".into()));
+        }
+        let base_url = input.base_url.trim().trim_end_matches('/').to_string();
+        if !((base_url.starts_with("https://") || base_url.starts_with("http://"))
+            && base_url.len() > 8)
+        {
+            return Err(ServiceError::InvalidInput("the address must be an http(s) URL".into()));
+        }
+        let mut models: Vec<String> = Vec::new();
+        for m in input.models.iter().map(|m| m.trim()).filter(|m| !m.is_empty()) {
+            if !models.iter().any(|x| x == m) {
+                models.push(m.to_string());
+            }
+        }
+        let key = match input.api_key.as_deref().map(str::trim) {
+            Some(k) if k.chars().any(char::is_whitespace) => {
+                return Err(ServiceError::InvalidInput(
+                    "the API key must be one word, without spaces".into(),
+                ));
+            }
+            k => k.map(String::from),
+        };
+        let svc = self.clone();
+        joined(
+            tokio::task::spawn_blocking(move || {
+                let mut all = svc.custom_endpoints();
+                let id = match input.id {
+                    Some(id) => {
+                        if !all.iter().any(|e| e.id == id) {
+                            return Err(ServiceError::NotFound(format!("endpoint {id}")));
+                        }
+                        id
+                    }
+                    None => {
+                        let base = slug(&name);
+                        let mut id = base.clone();
+                        let mut n = 2;
+                        while id == OPENROUTER_ID || all.iter().any(|e| e.id == id) {
+                            id = format!("{base}-{n}");
+                            n += 1;
+                        }
+                        id
+                    }
+                };
+                let e =
+                    SttEndpoint { id: id.clone(), name, base_url, format: input.format, models };
+                match all.iter_mut().find(|x| x.id == id) {
+                    Some(slot) => *slot = e,
+                    None => all.push(e),
+                }
+                svc.store().workspace_set(ENDPOINTS_KEY, &all)?;
+                match key.as_deref() {
+                    Some("") => svc.inner.secrets.delete(&endpoint_key_name(&id))?,
+                    Some(k) => svc.inner.secrets.set(&endpoint_key_name(&id), k)?,
+                    None => {}
+                }
+                svc.endpoints_now()
+            })
+            .await,
+        )
+    }
+
+    pub async fn stt_endpoint_delete(&self, id: String) -> Result<Vec<SttEndpointInfo>> {
+        let svc = self.clone();
+        joined(
+            tokio::task::spawn_blocking(move || {
+                let mut all = svc.custom_endpoints();
+                let before = all.len();
+                all.retain(|e| e.id != id);
+                if all.len() == before {
+                    return Err(ServiceError::NotFound(format!("endpoint {id}")));
+                }
+                svc.store().workspace_set(ENDPOINTS_KEY, &all)?;
+                svc.inner.secrets.delete(&endpoint_key_name(&id))?;
+                svc.endpoints_now()
+            })
+            .await,
+        )
+    }
+
+    /// Address, key and format of an endpoint, ready to send requests to.
+    fn endpoint_config(&self, id: &str, model: String) -> Result<CloudConfig> {
+        if id == OPENROUTER_ID {
+            let settings = self.store().load_settings()?;
+            let (api_key, _) = self.cloud_key()?.ok_or_else(no_key)?;
+            return Ok(CloudConfig {
+                base_url: settings.stt_cloud_base_url,
+                api_key,
+                model,
+                format: ApiFormat::OpenRouter,
+            });
+        }
+        let e = self
+            .custom_endpoints()
+            .into_iter()
+            .find(|e| e.id == id)
+            .ok_or_else(|| ServiceError::NotFound(format!("endpoint {id}")))?;
+        let api_key = self.inner.secrets.get(&endpoint_key_name(id))?.unwrap_or_default();
+        Ok(CloudConfig { base_url: e.base_url, api_key, model, format: e.format })
+    }
+
     // ── cloud API key ──
 
     fn cloud_key(&self) -> Result<Option<(String, &'static str)>> {
@@ -406,14 +632,14 @@ impl Service {
                 Plan::Local { model }
             }
             SttEngine::Cloud => {
-                let (api_key, _) = self.cloud_key()?.ok_or_else(no_key)?;
+                let endpoint = opts.endpoint.as_deref().unwrap_or(OPENROUTER_ID);
                 let model = opts
                     .model
                     .as_deref()
                     .map(str::trim)
                     .filter(|m| !m.is_empty())
                     .map_or(settings.stt_cloud_model, String::from);
-                Plan::Cloud(CloudConfig { base_url: settings.stt_cloud_base_url, api_key, model })
+                Plan::Cloud(self.endpoint_config(endpoint, model)?)
             }
         };
         if !path.is_file() {
@@ -440,7 +666,23 @@ impl Service {
                     svc.record_speed("cloud".into(), elapsed, CLOUD_OVERHEAD_S, result.duration_ms)
                 }
             }
-            serde_json::to_value(result).map_err(|e| ServiceError::Internal(e.to_string()))
+            let last = LastTranscript { path: path.display().to_string(), result };
+            // Every finished transcript is also written to its own file that nothing
+            // overwrites, then made the "last" one; a failure of either is reported
+            // loudly because the Job's result might not be read by anyone.
+            let archived = svc.archive_transcript(&path, &last);
+            if let Err(e) = svc.store().workspace_set(LAST_KEY, &last) {
+                tracing::error!("could not save the transcript: {e}");
+                if let Err(a) = &archived {
+                    return Err(ServiceError::Io(format!(
+                        "the transcript is done but could not be saved ({e}; {a})"
+                    )));
+                }
+            }
+            if let Err(e) = svc.store().workspace_delete(PARTIAL_KEY) {
+                tracing::warn!("could not clear the saved parts: {e}");
+            }
+            serde_json::to_value(last.result).map_err(|e| ServiceError::Internal(e.to_string()))
         }))
     }
 
@@ -480,7 +722,8 @@ impl Service {
                 let progress = |p: f32, done: usize, total: usize| {
                     ctx.progress(0.1 + p * 0.9, format!("sent {done} of {total} parts"))
                 };
-                let r = cloud::transcribe(cfg, &samples, lang, &progress, &cancel)?;
+                let r =
+                    self.cloud_with_checkpoint(cfg, path, &samples, lang, &progress, &cancel)?;
                 (SttEngine::Cloud, cfg.model.clone(), r.segments, r.cost)
             }
         };
@@ -490,6 +733,101 @@ impl Service {
             s.text = corrections.apply(&s.text);
         }
         Ok(TranscribeResult { engine, model, language, duration_ms, segments, cost })
+    }
+
+    /// Runs the cloud engine, saving every chunk as it arrives and reusing the
+    /// chunks of an earlier unfinished run on the same audio, model and endpoint.
+    fn cloud_with_checkpoint(
+        &self,
+        cfg: &CloudConfig,
+        path: &std::path::Path,
+        samples: &[f32],
+        lang: Option<&str>,
+        progress: &(dyn Fn(f32, usize, usize) + Sync),
+        cancel: &(dyn Fn() -> bool + Sync),
+    ) -> Result<cloud::CloudResult> {
+        let n = cloud::chunk_count(samples);
+        let fingerprint = format!(
+            "{}|{}|{}|{:?}|{}|{}",
+            path.display(),
+            cfg.base_url,
+            cfg.model,
+            lang,
+            samples.len(),
+            n
+        );
+        let saved: Option<Partial> = self.store().workspace_get(PARTIAL_KEY).ok().flatten();
+        let chunks = match saved {
+            Some(p) if p.fingerprint == fingerprint && p.chunks.len() == n => p.chunks,
+            _ => vec![None; n],
+        };
+        let state = Mutex::new(Partial { fingerprint, chunks: chunks.clone() });
+        let on_chunk = |i: usize, reply: &ChunkReply| {
+            let mut st = state.lock().unwrap_or_else(|e| e.into_inner());
+            st.chunks[i] = Some(reply.clone());
+            if let Err(e) = self.store().workspace_set(PARTIAL_KEY, &*st) {
+                tracing::error!("could not save a transcribed part: {e}");
+            }
+        };
+        cloud::transcribe_resumable(cfg, samples, lang, chunks, &on_chunk, progress, cancel)
+            .map_err(|e| {
+                let done = state
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .chunks
+                    .iter()
+                    .filter(|c| c.is_some())
+                    .count();
+                let e = ServiceError::from(e);
+                if done > 0 && !matches!(e, ServiceError::Cancelled) {
+                    ServiceError::Io(format!(
+                        "{e} ({done} of {n} parts are saved; run the same transcription again to continue where it stopped)"
+                    ))
+                } else {
+                    e
+                }
+            })
+    }
+
+    /// Writes a finished transcript to `transcripts/<time>-<name>.json` in the
+    /// data folder. Never overwrites an earlier one.
+    fn archive_transcript(
+        &self,
+        audio: &std::path::Path,
+        last: &LastTranscript,
+    ) -> Result<PathBuf> {
+        let dir = self.data_dir().join("transcripts");
+        std::fs::create_dir_all(&dir)?;
+        let stem = audio.file_stem().map(|s| slug(&s.to_string_lossy())).unwrap_or_default();
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        let json =
+            serde_json::to_vec_pretty(last).map_err(|e| ServiceError::Internal(e.to_string()))?;
+        for n in 0.. {
+            let name = if n == 0 {
+                format!("{secs}-{stem}.json")
+            } else {
+                format!("{secs}-{stem}-{n}.json")
+            };
+            let path = dir.join(name);
+            match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(mut f) => {
+                    std::io::Write::write_all(&mut f, &json)?;
+                    f.sync_all()?;
+                    return Ok(path);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(e.into()),
+            }
+        }
+        unreachable!()
+    }
+
+    /// The last finished transcription, if any.
+    pub async fn transcript_last(&self) -> Result<Option<LastTranscript>> {
+        let svc = self.clone();
+        joined(tokio::task::spawn_blocking(move || Ok(svc.store().workspace_get(LAST_KEY)?)).await)
     }
 
     /// Renders segments as TXT, Markdown, SRT or VTT. With `path`, also writes
@@ -632,6 +970,73 @@ mod tests {
             r.segments,
             vec![Segment { start_ms: 0, end_ms: 3000, text: "beholder in vista".into() }]
         );
+
+        // The Job saved it too, so it survives a lost view or a restart.
+        let last = svc.transcript_last().await.unwrap().expect("saved");
+        assert_eq!(last.path, d.path().join("tone.wav").display().to_string());
+        assert_eq!(last.result.segments, r.segments);
+    }
+
+    #[tokio::test]
+    async fn custom_endpoints_are_saved_with_hidden_keys_and_used() {
+        let (d, svc) = temp_service();
+        assert!(
+            svc.stt_endpoint_save(SttEndpointInput {
+                id: None,
+                name: " ".into(),
+                base_url: "http://x".into(),
+                format: ApiFormat::OpenAi,
+                models: vec![],
+                api_key: None,
+            })
+            .await
+            .is_err()
+        );
+        let base = fake_api(r#"{"text":"ciao dal server"}"#);
+        let list = svc
+            .stt_endpoint_save(SttEndpointInput {
+                id: None,
+                name: "My NIM".into(),
+                base_url: format!("{base}/"),
+                format: ApiFormat::OpenAi,
+                models: vec!["nvidia/nemotron".into(), "nvidia/nemotron".into()],
+                api_key: Some("secret-key-123456".into()),
+            })
+            .await
+            .unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].endpoint.id, OPENROUTER_ID);
+        let mine = &list[1];
+        assert_eq!((mine.endpoint.id.as_str(), mine.builtin), ("my-nim", false));
+        assert_eq!(mine.endpoint.models, vec!["nvidia/nemotron"]);
+        assert!(mine.key_configured);
+        assert!(!serde_json::to_string(mine).unwrap().contains("secret-key-123456"));
+
+        let tone: Vec<f32> = (0..48_000).map(|i| (i as f32 * 0.05).sin() * 0.3).collect();
+        let wav = d.path().join("tone.wav");
+        std::fs::write(&wav, sleuth_core::stt::wav_pcm16(&tone, 16_000)).unwrap();
+        let opts = TranscribeOptions {
+            engine: Some(SttEngine::Cloud),
+            endpoint: Some("my-nim".into()),
+            model: Some("nvidia/nemotron".into()),
+            ..Default::default()
+        };
+        let id = svc.transcribe_file(wav, opts).unwrap();
+        let st = loop {
+            let st = svc.job_status(&id).unwrap();
+            if st.state != crate::JobState::Running {
+                break st;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        };
+        assert_eq!(st.state, crate::JobState::Done, "{:?}", st.error);
+        // Archived in its own file as well as saved as the last transcript.
+        let files: Vec<_> = std::fs::read_dir(d.path().join("transcripts")).unwrap().collect();
+        assert_eq!(files.len(), 1);
+
+        let list = svc.stt_endpoint_delete("my-nim".into()).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert!(svc.stt_endpoint_delete("my-nim".into()).await.is_err());
     }
 
     #[test]

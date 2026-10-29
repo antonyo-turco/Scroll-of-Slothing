@@ -407,6 +407,8 @@ pub struct TranscribeFileParams {
     pub path: String,
     /// `local` (Whisper on this computer) or `cloud` (OpenRouter; needs a key saved in the app's Settings). Default: the `stt_engine` setting.
     pub engine: Option<String>,
+    /// Cloud only: an endpoint id from `stt_endpoints_list`. Default `openrouter`.
+    pub endpoint: Option<String>,
     /// Local: a model id, default `large-v3-turbo-q5_0`, must be installed (`stt_model_download`). Cloud: an OpenRouter model id such as `openai/whisper-1`; default: the `stt_cloud_model` setting.
     pub model: Option<String>,
     /// `it` (default), `en`, ... or `auto`.
@@ -725,6 +727,13 @@ impl SleuthServer {
     }
 
     #[tool(
+        description = "Cloud speech-to-text endpoints: the built-in OpenRouter one and the ones added in the app's Settings (id, name, address, format, model ids, whether a key is set; never the key). Pass an id as `endpoint` to transcribe_file. Endpoints and keys are managed in Settings, not over MCP."
+    )]
+    async fn stt_endpoints_list(&self) -> ToolResult {
+        done(self.svc.stt_endpoints_list().await)
+    }
+
+    #[tool(
         description = "Estimate how long transcribing a file takes with each local model and with the cloud (learned from past runs on this machine), and what the cloud costs. Also returns the file's duration."
     )]
     async fn transcribe_estimate(
@@ -764,6 +773,7 @@ impl SleuthServer {
         };
         let opts = TranscribeOptions {
             engine,
+            endpoint: p.endpoint,
             model: p.model,
             language: p.language,
             glossary: p.glossary,
@@ -780,6 +790,13 @@ impl SleuthServer {
                 .transcribe_file(PathBuf::from(p.path), opts)
                 .map(|job_id| serde_json::json!({ "job_id": job_id })),
         )
+    }
+
+    #[tool(
+        description = "The last finished transcription: { path, result } with the same result as the transcribe_file job, or null if there is none."
+    )]
+    async fn transcript_last(&self) -> ToolResult {
+        done(self.svc.transcript_last().await)
     }
 
     #[tool(

@@ -8,7 +8,7 @@
   import Icon from '../lib/components/Icon.svelte';
   import InfoTip from '../lib/components/InfoTip.svelte';
   import CombatSettings from './combat/CombatSettings.svelte';
-  import type { CloudKeyInfo, CloudKeyStatus, CloudModelSpec, CutLineStyle, PageFormat, Settings, SttEngine, Theme } from '../lib/types';
+  import type { CloudKeyInfo, CloudKeyStatus, CloudModelSpec, CutLineStyle, PageFormat, Settings, SttEndpointInfo, SttEngine, Theme } from '../lib/types';
 
   // vertical tabs: one functionality per tab
   const TABS = [
@@ -28,6 +28,7 @@
     void api.appInfo().then((i) => (dataDir = i.data_dir));
     void api.sttCloudKeyStatus().then((s) => (keyStatus = s)).catch(() => {});
     void api.sttCloudModelsList().then((m) => (cloudModels = m)).catch(() => {});
+    void api.sttEndpointsList().then((l) => (endpoints = l)).catch(() => {});
   });
 
   // ── transcription: the OpenRouter key lives in the Windows Credential Manager ──
@@ -70,6 +71,55 @@
     } finally {
       keyBusy = false;
     }
+  }
+
+  // ── transcription: extra cloud endpoints (OpenAI-compatible servers, NVIDIA NIM, vLLM, ...) ──
+  type Draft = { id: string | null; name: string; base_url: string; format: 'openrouter' | 'openai'; models: string; api_key: string };
+  let endpoints = $state<SttEndpointInfo[]>([]);
+  let draft = $state<Draft | null>(null);
+  let draftBusy = $state(false);
+  const custom = $derived(endpoints.filter((e) => !e.builtin));
+
+  function newEndpoint() {
+    draft = { id: null, name: '', base_url: '', format: 'openai', models: 'nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b', api_key: '' };
+  }
+
+  function editEndpoint(e: SttEndpointInfo) {
+    draft = { id: e.id, name: e.name, base_url: e.base_url, format: e.format, models: e.models.join('\n'), api_key: '' };
+  }
+
+  async function saveEndpoint() {
+    if (!draft) return;
+    draftBusy = true;
+    try {
+      endpoints = await api.sttEndpointSave({
+        id: draft.id,
+        name: draft.name,
+        base_url: draft.base_url,
+        format: draft.format,
+        models: draft.models.split(/[\n,]/),
+        api_key: draft.api_key.trim() === '' ? undefined : draft.api_key.trim(),
+      });
+      draft = null;
+      app.toast('success', 'Endpoint saved');
+    } catch (e) {
+      app.error('Could not save the endpoint', e);
+    } finally {
+      draftBusy = false;
+    }
+  }
+
+  async function removeEndpointKey() {
+    if (!draft?.id) return;
+    const d = draft;
+    endpoints = await api
+      .sttEndpointSave({ id: d.id, name: d.name, base_url: d.base_url, format: d.format, models: d.models.split(/[\n,]/), api_key: '' })
+      .catch((e) => (app.error('Could not remove the key', e), endpoints));
+  }
+
+  async function deleteEndpoint(e: SttEndpointInfo) {
+    endpoints = await api.sttEndpointDelete(e.id).catch((err) => (app.error('Could not remove the endpoint', err), endpoints));
+    if (draft?.id === e.id) draft = null;
   }
 
   const usd = (v: number) => `$${v.toFixed(2)}`;
@@ -384,6 +434,58 @@
           {#if errors.stt_cloud_base_url}<span class="error-text">{errors.stt_cloud_base_url}</span>{/if}
         </div>
       </details>
+    </section>
+    <section class="card" data-testid="endpoints">
+      <div class="label-row">
+        <h2>Cloud endpoints</h2>
+        <InfoTip
+          label="About cloud endpoints"
+          text="Add any server that transcribes audio over HTTP: OpenAI, a NVIDIA NIM or vLLM server, or one on your own network. Choose OpenAI format for servers that accept a file upload at /audio/transcriptions; OpenRouter format sends the audio as JSON. Keys are stored in the Windows Credential Manager. Pick the endpoint for each file in Transcribe."
+        />
+        <span class="spacer"></span>
+        <button class="btn" onclick={newEndpoint}>Add endpoint</button>
+      </div>
+      {#if custom.length === 0 && !draft}
+        <p class="muted">Only OpenRouter for now.</p>
+      {/if}
+      {#each custom as e (e.id)}
+        <div class="key-row" data-testid="endpoint-row">
+          <span><strong>{e.name}</strong> <code>{e.base_url}</code> · {e.format} · {e.key_configured ? `key ${e.key_hint}` : 'no key'}</span>
+          <span class="spacer"></span>
+          <button class="btn" onclick={() => editEndpoint(e)}>Edit</button>
+          <button class="btn ghost" onclick={() => deleteEndpoint(e)}>Remove</button>
+        </div>
+      {/each}
+      {#if draft}
+        <div class="field">
+          <label for="ep-name">Name</label>
+          <input id="ep-name" class="input" bind:value={draft.name} placeholder="My NIM server" />
+        </div>
+        <div class="field">
+          <label for="ep-url">Address</label>
+          <input id="ep-url" class="input mono" spellcheck="false" bind:value={draft.base_url} placeholder="http://localhost:8000/v1" />
+        </div>
+        <div class="field">
+          <span class="label">Request format</span>
+          <div class="segmented fill" role="group" aria-label="Request format">
+            <button aria-pressed={draft.format === 'openai'} onclick={() => draft && (draft.format = 'openai')}>OpenAI (file upload)</button>
+            <button aria-pressed={draft.format === 'openrouter'} onclick={() => draft && (draft.format = 'openrouter')}>OpenRouter (JSON)</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="ep-models">Model ids (one per line)</label>
+          <textarea id="ep-models" class="input mono" rows="3" spellcheck="false" bind:value={draft.models}></textarea>
+        </div>
+        <div class="field">
+          <label for="ep-key">API key (optional)</label>
+          <input id="ep-key" class="input" type="password" autocomplete="off" bind:value={draft.api_key} placeholder={draft.id ? 'Leave empty to keep the saved key' : 'Leave empty if the server needs none'} />
+        </div>
+        <div class="key-row">
+          <button class="btn primary" disabled={draftBusy || !draft.name.trim() || !draft.base_url.trim()} onclick={saveEndpoint}>Save endpoint</button>
+          {#if draft.id}<button class="btn ghost" onclick={removeEndpointKey}>Remove key</button>{/if}
+          <button class="btn ghost" onclick={() => (draft = null)}>Cancel</button>
+        </div>
+      {/if}
     </section>
     {:else if tab === 'combat'}
       <CombatSettings />

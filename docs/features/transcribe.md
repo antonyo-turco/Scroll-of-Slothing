@@ -8,7 +8,8 @@ Status: in progress (phase 8, after parity). Done so far:
 - A first slice of the UI: the **File** tab (`transcribe.file`, `routes/transcribe/TranscribeFile.svelte`).
   - Pick or drop a file; choose model, language, Accurate/Fast, glossary and corrections. These are kept in the workspace store under `transcribe.file`.
   - Progress with cancel, timestamped segments, copy, export.
-  - Matching Tauri commands and MCP tools. Transcripts are not saved yet: the last one is kept in memory for the session.
+  - Matching Tauri commands and MCP tools. There is no transcript list yet, but the last finished transcription is saved (see `transcript_last`) and shown again when the File tab opens.
+  - The running job is tracked outside the view, so switching views during a long file doesn't lose its result.
 
 ## Engines
 Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, and you can override it per transcription.
@@ -68,6 +69,16 @@ Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, a
   - 408, 429, 5xx and network errors are retried up to 4 times, with 1, 2 and 4 s waits.
   - 401/403 ("the API key was rejected") and 402 ("not enough credits") stop at once, with the API's own message.
   - Other 4xx stop with the API's message. Waiting between retries can be cancelled.
+- **Nemotron 3:** `nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b` is in the suggested OpenRouter models ($0.00018 / min). A NVIDIA NIM or vLLM server hosting it can be added as an endpoint (below).
+- **Custom endpoints (Settings → Transcription → Cloud endpoints):**
+  - Each has a name, an address, a request format, a list of model ids and an optional key. They are stored in the workspace entry `transcribe.endpoints`; keys go in the credential store (`stt_endpoint_key:<id>`), never in SQLite, and never come back from the service.
+  - Formats: `openrouter` (the JSON body above) or `openai` (multipart form with `file`, `model`, `language`, `response_format=json`, as OpenAI, vLLM and NIM accept). The reply is read the same way (`text`).
+  - Without a key no `Authorization` header is sent, for servers on your own network.
+  - OpenRouter is always listed first with id `openrouter`; its address stays the `stt_cloud_base_url` setting. `TranscribeOptions.endpoint` / the `endpoint` argument of `transcribe_file` picks one. Service: `stt_endpoints_list`, `stt_endpoint_save`, `stt_endpoint_delete`. MCP can list endpoints but not change them.
+- **Nothing is lost:**
+  - Every cloud chunk is saved to the workspace entry `transcribe.partial` as it arrives. If a later chunk fails, the Job is cancelled or the app dies, running the same transcription again (same file, endpoint, model and language) reuses the saved chunks and only sends the missing ones. The error says how many parts are saved.
+  - A finished transcript is written to its own file `transcripts/<unix time>-<name>.json` in the data folder (never overwritten), and also saved as `transcribe.last`. The partial entry is cleared only after both succeeded.
+  - Local transcription has no partial state: whisper.cpp either finishes or fails.
 - **Privacy:** the first cloud transcription asks for confirmation ("Send this audio to OpenRouter?"). "Don't ask again" is stored in the workspace as `transcribe.cloud_ok`. The status bar says when the cloud engine is selected.
 - **Not yet:** the glossary is not sent to the cloud, because the prompt field isn't confirmed for OpenRouter's endpoint. Corrections apply to cloud results as well.
 
@@ -121,8 +132,11 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
 | `stt_models_list` | Installed and available models, with size and hash |
 | `stt_model_download` / `stt_model_delete` | Download is a Job |
 | `stt_cloud_key_status` / `stt_cloud_key_test` | Whether a key is available (never the key itself) and a live check. MCP has only these two: keys are set in Settings or with `sleuth stt key set`, so a secret never passes through an LLM's context |
+| `stt_endpoints_list` | Built-in OpenRouter plus custom endpoints, with model ids and whether a key is set. MCP: list only |
+| `stt_endpoint_save` / `stt_endpoint_delete` | UI only (they carry keys) |
 | `stt_cloud_key_set` / `stt_cloud_key_clear` | UI and CLI only (see above) |
 | `transcribe_file` | Job. Arguments: path, engine, model, language, glossary, corrections, beam size |
+| `transcript_last` | Built. The last finished transcription, `{ path, result }`. The Job saves it in the workspace (`transcribe.last`) before it reports done, so the result is kept even when no view is watching. Stands in until `transcripts_list` exists |
 | `live_start` / `live_stop` / `live_status` | One live session at a time. A second start returns an error |
 | `transcripts_list` / `transcript_get` | Get includes segments |
 | `transcript_update` | Title, segment text |

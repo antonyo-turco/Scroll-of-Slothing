@@ -1,9 +1,11 @@
 <script lang="ts" module>
   import type { TranscribeResult } from '../../lib/types';
 
-  // The open file and the last transcript survive switching views (e.g. to add a
-  // key in Settings). Transcripts aren't saved to the store yet.
+  // The open file, the running job and the last transcript survive switching
+  // views (e.g. to add a key in Settings, or while a long file runs). The Job
+  // also saves its result (`transcript_last`), which is read back on open.
   let openPath = $state<string | null>(null);
+  let pending = $state<{ id: string; path: string } | null>(null);
   let last = $state<{ path: string; result: TranscribeResult } | null>(null);
 </script>
 
@@ -18,7 +20,7 @@
   import ViewActions from '../../lib/components/ViewActions.svelte';
   import { app } from '../../lib/state.svelte';
   import type {
-    CloudKeyStatus, CloudModelSpec, Correction, SttEngine, SttModel, TranscribeEstimate, TranscriptFormat,
+    CloudKeyStatus, CloudModelSpec, Correction, SttEndpointInfo, SttEngine, SttModel, TranscribeEstimate, TranscriptFormat,
   } from '../../lib/types';
 
   const PREFS_KEY = 'transcribe.file';
@@ -31,6 +33,8 @@
     /** null = the default engine from Settings */
     engine: SttEngine | null;
     model: string;
+    /** '' = OpenRouter, else a custom endpoint id from Settings */
+    endpoint: string;
     /** '' = the cloud model from Settings */
     cloudModel: string;
     language: string;
@@ -42,13 +46,14 @@
   }
 
   let prefs = $state<Prefs>({
-    engine: null, model: 'large-v3-turbo-q5_0', cloudModel: '', language: 'it', beam: 5, glossary: '', corrections: '',
+    engine: null, model: 'large-v3-turbo-q5_0', endpoint: '', cloudModel: '', language: 'it', beam: 5, glossary: '', corrections: '',
   });
   // Reactive, so a change made while the saved options load is saved once they arrive.
   let prefsLoaded = $state(false);
   let models = $state<SttModel[]>([]);
   let cloudModels = $state<CloudModelSpec[]>([]);
   let keyStatus = $state<CloudKeyStatus | null>(null);
+  let endpoints = $state<SttEndpointInfo[]>([]);
   let estimate = $state<TranscribeEstimate | null>(null);
   let cloudOk = false;
   let confirmOpen = $state(false);
@@ -57,18 +62,21 @@
   $effect(() => {
     openPath = path;
   });
-  let jobId = $state<string | null>(null);
   let dlJobId = $state<string | null>(null);
 
   const engine = $derived<SttEngine>(prefs.engine ?? app.settings.stt_engine);
   const cloud = $derived(engine === 'cloud');
-  const cloudModel = $derived(prefs.cloudModel.trim() || app.settings.stt_cloud_model);
-  const cloudSpec = $derived(cloudModels.find((m) => m.id === cloudModel));
-  const job = $derived(jobId ? app.jobs.find((j) => j.id === jobId) : undefined);
+  // a deleted endpoint falls back to OpenRouter
+  const endpoint = $derived(endpoints.find((e) => !e.builtin && e.id === prefs.endpoint));
+  const customCloud = $derived(endpoint !== undefined);
+  const endpointModels = $derived(endpoint?.models ?? []);
+  const cloudModel = $derived(prefs.cloudModel.trim() || (endpoint ? (endpoint.models[0] ?? '') : app.settings.stt_cloud_model));
+  const cloudSpec = $derived(customCloud ? undefined : cloudModels.find((m) => m.id === cloudModel));
+  const job = $derived(pending ? app.jobs.find((j) => j.id === pending!.id) : undefined);
   const dlJob = $derived(dlJobId ? app.jobs.find((j) => j.id === dlJobId) : undefined);
   const running = $derived(job?.state === 'running');
   const selected = $derived(models.find((m) => m.id === prefs.model));
-  const ready = $derived(cloud ? !!keyStatus?.configured : !!selected?.installed);
+  const ready = $derived(cloud ? (customCloud ? cloudModel !== '' : !!keyStatus?.configured) : !!selected?.installed);
   const result = $derived(last && last.path === path ? last.result : null);
   const fileName = $derived(path ? path.split(/[\\/]/).pop()! : '');
   const title = $derived(fileName.replace(/\.[^.]+$/, '') || 'Transcript');
@@ -126,7 +134,16 @@
       if (saved) prefs = { ...prefs, ...saved };
       prefsLoaded = true;
       cloudOk = (await api.workspaceGet<boolean>(CLOUD_OK_KEY).catch(() => null)) === true;
+      // After a restart, or a job that finished unseen: show the saved transcript.
+      if (!last && !pending) {
+        const saved = await api.transcriptLast().catch(() => null);
+        if (saved && !last) {
+          last = saved;
+          path ??= saved.path;
+        }
+      }
       keyStatus = await api.sttCloudKeyStatus().catch(() => null);
+      endpoints = await api.sttEndpointsList().catch(() => []);
       cloudModels = await api.sttCloudModelsList().catch(() => []);
       await refreshModels();
       unlisten = await onFileDrop((paths) => {
@@ -174,13 +191,17 @@
     void refreshEstimate();
   });
 
-  // Transcription finished: keep the result (failures already show a toast),
-  // and re-estimate, since the speed was just measured.
+  // Transcription finished, maybe while another view was open: keep the result
+  // for the file it was started on (failures already show a toast), and
+  // re-estimate, since the speed was just measured.
   $effect(() => {
     const j = job;
-    if (!j || j.state === 'running') return;
-    if (j.state === 'done' && path) last = { path, result: j.result as TranscribeResult };
-    jobId = null;
+    if (!pending || !j || j.state === 'running') return;
+    if (j.state === 'done') {
+      last = { path: pending.path, result: j.result as TranscribeResult };
+      path ??= pending.path;
+    }
+    pending = null;
     void refreshModels();
     void refreshEstimate();
   });
@@ -204,15 +225,18 @@
       confirmOpen = true;
       return;
     }
+    const p = path;
     try {
-      jobId = await api.transcribeFile(path, {
+      const id = await api.transcribeFile(p, {
         engine,
+        endpoint: cloud && customCloud ? prefs.endpoint : null,
         model: cloud ? cloudModel : prefs.model,
         language: prefs.language,
         beam_size: prefs.beam,
         glossary: cloud ? [] : glossaryTerms(),
         corrections: correctionRules(),
       });
+      pending = { id, path: p };
     } catch (e) {
       app.error('Could not start the transcription', e);
     }
@@ -302,7 +326,7 @@
         <div class="empty-state progress" aria-live="polite">
           <strong>{job.message || 'Working'}…</strong>
           <progress max="1" value={job.progress} aria-label="Transcription progress"></progress>
-          <button class="btn" onclick={() => jobId && api.jobsCancel(jobId)}>Cancel</button>
+          <button class="btn" onclick={() => pending && api.jobsCancel(pending.id)}>Cancel</button>
         </div>
       {:else if result}
         {#if result.segments.length}
@@ -334,7 +358,7 @@
       {#if result}
         <span>{summary(result)}</span>
       {:else}
-        <span>{cloud ? 'Cloud: the audio is sent to OpenRouter.' : 'This computer: the audio never leaves it.'}</span>
+        <span>{cloud ? `Cloud: the audio is sent to ${endpoint?.name ?? 'OpenRouter'}.` : 'This computer: the audio never leaves it.'}</span>
       {/if}
     </div>
   </section>
@@ -354,15 +378,33 @@
       </div>
 
       {#if cloud}
+        {#if endpoints.some((e) => !e.builtin)}
+          <select
+            class="input"
+            aria-label="Cloud endpoint"
+            value={customCloud ? prefs.endpoint : ''}
+            onchange={(e) => ((prefs.endpoint = e.currentTarget.value), (prefs.cloudModel = ''))}
+          >
+            <option value="">OpenRouter</option>
+            {#each endpoints.filter((e) => !e.builtin) as e (e.id)}<option value={e.id}>{e.name}</option>{/each}
+          </select>
+        {/if}
         <select class="input" aria-label="Cloud model" value={cloudModel} onchange={(e) => (prefs.cloudModel = e.currentTarget.value)}>
-          {#each cloudModels as m (m.id)}<option value={m.id}>{m.label}</option>{/each}
-          {#if !cloudSpec}<option value={cloudModel}>{cloudModel}</option>{/if}
+          {#if customCloud}
+            {#each endpointModels as m (m)}<option value={m}>{m}</option>{/each}
+            {#if !endpointModels.includes(cloudModel)}<option value={cloudModel}>{cloudModel}</option>{/if}
+          {:else}
+            {#each cloudModels as m (m.id)}<option value={m.id}>{m.label}</option>{/each}
+            {#if !cloudSpec}<option value={cloudModel}>{cloudModel}</option>{/if}
+          {/if}
         </select>
         <div class="model-card" data-testid="cloud-model">
           <span class="mono">{cloudModel}</span>
           <span class="price">{cloudSpec ? perMin(cloudSpec.usd_per_min) : 'price: see openrouter.ai'}</span>
         </div>
-        {#if keyStatus?.configured}
+        {#if endpoint}
+          <p class="note ok" data-testid="cloud-key">{endpoint.name}: {endpoint.key_configured ? `key ${endpoint.key_hint}` : 'no key needed'}</p>
+        {:else if keyStatus?.configured}
           <p class="note ok" data-testid="cloud-key">OpenRouter key {keyStatus.hint}</p>
         {:else}
           <p class="note warn" data-testid="cloud-key">
@@ -470,7 +512,7 @@
 
 <Modal title="Send this audio to OpenRouter?" bind:open={confirmOpen} width={460}>
   <p>
-    The cloud engine uploads <strong>{fileName}</strong> to OpenRouter, which passes it to the provider of
+    The cloud engine uploads <strong>{fileName}</strong> to {endpoint ? `${endpoint.name} (${endpoint.base_url})` : 'OpenRouter, which passes it to the provider of'}
     <code>{cloudModel}</code>.{#if estimate?.cloud.cost != null} Expected cost: about {usd(estimate.cloud.cost)}.{/if}
   </p>
   <label class="check"><input type="checkbox" bind:checked={confirmRemember} /> Don't ask again</label>

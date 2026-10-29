@@ -2,8 +2,8 @@
 // progress steps on a timer, then finish with canned Italian segments.
 
 import type {
-  CloudKeyStatus, CloudModelSpec, Correction, Segment, Settings, SttModel, TranscribeEstimate, TranscribeOptions,
-  TranscriptFormat,
+  CloudKeyStatus, CloudModelSpec, Correction, LastTranscript, Segment, Settings, SttEndpointInfo, SttEndpointInput, SttModel, TranscribeEstimate,
+  TranscribeOptions, TranscribeResult, TranscriptFormat,
 } from './types';
 
 type Emit = (e: Record<string, unknown>) => void;
@@ -65,8 +65,19 @@ export function createSttMockHandlers(emit: Emit, settings: () => Settings): Rec
     { id: 'mistralai/voxtral-mini-transcribe', label: 'Mistral Voxtral Mini', usd_per_min: 0.003 },
     { id: 'mistralai/voxtral-mini-transcribe-3-0', label: 'Mistral Voxtral Mini Transcribe 3', usd_per_min: 0.0035 },
     { id: 'mistralai/voxtral-small-transcribe-3-0', label: 'Mistral Voxtral Small Transcribe 3', usd_per_min: 0.004 },
+    { id: 'nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b', label: 'NVIDIA Nemotron 3.5 ASR', usd_per_min: 0.00018 },
+  ];
+  const custom: { id: string; name: string; base_url: string; format: 'openrouter' | 'openai'; models: string[] }[] = [];
+  const customKeys: Record<string, string> = {};
+  const endpointList = (): SttEndpointInfo[] => [
+    {
+      id: 'openrouter', name: 'OpenRouter', base_url: settings().stt_cloud_base_url, format: 'openrouter',
+      models: cloudModels.map((m) => m.id), builtin: true, key_configured: !!key, key_hint: keyStatus().hint,
+    },
+    ...custom.map((e) => ({ ...e, builtin: false, key_configured: !!customKeys[e.id], key_hint: customKeys[e.id] ? '…' : null })),
   ];
   const cancelled = new Set<string>();
+  let last: LastTranscript | null = null;
 
   /** Runs `steps` progress ticks, then finishes with `result()`. */
   const job = (kind: string, steps: string[], result: () => unknown) => {
@@ -116,6 +127,29 @@ export function createSttMockHandlers(emit: Emit, settings: () => Settings): Rec
         cloud: { model, seconds: (d / 1000) * 0.06 + 3, measured: false, cost: price === null ? null : (d / 60_000) * price },
       };
     },
+    stt_endpoints_list: () => endpointList(),
+    stt_endpoint_save: ({ input }) => {
+      const i = input as SttEndpointInput;
+      if (!i.name.trim()) throw { code: 'invalid_input', message: 'invalid input: the endpoint needs a name' };
+      if (!/^https?:\/\/.{3,}/.test(i.base_url.trim())) throw { code: 'invalid_input', message: 'invalid input: the address must be an http(s) URL' };
+      const models = [...new Set(i.models.map((m) => m.trim()).filter(Boolean))];
+      const base_url = i.base_url.trim().replace(/\/+$/, '');
+      const cur = i.id ? custom.find((e) => e.id === i.id) : undefined;
+      if (i.id && !cur) throw { code: 'not_found', message: `not found: endpoint ${i.id}` };
+      const id = cur?.id ?? `${i.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'endpoint'}-${custom.length + 1}`;
+      const e = { id, name: i.name.trim(), base_url, format: i.format, models };
+      if (cur) Object.assign(cur, e); else custom.push(e);
+      if (i.api_key === '') delete customKeys[id];
+      else if (i.api_key) customKeys[id] = i.api_key;
+      return endpointList();
+    },
+    stt_endpoint_delete: ({ id }) => {
+      const at = custom.findIndex((e) => e.id === id);
+      if (at < 0) throw { code: 'not_found', message: `not found: endpoint ${id}` };
+      custom.splice(at, 1);
+      delete customKeys[String(id)];
+      return endpointList();
+    },
     stt_cloud_key_status: () => keyStatus(),
     stt_cloud_key_set: ({ key: k }) => {
       const v = String(k ?? '').trim();
@@ -136,19 +170,23 @@ export function createSttMockHandlers(emit: Emit, settings: () => Settings): Rec
       const o = (opts ?? {}) as TranscribeOptions;
       if (!String(path).trim()) throw { code: 'not_found', message: 'not found: file' };
       const segments = () => SAMPLE.map((s) => ({ ...s, text: applyCorrections(s.text, o.corrections ?? []) }));
+      // Like the service, the Job saves its own result.
+      const save = (result: TranscribeResult) => ((last = { path: String(path), result }), result);
       if ((o.engine ?? settings().stt_engine) === 'cloud') {
-        if (!key) throw { code: 'invalid_input', message: 'invalid input: no OpenRouter API key: add one in Settings → Transcription (or set OPENROUTER_API_KEY)' };
+        if ((o.endpoint ?? 'openrouter') === 'openrouter' && !key) throw { code: 'invalid_input', message: 'invalid input: no OpenRouter API key: add one in Settings → Transcription (or set OPENROUTER_API_KEY)' };
+        if (o.endpoint && o.endpoint !== 'openrouter' && !custom.some((e) => e.id === o.endpoint)) throw { code: 'not_found', message: `not found: endpoint ${o.endpoint}` };
         const cloudModel = o.model?.trim() || settings().stt_cloud_model;
-        return job('transcribe', ['decoding audio', 'sent 0 of 1 parts'], () => ({
+        return job('transcribe', ['decoding audio', 'sent 0 of 1 parts'], () => save({
           engine: 'cloud', model: cloudModel, language: o.language ?? 'it', duration_ms: 12_600, segments: segments(), cost: 0.0013,
         }));
       }
       const m = model(o.model ?? 'large-v3-turbo-q5_0');
       if (!m.installed) throw { code: 'not_found', message: `not found: model ${m.id} is not installed; download it first` };
-      return job('transcribe', ['decoding audio', 'loading model', 'transcribing', 'transcribing'], () => ({
+      return job('transcribe', ['decoding audio', 'loading model', 'transcribing', 'transcribing'], () => save({
         engine: 'local', model: m.id, language: o.language ?? 'it', duration_ms: 12_600, segments: segments(), cost: null,
       }));
     },
+    transcript_last: () => last,
     transcript_export: ({ segments, format, title }) =>
       mockExport(segments as Segment[], format as TranscriptFormat, (title as string | null) ?? null),
     // Replaces the shared no-op: the other mocks' jobs finish within 10 ms, so

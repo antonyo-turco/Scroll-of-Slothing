@@ -18,7 +18,7 @@ use sleuth_core::stt::{CHUNK_MAX_MS, CHUNK_MIN_MS, plan_chunks, wav_pcm16};
 use crate::{CancelFn, Result, SAMPLE_RATE, Segment, SttError};
 
 /// One chunk's reply: the text and the reported cost.
-type ChunkReply = (String, Option<f64>);
+pub type ChunkReply = (String, Option<f64>);
 
 /// Parallel requests per transcription.
 const CONCURRENCY: usize = 4;
@@ -56,11 +56,27 @@ pub const MODELS: &[CloudModelSpec] = &[
         label: "Mistral Voxtral Small Transcribe 3",
         usd_per_min: 0.004,
     },
+    CloudModelSpec {
+        id: "nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b",
+        label: "NVIDIA Nemotron 3.5 ASR",
+        usd_per_min: 0.00018,
+    },
 ];
 
 /// Seconds of work per second of audio before any cloud run was measured:
 /// upload plus GPU time, 4 requests at a time (about 35 s for 10 minutes).
 pub const DEFAULT_SPEED: f64 = 0.06;
+
+/// How an endpoint wants the audio sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ApiFormat {
+    /// OpenRouter: a JSON body with base64 audio.
+    #[default]
+    OpenRouter,
+    /// OpenAI, vLLM, NVIDIA NIM and most self-hosted servers: a multipart form with the file.
+    OpenAi,
+}
 
 #[derive(Debug, Clone)]
 pub struct CloudConfig {
@@ -69,6 +85,7 @@ pub struct CloudConfig {
     pub api_key: String,
     /// e.g. `openai/whisper-1`.
     pub model: String,
+    pub format: ApiFormat,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -142,6 +159,51 @@ pub fn check_key(base_url: &str, api_key: &str) -> Result<KeyInfo> {
     })
 }
 
+/// The content type and body of one transcription request.
+fn request_body(cfg: &CloudConfig, wav: &[u8], language: Option<&str>) -> (String, Vec<u8>) {
+    match cfg.format {
+        ApiFormat::OpenRouter => {
+            let mut body = json!({
+                "model": cfg.model,
+                "input_audio": {
+                    "data": base64::engine::general_purpose::STANDARD.encode(wav),
+                    "format": "wav",
+                },
+            });
+            if let Some(l) = language {
+                body["language"] = json!(l);
+            }
+            ("application/json".into(), body.to_string().into_bytes())
+        }
+        ApiFormat::OpenAi => {
+            let boundary = "----sleuth-8f3a1c5e";
+            let mut body = Vec::with_capacity(wav.len() + 512);
+            let mut field = |name: &str, value: &str| {
+                body.extend_from_slice(
+                    format!(
+                        "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+                    )
+                    .as_bytes(),
+                );
+            };
+            field("model", &cfg.model);
+            field("response_format", "json");
+            if let Some(l) = language {
+                field("language", l);
+            }
+            body.extend_from_slice(
+                format!(
+                    "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n\r\n"
+                )
+                .as_bytes(),
+            );
+            body.extend_from_slice(wav);
+            body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+            (format!("multipart/form-data; boundary={boundary}"), body)
+        }
+    }
+}
+
 /// One request: returns the text and the reported cost.
 fn transcribe_chunk(
     http: &reqwest::blocking::Client,
@@ -150,17 +212,7 @@ fn transcribe_chunk(
     language: Option<&str>,
     cancel: CancelFn,
 ) -> Result<ChunkReply> {
-    let mut body = json!({
-        "model": cfg.model,
-        "input_audio": {
-            "data": base64::engine::general_purpose::STANDARD.encode(wav),
-            "format": "wav",
-        },
-    });
-    if let Some(l) = language {
-        body["language"] = json!(l);
-    }
-    let body = body.to_string();
+    let (content_type, body) = request_body(cfg, wav, language);
     let url = format!("{}/audio/transcriptions", cfg.base_url);
     let mut last = String::new();
     for attempt in 0..ATTEMPTS {
@@ -176,10 +228,12 @@ fn transcribe_chunk(
                 std::thread::sleep(Duration::from_millis(100));
             }
         }
-        let resp = http
-            .post(&url)
-            .bearer_auth(&cfg.api_key)
-            .header("Content-Type", "application/json")
+        let mut req = http.post(&url);
+        if !cfg.api_key.is_empty() {
+            req = req.bearer_auth(&cfg.api_key);
+        }
+        let resp = req
+            .header("Content-Type", content_type.as_str())
             .header("X-Title", "Kastanomata's Scroll of Sleuthing")
             .body(body.clone())
             .send();
@@ -212,6 +266,11 @@ fn transcribe_chunk(
     Err(SttError::Cloud(format!("gave up after {ATTEMPTS} attempts: {last}")))
 }
 
+/// Number of chunks `samples` is split into (the length [`transcribe_resumable`]'s `prior` must have).
+pub fn chunk_count(samples: &[f32]) -> usize {
+    plan_chunks(samples, SAMPLE_RATE, CHUNK_MIN_MS, CHUNK_MAX_MS).len()
+}
+
 /// Transcribes mono 16 kHz `samples`. `progress` gets 0.0..=1.0 as chunks complete.
 /// `language` is an ISO 639-1 code; `None` lets the model detect it.
 pub fn transcribe(
@@ -221,17 +280,35 @@ pub fn transcribe(
     progress: &(dyn Fn(f32, usize, usize) + Sync),
     cancel: CancelFn,
 ) -> Result<CloudResult> {
+    transcribe_resumable(cfg, samples, language, Vec::new(), &|_, _| {}, progress, cancel)
+}
+
+/// Like [`transcribe`], but chunks already in `prior` (same chunk plan, indexed by
+/// chunk) are not sent again, and `on_chunk(index, reply)` is called as each new
+/// chunk arrives so the caller can save it. A failure after some chunks arrived
+/// therefore loses nothing.
+pub fn transcribe_resumable(
+    cfg: &CloudConfig,
+    samples: &[f32],
+    language: Option<&str>,
+    mut prior: Vec<Option<ChunkReply>>,
+    on_chunk: &(dyn Fn(usize, &ChunkReply) + Sync),
+    progress: &(dyn Fn(f32, usize, usize) + Sync),
+    cancel: CancelFn,
+) -> Result<CloudResult> {
     let chunks = plan_chunks(samples, SAMPLE_RATE, CHUNK_MIN_MS, CHUNK_MAX_MS);
     let n = chunks.len();
     if n == 0 {
         return Ok(CloudResult { segments: Vec::new(), cost: None, requests: 0 });
     }
     let http = client(Duration::from_secs(120))?;
-    let results: Vec<Mutex<Option<ChunkReply>>> = (0..n).map(|_| Mutex::new(None)).collect();
+    prior.resize(n, None);
+    let reused = prior.iter().filter(|p| p.is_some()).count();
+    let results: Vec<Mutex<Option<ChunkReply>>> = prior.into_iter().map(Mutex::new).collect();
     let first_error: Mutex<Option<SttError>> = Mutex::new(None);
     let failed = AtomicBool::new(false);
     let next = AtomicUsize::new(0);
-    let done = AtomicUsize::new(0);
+    let done = AtomicUsize::new(reused);
     let stop = || failed.load(Ordering::Relaxed) || cancel();
 
     std::thread::scope(|s| {
@@ -242,10 +319,14 @@ pub fn transcribe(
                     if i >= n || stop() {
                         break;
                     }
+                    if results[i].lock().unwrap_or_else(|e| e.into_inner()).is_some() {
+                        continue;
+                    }
                     let (a, b) = chunks[i];
                     let wav = wav_pcm16(&samples[a..b], SAMPLE_RATE);
                     match transcribe_chunk(&http, cfg, &wav, language, &stop) {
                         Ok(r) => {
+                            on_chunk(i, &r);
                             *results[i].lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
                             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
                             progress(d as f32 / n as f32, d, n);
@@ -286,7 +367,7 @@ pub fn transcribe(
             segments.push(Segment { start_ms: ms(a), end_ms: ms(b), text });
         }
     }
-    Ok(CloudResult { segments, cost, requests: n })
+    Ok(CloudResult { segments, cost, requests: n - reused })
 }
 
 #[cfg(test)]
@@ -353,7 +434,12 @@ mod tests {
     }
 
     fn cfg(base: String) -> CloudConfig {
-        CloudConfig { base_url: base, api_key: "sk-test".into(), model: "openai/whisper-1".into() }
+        CloudConfig {
+            base_url: base,
+            api_key: "sk-test".into(),
+            model: "openai/whisper-1".into(),
+            format: ApiFormat::OpenRouter,
+        }
     }
 
     /// 70 s of 1 s tones separated by 0.5 s pauses, at 16 kHz.
@@ -433,6 +519,67 @@ mod tests {
         );
         // Workers stop after the first failure instead of sending every chunk.
         assert!(seen.lock().unwrap().len() <= CONCURRENCY);
+    }
+
+    #[test]
+    fn resumes_without_resending_and_reports_each_chunk() {
+        let samples = audio();
+        let n = chunk_count(&samples);
+        assert!(n >= 3);
+        let (base, seen) = server(|_, _| (200, r#"{"text":"new"}"#.into()));
+        let mut prior = vec![None; n];
+        prior[0] = Some(("old".to_string(), None));
+        let got = Mutex::new(Vec::new());
+        let r = transcribe_resumable(
+            &cfg(base),
+            &samples,
+            None,
+            prior,
+            &|i, _| got.lock().unwrap().push(i),
+            &|_, _, _| {},
+            NEVER,
+        )
+        .unwrap();
+        assert_eq!(seen.lock().unwrap().len(), n - 1);
+        assert_eq!(got.lock().unwrap().len(), n - 1);
+        assert_eq!(r.segments[0].text, "old");
+        assert_eq!(r.segments.len(), n);
+    }
+
+    #[test]
+    fn finished_chunks_are_reported_even_when_a_later_one_fails() {
+        let samples = audio();
+        let (base, _) = server(|i, _| {
+            if i == 0 {
+                (200, r#"{"text":"ok"}"#.into())
+            } else {
+                (400, r#"{"error":{"message":"bad"}}"#.into())
+            }
+        });
+        let got = Mutex::new(0usize);
+        let err = transcribe_resumable(
+            &cfg(base),
+            &samples,
+            None,
+            Vec::new(),
+            &|_, _| *got.lock().unwrap() += 1,
+            &|_, _, _| {},
+            NEVER,
+        )
+        .unwrap_err();
+        assert!(matches!(err, SttError::Cloud(_)), "{err}");
+        assert!(*got.lock().unwrap() >= 1);
+    }
+
+    #[test]
+    fn openai_format_sends_a_multipart_form() {
+        let cfg = CloudConfig { format: ApiFormat::OpenAi, ..cfg("x".into()) };
+        let (c, body) = request_body(&cfg, b"WAV", Some("it"));
+        assert!(c.starts_with("multipart/form-data; boundary="));
+        let text = String::from_utf8_lossy(&body);
+        assert!(text.contains("name=\"model\"\r\n\r\nopenai/whisper-1"));
+        assert!(text.contains("name=\"language\"\r\n\r\nit"));
+        assert!(text.contains("filename=\"audio.wav\""));
     }
 
     #[test]

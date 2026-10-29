@@ -632,6 +632,8 @@ export interface Correction {
 export interface TranscribeOptions {
   /** default: the stt_engine setting */
   engine?: SttEngine | null;
+  /** cloud: an endpoint id from sttEndpointsList (default 'openrouter') */
+  endpoint?: string | null;
   /** local: a catalog id; cloud: an OpenRouter model id (default: the stt_cloud_model setting) */
   model?: string | null;
   /** 'it' | 'en' | 'auto' | any ISO 639-1 code */
@@ -658,12 +660,42 @@ export interface TranscribeResult {
   cost: number | null;
 }
 
+/** The last finished transcription, saved by the Job itself. */
+export interface LastTranscript {
+  path: string;
+  result: TranscribeResult;
+}
+
 /** Never contains the key itself. */
 export interface CloudKeyStatus {
   configured: boolean;
   source: 'saved' | 'env' | null;
   /** e.g. sk-or-…a1b2 */
   hint: string | null;
+}
+
+/** A cloud speech-to-text server: the built-in OpenRouter one or one added in Settings. */
+export interface SttEndpointInfo {
+  id: string;
+  name: string;
+  base_url: string;
+  /** openrouter: JSON with base64 audio; openai: multipart upload (OpenAI, vLLM, NIM, ...) */
+  format: 'openrouter' | 'openai';
+  models: string[];
+  builtin: boolean;
+  key_configured: boolean;
+  key_hint: string | null;
+}
+
+export interface SttEndpointInput {
+  /** set to change an existing endpoint */
+  id?: string | null;
+  name: string;
+  base_url: string;
+  format: 'openrouter' | 'openai';
+  models: string[];
+  /** undefined keeps the saved key, '' removes it */
+  api_key?: string | null;
 }
 
 export interface CloudKeyInfo {

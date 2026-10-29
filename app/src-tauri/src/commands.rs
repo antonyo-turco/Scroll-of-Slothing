@@ -486,7 +486,9 @@ use sleuth_core::aoe::AoeConfig;
 use sleuth_service::{
     AoeInfo, AoePreset, AoeSheet, AoeSheetLayout, FilterCatalog, MapDoc, MapLayout,
 };
-use sleuth_service::{CloudModelSpec, TranscribeEstimate};
+use sleuth_service::{
+    CloudModelSpec, LastTranscript, SttEndpointInfo, SttEndpointInput, TranscribeEstimate,
+};
 
 #[tauri::command]
 pub async fn map_get(svc: Svc<'_>) -> Res<Option<MapDoc>> {
@@ -966,6 +968,21 @@ pub async fn transcribe_estimate(
 }
 
 #[tauri::command]
+pub async fn stt_endpoints_list(svc: Svc<'_>) -> Res<Vec<SttEndpointInfo>> {
+    svc.stt_endpoints_list().await
+}
+
+#[tauri::command]
+pub async fn stt_endpoint_save(svc: Svc<'_>, input: SttEndpointInput) -> Res<Vec<SttEndpointInfo>> {
+    svc.stt_endpoint_save(input).await
+}
+
+#[tauri::command]
+pub async fn stt_endpoint_delete(svc: Svc<'_>, id: String) -> Res<Vec<SttEndpointInfo>> {
+    svc.stt_endpoint_delete(id).await
+}
+
+#[tauri::command]
 pub async fn stt_cloud_key_status(svc: Svc<'_>) -> Res<CloudKeyStatus> {
     svc.stt_cloud_key_status().await
 }
@@ -988,6 +1005,11 @@ pub async fn stt_cloud_key_test(svc: Svc<'_>) -> Res<CloudKeyInfo> {
 #[tauri::command]
 pub fn transcribe_file(svc: Svc<'_>, path: PathBuf, opts: TranscribeOptions) -> Res<JobId> {
     svc.transcribe_file(path, opts)
+}
+
+#[tauri::command]
+pub async fn transcript_last(svc: Svc<'_>) -> Res<Option<LastTranscript>> {
+    svc.transcript_last().await
 }
 
 #[tauri::command]

@@ -11,8 +11,8 @@ import type {
   Clock, ClockNew, ClockPatch, ClockTick,
   PlannerSummary, PlanRef, SessionPatch, SessionView,
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
-  CloudKeyInfo, CloudKeyStatus, CloudModelSpec, Segment, SttModel, TranscribeEstimate, TranscribeOptions,
-  TranscriptFormat,
+  CloudKeyInfo, CloudKeyStatus, CloudModelSpec, LastTranscript, Segment, SttEndpointInfo, SttEndpointInput, SttModel, TranscribeEstimate,
+  TranscribeOptions, TranscriptFormat,
   CompendiumCards, CompendiumEntry, CompendiumQuery, CompendiumRef, CompendiumStatus,
   BestiaryEntry, BestiaryStatus, CombatCatalog, CombatImport, CombatSort, RowPatch, Tracker,
   EncounterCreature, EncounterSummary, Hero, Party,
@@ -291,6 +291,9 @@ export const api = {
   sttCloudModelsList: () => call<CloudModelSpec[]>('stt_cloud_models_list'),
   transcribeEstimate: (path: string, beamSize: number | null, cloudModel: string | null) =>
     call<TranscribeEstimate>('transcribe_estimate', { path, beamSize, cloudModel }),
+  sttEndpointsList: () => call<SttEndpointInfo[]>('stt_endpoints_list'),
+  sttEndpointSave: (input: SttEndpointInput) => call<SttEndpointInfo[]>('stt_endpoint_save', { input }),
+  sttEndpointDelete: (id: string) => call<SttEndpointInfo[]>('stt_endpoint_delete', { id }),
   sttCloudKeyStatus: () => call<CloudKeyStatus>('stt_cloud_key_status'),
   /** Saved in the Windows Credential Manager; the key never comes back. */
   sttCloudKeySet: (key: string) => call<CloudKeyStatus>('stt_cloud_key_set', { key }),
@@ -298,6 +301,7 @@ export const api = {
   sttCloudKeyTest: () => call<CloudKeyInfo>('stt_cloud_key_test'),
   /** Returns a job id; the job result is a TranscribeResult. */
   transcribeFile: (path: string, opts: TranscribeOptions) => call<string>('transcribe_file', { path, opts }),
+  transcriptLast: () => call<LastTranscript | null>('transcript_last'),
   transcriptExport: (segments: Segment[], format: TranscriptFormat, title: string | null, path: string | null) =>
     call<string>('transcript_export', { segments, format, title, path }),
 };
