@@ -77,7 +77,7 @@ export const MOCK_FILTER_CATALOG: FilterCatalog = {
   presets: PRESET_STEPS.map(([name]) => ({ name, pipeline: presetPipeline(name) })),
 };
 
-// Token filters (sleuth_core::token::TOKEN_FILTERS): colour/tone only.
+// Token filters (sloth_core::token::TOKEN_FILTERS): colour/tone only.
 const TOKEN_FILTERS = ['autocontrast', 'contrast', 'lightness', 'clarity', 'sharpen', 'sepia', 'grayscale', 'posterize', 'edge_boost'];
 const isToken = (k: string) => TOKEN_FILTERS.includes(k);
 

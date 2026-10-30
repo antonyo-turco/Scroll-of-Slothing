@@ -1,4 +1,4 @@
-//! Card deck PDF: renders `sleuth_core::cards::DeckLayout` ops.
+//! Card deck PDF: renders `sloth_core::cards::DeckLayout` ops.
 //! Text is drawn glyph-by-glyph with Helvetica-exact advances (no kerning),
 //! so the PDF matches the layout measurements and the UI preview.
 
@@ -10,8 +10,8 @@ use krilla::page::PageSettings;
 use krilla::paint::{Fill, Stroke, StrokeDash};
 use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph};
-use sleuth_core::cards::{DeckLayout, Op, Rgb};
-use sleuth_core::fonts::{FontStyle, glyphs};
+use sloth_core::cards::{DeckLayout, Op, Rgb};
+use sloth_core::fonts::{FontStyle, glyphs};
 
 use crate::{PdfError, Progress, Result};
 
@@ -148,8 +148,8 @@ pub fn render(layout: &DeckLayout, progress: Progress<'_>) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use sleuth_core::cards::{Flip, layout, parse};
-    use sleuth_core::units::PageFormat;
+    use sloth_core::cards::{Flip, layout, parse};
+    use sloth_core::units::PageFormat;
 
     use super::*;
 

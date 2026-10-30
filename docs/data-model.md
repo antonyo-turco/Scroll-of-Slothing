@@ -1,9 +1,9 @@
 # Data model
 
 ## Location
-- The data dir defaults to `%APPDATA%\sleuth\`. Every binary accepts `--data-dir`, and tests always use a temp dir.
+- The data dir defaults to `%APPDATA%\sloth\`. Every binary accepts `--data-dir`, and tests always use a temp dir.
 - Inside the data dir:
-  - `sleuth.db`: SQLite, WAL mode, `foreign_keys=ON`
+  - `sloth.db`: SQLite, WAL mode, `foreign_keys=ON`
   - `blobs/ab/cd/<blake3-hex>.<ext>`: content-addressed files
   - `fivetools/bestiary/`: the combat tracker's copy of a 5etools mirror's `data/bestiary/` (`index.json` and `bestiary-*.json`), refreshed by `bestiary_sync`
   - `legacy/music.json`: music data preserved by the legacy importer; "Import legacy music" (`music_import_legacy`) reads it

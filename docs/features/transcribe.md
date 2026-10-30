@@ -18,7 +18,7 @@ Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, a
 - Runs offline. Audio never leaves the machine.
 - Models are ggml files downloaded from the whisper.cpp Hugging Face repo into `<data-dir>/models/`.
   - Each download runs as a Job with progress and cancel.
-  - It is written to a `.part` file and checked against the SHA-256 that Hugging Face publishes, pinned in `sleuth_stt::models::CATALOG`. It is renamed only if the hash matches.
+  - It is written to a `.part` file and checked against the SHA-256 that Hugging Face publishes, pinned in `sloth_stt::models::CATALOG`. It is renamed only if the hash matches.
   - A model counts as installed when its file has the expected size.
 - Model choices, all **multilingual** (the `.en` models are not offered, because the main language is Italian):
 
@@ -47,16 +47,16 @@ Two engines sit behind one `SttEngine` trait. You pick the engine in Settings, a
   On this CPU only `base` runs faster than real time, so live mode with `small` needs the GPU (Vulkan) or a faster machine. Release vs RelWithDebInfo, OpenMP, AVX2 vs AVX-512 and clang-cl vs MSVC were all tried: none changed these numbers by more than about 20%.
 - **whisper-rs 0.16 bug:** `set_abort_callback_safe` casts its user data to the wrong type, so a plain closure reads garbage and aborts at random ("failed to encode", -6). `local.rs` passes a pre-boxed `Box<dyn FnMut() -> bool>`, which makes the types agree. Recheck this when upgrading whisper-rs.
 
-### Cloud: OpenRouter format (`sleuth_stt::cloud`)
+### Cloud: OpenRouter format (`sloth_stt::cloud`)
 - **Request:** `POST {base_url}/audio/transcriptions`.
-  - Headers: `Authorization: Bearer <key>`, `X-Title: Kastanomata's Scroll of Sleuthing`.
+  - Headers: `Authorization: Bearer <key>`, `X-Title: Kastanomata's Scroll of Slothing`.
   - JSON body: `model`, `input_audio: { data: <base64 WAV>, format: "wav" }`, and `language` unless it is `auto`.
 - **Reply:** `text` is required. `usage.cost` is added up across the chunks and shown in the status bar and the Job result (USD).
 - **Settings:**
   - `stt_cloud_base_url` defaults to `https://openrouter.ai/api/v1`. Any server that accepts the same format works.
   - `stt_cloud_model` defaults to `openai/whisper-1`.
   - The UI suggests `openai/whisper-1`, `openai/gpt-transcribe`, `mistralai/voxtral-mini-transcribe`, `mistralai/voxtral-mini-transcribe-3-0` and `mistralai/voxtral-small-transcribe-3-0`, but any id works.
-- **API key:** stored in the Windows Credential Manager (`keyring` crate, entry `sleuth` / `openrouter_api_key`), never in SQLite or settings.
+- **API key:** stored in the Windows Credential Manager (`keyring` crate, entry `sloth` / `openrouter_api_key`), never in SQLite or settings.
   - With no saved key, the `OPENROUTER_API_KEY` environment variable is used, which is handy for the CLI and standalone MCP.
   - The service never returns the key: only `configured`, the `source` (`saved`/`env`) and a hint such as `sk-or-…a1b2`.
   - Tests use an in-memory store.
@@ -131,7 +131,7 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
 |---|---|
 | `stt_models_list` | Installed and available models, with size and hash |
 | `stt_model_download` / `stt_model_delete` | Download is a Job |
-| `stt_cloud_key_status` / `stt_cloud_key_test` | Whether a key is available (never the key itself) and a live check. MCP has only these two: keys are set in Settings or with `sleuth stt key set`, so a secret never passes through an LLM's context |
+| `stt_cloud_key_status` / `stt_cloud_key_test` | Whether a key is available (never the key itself) and a live check. MCP has only these two: keys are set in Settings or with `sloth stt key set`, so a secret never passes through an LLM's context |
 | `stt_endpoints_list` | Built-in OpenRouter plus custom endpoints, with model ids and whether a key is set. MCP: list only |
 | `stt_endpoint_save` / `stt_endpoint_delete` | UI only (they carry keys) |
 | `stt_cloud_key_set` / `stt_cloud_key_clear` | UI and CLI only (see above) |
@@ -177,21 +177,21 @@ Each function is a service fn, with a Tauri command and an MCP tool of the same 
 
 ## CLI
 ```
-sleuth stt models                      # catalog, with what is installed
-sleuth stt download large-v3-turbo-q5_0
-sleuth stt delete base
-sleuth transcribe session.mp3 --format srt --out session.srt `
+sloth stt models                      # catalog, with what is installed
+sloth stt download large-v3-turbo-q5_0
+sloth stt delete base
+sloth transcribe session.mp3 --format srt --out session.srt `
     --glossary "Dungeon Master" --glossary beholder `
     --correct "beholdar=beholder" [--model small] [--language it|en|auto] [--beam 1] [--threads 4]
 
-sleuth stt key set                     # paste the OpenRouter key (read from stdin)
-sleuth stt key status | test | clear
-sleuth transcribe session.mp3 --engine cloud [--model openai/gpt-transcribe]   # prints the cost on stderr
+sloth stt key set                     # paste the OpenRouter key (read from stdin)
+sloth stt key status | test | clear
+sloth transcribe session.mp3 --engine cloud [--model openai/gpt-transcribe]   # prints the cost on stderr
 ```
 `--json` prints the full result: model, language, duration and segments.
 
 ## Phases
-1. `crates/stt`: decoding, resampling, the local engine, model download; `sleuth-cli transcribe <file>`.
+1. `crates/stt`: decoding, resampling, the local engine, model download; `sloth-cli transcribe <file>`.
 2. Migration, service, Jobs, the File and Transcripts tabs, export, glossary and corrections.
 3. Live: `cpal`, VAD, finalising by agreement, level meter.
 4. Cloud engine (OpenRouter format), keyring, chunking, cost.

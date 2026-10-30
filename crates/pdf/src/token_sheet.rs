@@ -4,8 +4,8 @@
 use krilla::Document;
 use krilla::geom::{Path, PathBuilder};
 use krilla::page::PageSettings;
-use sleuth_core::pack::Layout;
-use sleuth_core::token::TokenShape;
+use sloth_core::pack::Layout;
+use sloth_core::token::TokenShape;
 
 use crate::{CutLine, PdfError, Progress, Result, circle, draw_image, png_image, stroke_path, top};
 
@@ -26,7 +26,7 @@ pub fn render(
     let aspects: Vec<f64> = images
         .iter()
         .map(|png| {
-            sleuth_core::imaging::dimensions(png)
+            sloth_core::imaging::dimensions(png)
                 .map_or(1.0, |(w, h)| f64::from(w) / f64::from(h.max(1)))
         })
         .collect();
@@ -98,9 +98,9 @@ fn fit(w: f64, h: f64, aspect: f64) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use image::{Rgba, RgbaImage};
-    use sleuth_core::pack::token_grid::{GridMode, TokenItem, pack};
-    use sleuth_core::settings::Settings;
-    use sleuth_core::units::{PageFormat, SizeLabel};
+    use sloth_core::pack::token_grid::{GridMode, TokenItem, pack};
+    use sloth_core::settings::Settings;
+    use sloth_core::units::{PageFormat, SizeLabel};
 
     use super::*;
 

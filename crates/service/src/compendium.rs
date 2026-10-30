@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sleuth_core::combat::creature::{creature_hash, resolve_copy};
-use sleuth_core::compendium::{self as cc, ItemRefs};
+use sloth_core::combat::creature::{creature_hash, resolve_copy};
+use sloth_core::compendium::{self as cc, ItemRefs};
 
 use crate::{JobId, Result, Service, ServiceError};
 
@@ -366,7 +366,7 @@ impl Service {
         let root = self.data_dir().to_path_buf();
         Ok(self.spawn_job("spells and items sync", move |ctx| {
             let client = reqwest::blocking::Client::builder()
-                .user_agent(concat!("sleuth/", env!("CARGO_PKG_VERSION")))
+                .user_agent(concat!("sloth/", env!("CARGO_PKG_VERSION")))
                 .connect_timeout(std::time::Duration::from_secs(10))
                 .timeout(std::time::Duration::from_secs(120))
                 .build()
@@ -614,11 +614,11 @@ mod tests {
 
     /// Every spell and item of a real mirror becomes a card that parses back
     /// with no 5etools tags left. Needs a running mirror:
-    /// `SLEUTH_TEST_MIRROR=http://localhost:8080 cargo test -p sleuth-service real_mirror -- --ignored`
+    /// `SLOTH_TEST_MIRROR=http://localhost:8080 cargo test -p sloth-service real_mirror -- --ignored`
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
     async fn real_mirror_cards() {
-        let Ok(base) = std::env::var("SLEUTH_TEST_MIRROR") else { return };
+        let Ok(base) = std::env::var("SLOTH_TEST_MIRROR") else { return };
         let (_d, svc) = temp_service();
         let mut p = serde_json::Map::new();
         p.insert("fivetools_base_url".into(), json!(base));

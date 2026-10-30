@@ -92,7 +92,7 @@ export function createMusicMockHandlers(emitRaw: Emit): Record<string, Handler> 
       });
       return t;
     },
-    // A small keyword list standing in for sleuth_core::music::suggest_tags.
+    // A small keyword list standing in for sloth_core::music::suggest_tags.
     music_tags_suggest: () => {
       const rules: [string, RegExp][] = [['tavern', /\btavern/i], ['combat', /\b(battle|drum|fight)/i], ['weather', /\b(thunder|rain|storm)/i]];
       return tracks

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TOKEN_SHAPES, fitRadius, shapePath, shapeVertices } from './token-shapes';
 
-describe('token shapes (mirror of sleuth_core::token::TokenShape)', () => {
+describe('token shapes (mirror of sloth_core::token::TokenShape)', () => {
   it('every shape touches a square canvas', () => {
     for (const { id } of TOKEN_SHAPES) {
       const r = fitRadius(id, 100, 100);

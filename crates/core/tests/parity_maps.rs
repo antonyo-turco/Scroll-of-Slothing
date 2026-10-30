@@ -3,10 +3,10 @@
 //! (fixtures/parity/{grid_modes,homography,tiling}.json).
 
 use serde_json::Value;
-use sleuth_core::maps::grid::{self, GridStyle};
-use sleuth_core::maps::homography::{self, Pt, WarpError};
-use sleuth_core::maps::tiling::{TileParams, plan};
-use sleuth_core::units::PageFormat;
+use sloth_core::maps::grid::{self, GridStyle};
+use sloth_core::maps::homography::{self, Pt, WarpError};
+use sloth_core::maps::tiling::{TileParams, plan};
+use sloth_core::units::PageFormat;
 
 fn fixture(name: &str) -> Value {
     let path = format!("{}/../../fixtures/parity/{name}", env!("CARGO_MANIFEST_DIR"));

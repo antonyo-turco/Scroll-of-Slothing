@@ -29,7 +29,7 @@ Requested 2026-10-25 (`future-features.md`, "Spell and item cards"). This is a n
 - `newest_only` leaves out entries with `reprintedAs` (for example the PHB Fireball, reprinted in XPHB). The dialog turns it on by default.
 - `limit` defaults to 100 (at most 2000). The dialog asks for 300 and says when the list is cut.
 
-## Cards (`sleuth_core::compendium`)
+## Cards (`sloth_core::compendium`)
 Every card is one deck card (`# Title`, `**Key:** value` stats, a blank line, then the body).
 
 **Spell card**

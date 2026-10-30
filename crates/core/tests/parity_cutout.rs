@@ -8,7 +8,7 @@
 
 use image::RgbaImage;
 use serde_json::Value;
-use sleuth_core::cutout::{add_outline, apply_lasso, standee_block};
+use sloth_core::cutout::{add_outline, apply_lasso, standee_block};
 
 fn dir() -> String {
     format!("{}/../../fixtures/parity", env!("CARGO_MANIFEST_DIR"))

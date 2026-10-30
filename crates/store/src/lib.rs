@@ -63,7 +63,15 @@ impl Store {
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self> {
         let root = data_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(root.join("blobs"))?;
-        let mut conn = Connection::open(root.join("sleuth.db"))?;
+        // The database predates the rename from `sleuth`; carry it (and its WAL files) over.
+        for ext in ["db", "db-wal", "db-shm"] {
+            let (old, new) =
+                (root.join(format!("sleuth.{ext}")), root.join(format!("sloth.{ext}")));
+            if old.exists() && !root.join("sloth.db").exists() {
+                std::fs::rename(old, new)?;
+            }
+        }
+        let mut conn = Connection::open(root.join("sloth.db"))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", true)?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
@@ -112,7 +120,7 @@ mod tests {
     #[test]
     fn open_creates_layout_and_migrates() {
         let (dir, store) = temp_store();
-        assert!(dir.path().join("sleuth.db").exists());
+        assert!(dir.path().join("sloth.db").exists());
         assert!(dir.path().join("blobs").is_dir());
         assert_eq!(store.schema_version().unwrap(), migrate::LATEST);
         let fk: i64 = store.conn().query_row("PRAGMA foreign_keys", [], |r| r.get(0)).unwrap();

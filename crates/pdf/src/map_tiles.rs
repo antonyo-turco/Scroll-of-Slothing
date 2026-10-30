@@ -12,7 +12,7 @@ use image::RgbImage;
 use krilla::Document;
 use krilla::geom::PathBuilder;
 use krilla::page::PageSettings;
-use sleuth_core::maps::tiling::Tile;
+use sloth_core::maps::tiling::Tile;
 
 use crate::{CutLine, PdfError, Progress, Result, draw_image, raw_rgb_image, stroke_path};
 
@@ -40,7 +40,7 @@ pub fn render(
         if r - l >= 1.0 && b - t >= 1.0 {
             let out_w = ((r - l).round_ties_even() as u32).max(1);
             let out_h = ((b - t).round_ties_even() as u32).max(1);
-            let sub = sleuth_core::imaging::resize_box_rgb(image, (l, t, r, b), out_w, out_h);
+            let sub = sloth_core::imaging::resize_box_rgb(image, (l, t, r, b), out_w, out_h);
             let settings = PageSettings::from_wh(pw as f32, ph as f32)
                 .ok_or_else(|| PdfError::Write("invalid page size".into()))?;
             let mut page = doc.start_page_with(settings);
@@ -91,8 +91,8 @@ fn trim_lines(x: f32, y: f32, w: f32, h: f32, pw: f32, ph: f32) -> Vec<krilla::g
 
 #[cfg(test)]
 mod tests {
-    use sleuth_core::maps::tiling::{TileParams, plan};
-    use sleuth_core::units::PageFormat;
+    use sloth_core::maps::tiling::{TileParams, plan};
+    use sloth_core::units::PageFormat;
 
     use super::*;
 
@@ -137,7 +137,7 @@ mod tests {
             w_pt: 300.0,
             h_pt: 200.0,
         };
-        let cut = CutLine::from_settings(&sleuth_core::settings::Settings::default());
+        let cut = CutLine::from_settings(&sloth_core::settings::Settings::default());
         let pdf = render(&img, &[tile], PageFormat::A4.size_pt(), 18.0, Some(&cut), &mut |_| true)
             .unwrap()
             .unwrap();

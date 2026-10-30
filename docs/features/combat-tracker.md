@@ -186,7 +186,7 @@ current combat* or a `#combat=` link; it keeps each creature's changes).
 - **Import.** A 5etools Bestiary encounter (*Save to File* JSON or *Copy Combat Link*), a DM
   Screen combat link, or a `.denc` file.
 - **`.denc` files.** *Export* writes the selected encounter (or all) as JSON
-  (`{"format": "sleuth-encounters", "version": 1, "encounters": [...]}`); importing adds copies
+  (`{"format": "sloth-encounters", "version": 1, "encounters": [...]}`); importing adds copies
   with new ids.
 - Each row keeps ▶, +, edit, delete and the pin; clicking a row opens a bar under it with
   big labelled buttons for the next session, its tokens and its 5etools link.
@@ -228,7 +228,7 @@ load; they are still written into links so 5etools reads them.
   nov c cndc r rdp n not`; rows `id n n_d n_m h g i a s c nt v o k`), so the same JSON round-trips
   through 5etools. Unknown keys are kept. This app's extensions, which 5etools ignores: rows
   `_ht` (temporary HP), `_so` (stat changes), `_sd` (side); the tracker `_dead` (defeated rows);
-  the autosave alone keeps `_sleuthLocked` (the lock, which 5etools treats as temporary).
+  the autosave alone keeps `_slothLocked` (the lock, which 5etools treats as temporary).
 - **Copy combat link:** `<base>/dmscreen.html#combat=<base64url(deflate-raw(json))>`.
   **Open link** accepts that URL, its hash, or the bare payload, for `combat=` and
   `encounter=`. An encounter is the Bestiary's exported sublist (`items[].h`, `items[].c`,

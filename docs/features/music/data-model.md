@@ -66,7 +66,7 @@ CREATE TABLE music_soundboard_buttons (id TEXT PRIMARY KEY,       -- stable ids 
   1. **soundbite**: used as a soundbite in a soundscape or the live mix, a title starting with or containing "SFX", or a one-shot of 120 s or less;
   2. **ambient**: used more often as an `ambient` channel than as a `music` channel; or never used in a mix and an "ambience/ambient/atmosphere/soundscape/sounds/dripping" title without "music" or "theme";
   3. everything else **music**.
-- New and imported tracks with no category get `sleuth_core::music::guess_category` (title keywords, loop flag, length); the store fills it in, so the importers and `.dmix` files without one are covered. `.dmix` exports now carry `category`.
+- New and imported tracks with no category get `sloth_core::music::guess_category` (title keywords, loop flag, length); the store fills it in, so the importers and `.dmix` files without one are covered. `.dmix` exports now carry `category`.
 
 ## Differences from the Python schema
 - The track's single `campaign_id NOT NULL ON DELETE CASCADE` column is removed. Campaigns are linked only through the many-to-many table, so **deleting a campaign never deletes tracks**.

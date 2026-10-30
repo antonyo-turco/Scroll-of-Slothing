@@ -7,11 +7,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use sleuth_core::planner::{
+use sloth_core::planner::{
     CheckItem, PlanItem, Planner, RefKind, Section, SessionPlan, file_stem, prints_on_sheet,
     section, starred_extras,
 };
-use sleuth_store::{AssetQuery, Store, now};
+use sloth_store::{AssetQuery, Store, now};
 
 use crate::{JobId, Result, Service, ServiceError};
 
@@ -232,7 +232,7 @@ fn starred(s: &Store) -> Result<Vec<(RefKind, String)>> {
             .filter(|x| x.pinned)
             .map(|x| (RefKind::Soundscape, x.id)),
     );
-    let tq = sleuth_store::MusicTrackQuery { favorites_only: true, ..Default::default() };
+    let tq = sloth_store::MusicTrackQuery { favorites_only: true, ..Default::default() };
     out.extend(s.music_tracks_list(&tq)?.into_iter().map(|t| (RefKind::Track, t.id)));
     Ok(out)
 }

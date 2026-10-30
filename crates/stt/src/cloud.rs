@@ -4,7 +4,7 @@
 //! `{ model, input_audio: { data: <base64>, format: "wav" }, language? }`;
 //! the reply carries `text` and optionally `usage` (with `cost`). The reply has no
 //! timestamps, so the audio is split into chunks at pauses
-//! ([`sleuth_core::stt::plan_chunks`]) and each chunk becomes one segment.
+//! ([`sloth_core::stt::plan_chunks`]) and each chunk becomes one segment.
 
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -13,7 +13,7 @@ use std::time::Duration;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sleuth_core::stt::{CHUNK_MAX_MS, CHUNK_MIN_MS, plan_chunks, wav_pcm16};
+use sloth_core::stt::{CHUNK_MAX_MS, CHUNK_MIN_MS, plan_chunks, wav_pcm16};
 
 use crate::{CancelFn, Result, SAMPLE_RATE, Segment, SttError};
 
@@ -109,7 +109,7 @@ pub struct KeyInfo {
 
 fn client(timeout: Duration) -> Result<reqwest::blocking::Client> {
     reqwest::blocking::Client::builder()
-        .user_agent(concat!("sleuth/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("sloth/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(20))
         .timeout(timeout)
         .build()
@@ -176,7 +176,7 @@ fn request_body(cfg: &CloudConfig, wav: &[u8], language: Option<&str>) -> (Strin
             ("application/json".into(), body.to_string().into_bytes())
         }
         ApiFormat::OpenAi => {
-            let boundary = "----sleuth-8f3a1c5e";
+            let boundary = "----sloth-8f3a1c5e";
             let mut body = Vec::with_capacity(wav.len() + 512);
             let mut field = |name: &str, value: &str| {
                 body.extend_from_slice(
@@ -234,7 +234,7 @@ fn transcribe_chunk(
         }
         let resp = req
             .header("Content-Type", content_type.as_str())
-            .header("X-Title", "Kastanomata's Scroll of Sleuthing")
+            .header("X-Title", "Kastanomata's Scroll of Slothing")
             .body(body.clone())
             .send();
         let resp = match resp {

@@ -6,16 +6,16 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use sleuth_core::cutout::standee_block;
-use sleuth_core::imaging;
-use sleuth_core::pack::Layout;
-use sleuth_core::pack::mixed::{self, MixedItem};
-use sleuth_core::pack::shelf::{self, SheetMode, ShelfItem};
-use sleuth_core::pack::token_grid::{GridMode, TokenItem, justify, pack};
-use sleuth_core::token::{TokenParams, TokenShape, detect_shape};
-use sleuth_core::units::{PageFormat, SizeLabel};
-use sleuth_pdf::{CutLine, PdfError};
-use sleuth_store::Store;
+use sloth_core::cutout::standee_block;
+use sloth_core::imaging;
+use sloth_core::pack::Layout;
+use sloth_core::pack::mixed::{self, MixedItem};
+use sloth_core::pack::shelf::{self, SheetMode, ShelfItem};
+use sloth_core::pack::token_grid::{GridMode, TokenItem, justify, pack};
+use sloth_core::token::{TokenParams, TokenShape, detect_shape};
+use sloth_core::units::{PageFormat, SizeLabel};
+use sloth_pdf::{CutLine, PdfError};
+use sloth_store::Store;
 
 use crate::library::check_size;
 use crate::object_sheet::{self, ObjectSheet};
@@ -410,7 +410,7 @@ impl Service {
 /// (any other kind is ignored), `copies` each.
 pub(crate) fn add_assets_to(
     s: &Store,
-    assets: &[(sleuth_store::Asset, u32)],
+    assets: &[(sloth_store::Asset, u32)],
     sheet: &mut TokenSheet,
     objects: &mut ObjectSheet,
 ) -> Result<()> {
@@ -487,7 +487,7 @@ pub(crate) fn render_sheet(
         .chain(objects.items.iter().map(|_| None))
         .collect();
     let cut = cut.as_ref().map(|c| (c, shapes.as_slice()));
-    let bytes = sleuth_pdf::token_sheet::render(&layout, &images, cut, &mut |p| {
+    let bytes = sloth_pdf::token_sheet::render(&layout, &images, cut, &mut |p| {
         ctx.progress(start + span * (0.05 + 0.9 * p), "rendering pages");
         !ctx.is_cancelled()
     })

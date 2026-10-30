@@ -2,14 +2,14 @@
 //! grid removal, page preview and full-resolution PDF export, run through the
 //! service exactly as the UI calls it. Budgets: docs/perf.md.
 //!
-//! cargo bench -p sleuth-service --bench perf [-- --strict] [-- --size 6000x4500]
+//! cargo bench -p sloth-service --bench perf [-- --strict] [-- --size 6000x4500]
 //! `--strict` exits non-zero when a step is over budget.
 
 use std::path::Path;
 use std::time::{Duration, Instant};
 
 use image::RgbImage;
-use sleuth_service::{JobState, MapDoc, Service, SizingMode};
+use sloth_service::{JobState, MapDoc, Service, SizingMode};
 
 struct Row {
     name: String,

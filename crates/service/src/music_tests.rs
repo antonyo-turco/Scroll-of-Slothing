@@ -797,7 +797,7 @@ async fn dmix_embeds_uploads_and_carries_settings() {
     let path = d.path().join("Windy pass.dmix");
     svc.music_mix_export(path.clone(), None).await.unwrap();
     let doc: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    assert_eq!((doc["format"].as_str(), doc["version"].as_i64()), (Some("sleuth-dmix"), Some(1)));
+    assert_eq!((doc["format"].as_str(), doc["version"].as_i64()), (Some("sloth-dmix"), Some(1)));
     assert_eq!(doc["ducking"]["factor"], 0.25);
 
     // a fresh install recreates the tracks and the upload bytes
@@ -823,7 +823,7 @@ async fn dmix_embeds_uploads_and_carries_settings() {
     assert!(is_invalid(other.music_mix_import(bad.clone(), false).await));
     std::fs::write(&bad, br#"{"format":"other"}"#).unwrap();
     assert!(is_invalid(other.music_mix_import(bad.clone(), false).await));
-    std::fs::write(&bad, br#"{"format":"sleuth-dmix","version":2}"#).unwrap();
+    std::fs::write(&bad, br#"{"format":"sloth-dmix","version":2}"#).unwrap();
     assert!(is_invalid(other.music_mix_import(bad, false).await));
 }
 

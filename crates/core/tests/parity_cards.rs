@@ -2,11 +2,11 @@
 //! (fixtures/parity/cards_parse.json, cards_layout.json).
 
 use serde_json::Value;
-use sleuth_core::cards::{
+use sloth_core::cards::{
     BODY_FONT_SIZES, CARD_W, body_height, find_overflow, inline_tokens, parse, sim_body_start_y,
     token_lines,
 };
-use sleuth_core::units::PageFormat;
+use sloth_core::units::PageFormat;
 
 fn fixture(name: &str) -> Vec<Value> {
     let path = format!("{}/../../fixtures/parity/{name}", env!("CARGO_MANIFEST_DIR"));

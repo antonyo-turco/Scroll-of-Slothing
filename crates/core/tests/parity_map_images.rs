@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use image::RgbImage;
 use serde_json::Value;
-use sleuth_core::maps::{degrid, filters, homography};
+use sloth_core::maps::{degrid, filters, homography};
 
 fn dir() -> String {
     format!("{}/../../fixtures/parity", env!("CARGO_MANIFEST_DIR"))

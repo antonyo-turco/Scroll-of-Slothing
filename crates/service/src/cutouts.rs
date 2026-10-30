@@ -6,10 +6,10 @@ use std::path::PathBuf;
 
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
-use sleuth_core::cutout::{CutoutParams, make_cutout};
-use sleuth_core::imaging;
-use sleuth_core::units::SizeLabel;
-use sleuth_store::{AssetImages, AssetPatch, NewAsset};
+use sloth_core::cutout::{CutoutParams, make_cutout};
+use sloth_core::imaging;
+use sloth_core::units::SizeLabel;
+use sloth_store::{AssetImages, AssetPatch, NewAsset};
 
 use crate::library::{check_size, store_encoded};
 use crate::tokens::{SourceImage, source_info};

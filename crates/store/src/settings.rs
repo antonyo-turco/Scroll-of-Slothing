@@ -2,7 +2,7 @@
 
 use rusqlite::params;
 use serde_json::{Map, Value};
-use sleuth_core::settings::Settings;
+use sloth_core::settings::Settings;
 
 use crate::{Result, Store, changes};
 
@@ -48,7 +48,7 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use sleuth_core::settings::{CutLineStyle, Settings};
+    use sloth_core::settings::{CutLineStyle, Settings};
 
     use crate::temp_store;
 

@@ -9,10 +9,10 @@ use std::path::PathBuf;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sleuth_core::settings::Settings;
-use sleuth_core::units::SizeLabel;
-use sleuth_legacy::{LegacyAsset, LegacyDb};
-use sleuth_store::{LinkTarget, NewAsset, Store};
+use sloth_core::settings::Settings;
+use sloth_core::units::SizeLabel;
+use sloth_legacy::{LegacyAsset, LegacyDb};
+use sloth_store::{LinkTarget, NewAsset, Store};
 
 use crate::library::{check_kind, store_encoded};
 use crate::{JobCtx, JobId, Result, Service, ServiceError};
@@ -104,7 +104,7 @@ pub(crate) fn run(
     let check = || ctx.map(JobCtx::check).unwrap_or(Ok(()));
     let legacy =
         LegacyDb::open(&opts.db_path).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
-    let lerr = |e: sleuth_legacy::LegacyError| ServiceError::Io(e.to_string());
+    let lerr = |e: sloth_legacy::LegacyError| ServiceError::Io(e.to_string());
     let mut report = LegacyImportReport::default();
 
     // Campaigns & sessions (uuids preserved).
@@ -245,7 +245,7 @@ pub(crate) fn run(
         report.settings_imported = true;
     }
     if let Some(p) = opts.aoe_presets_path.as_ref().filter(|p| p.exists()) {
-        for (name, cfg) in sleuth_legacy::read_aoe_presets(&std::fs::read_to_string(p)?) {
+        for (name, cfg) in sloth_legacy::read_aoe_presets(&std::fs::read_to_string(p)?) {
             store.upsert_aoe_preset(&name, &cfg)?;
             report.aoe_presets += 1;
         }
@@ -276,7 +276,7 @@ impl Service {
 
 #[cfg(test)]
 mod tests {
-    use sleuth_store::AssetQuery;
+    use sloth_store::AssetQuery;
 
     use super::*;
     use crate::library::tests::write_test_png;
@@ -286,7 +286,7 @@ mod tests {
         let (d, svc) = temp_service();
         let png = std::fs::read(write_test_png(d.path(), "src.png", 300, 200)).unwrap();
         let db = d.path().join("creatures.db");
-        sleuth_legacy::fixture::build(&db, &png);
+        sloth_legacy::fixture::build(&db, &png);
         let settings = d.path().join("app_settings.json");
         std::fs::write(&settings, r#"{"start_tab": "Card Printer", "map_overlap_in": "0.5"}"#)
             .unwrap();
@@ -344,7 +344,7 @@ mod tests {
     async fn corrupt_images_are_reported_not_fatal() {
         let (d, svc) = temp_service();
         let db = d.path().join("creatures.db");
-        sleuth_legacy::fixture::build(&db, b"not an image");
+        sloth_legacy::fixture::build(&db, b"not an image");
         let r = svc
             .legacy_import_blocking(LegacyImportOptions {
                 db_path: db,
@@ -362,7 +362,7 @@ mod tests {
         let (d, svc) = temp_service();
         let err = svc
             .legacy_import_blocking(LegacyImportOptions {
-                db_path: d.path().join("sleuth.db"),
+                db_path: d.path().join("sloth.db"),
                 settings_path: None,
                 aoe_presets_path: None,
             })

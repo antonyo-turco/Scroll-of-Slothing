@@ -1,4 +1,4 @@
-//! MCP server: every tool is a thin wrapper around one `sleuth_service` call.
+//! MCP server: every tool is a thin wrapper around one `sloth_service` call.
 //! Reference: docs/mcp-tools.md (kept in sync by the `tools_are_documented` test).
 //!
 //! Errors from the service are returned as *tool errors* (`isError: true` with a
@@ -14,14 +14,14 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{ErrorData, ServerHandler, schemars, tool, tool_handler, tool_router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use sleuth_core::cards::Flip;
-use sleuth_core::cutout::CutoutParams;
-use sleuth_core::pack::shelf::SheetMode;
-use sleuth_core::settings::SttEngine;
-use sleuth_core::stt::{Correction, ExportFormat, Segment};
-use sleuth_core::token::TokenParams;
-use sleuth_core::units::PageFormat;
-use sleuth_service::{
+use sloth_core::cards::Flip;
+use sloth_core::cutout::CutoutParams;
+use sloth_core::pack::shelf::SheetMode;
+use sloth_core::settings::SttEngine;
+use sloth_core::stt::{Correction, ExportFormat, Segment};
+use sloth_core::token::TokenParams;
+use sloth_core::units::PageFormat;
+use sloth_service::{
     AssetPatch, AssetQuery, AssetSort, CardOptions, EncounterCreature, ExportWhat, Hero,
     ImportFile, LegacyImportOptions, ObjectItemPatch, RowPatch, Service, ServiceError,
     SheetItemPatch, TranscribeOptions,
@@ -29,7 +29,7 @@ use sleuth_service::{
 
 type ToolResult = Result<CallToolResult, ErrorData>;
 
-const INSTRUCTIONS: &str = "Kastanomata's Scroll of Sleuthing: a tabletop (D&D) prep toolkit. \
+const INSTRUCTIONS: &str = "Kastanomata's Scroll of Slothing: a tabletop (D&D) prep toolkit. \
 Manage an asset library of tokens, cut-outs and maps (search, tag, pin, \
 import/export images), print maps and AoE templates, and run live session music (mixer, soundscapes, playlists, soundboards). Use library_search to find asset ids, then act on them. \
 Long operations return a job_id: poll jobs_status. File paths are absolute paths on this machine.";
@@ -538,14 +538,14 @@ pub struct DeckSaveParams {
 // ── server ──────────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
-pub struct SleuthServer {
+pub struct SlothServer {
     svc: Service,
     tool_router: ToolRouter<Self>,
 }
 
-impl SleuthServer {
+impl SlothServer {
     pub fn new(svc: Service) -> Self {
-        SleuthServer { svc, tool_router: Self::tool_router() }
+        SlothServer { svc, tool_router: Self::tool_router() }
     }
 
     /// Names of every registered tool (used by the docs test).
@@ -555,7 +555,7 @@ impl SleuthServer {
 }
 
 #[tool_router]
-impl SleuthServer {
+impl SlothServer {
     // ── settings ──
     #[tool(
         description = "Get all application settings (page formats, cut-line style, map print defaults, ...)."
@@ -1183,14 +1183,14 @@ impl SleuthServer {
     )]
     async fn map_set_filters(&self, Parameters(p): Parameters<MapFiltersParams>) -> ToolResult {
         let pipeline = match (p.preset, p.pipeline) {
-            (Some(name), _) => match sleuth_core::maps::filters::preset_pipeline(&name) {
+            (Some(name), _) => match sloth_core::maps::filters::preset_pipeline(&name) {
                 Some(pl) => pl,
                 None => {
                     return fail(&ServiceError::InvalidInput(format!("unknown preset {name:?}")));
                 }
             },
             (None, Some(pl)) => match serde_json::from_value::<
-                Vec<sleuth_core::maps::filters::FilterStep>,
+                Vec<sloth_core::maps::filters::FilterStep>,
             >(Value::Array(pl))
             {
                 Ok(pl) => pl,
@@ -1596,7 +1596,7 @@ impl SleuthServer {
         let items = p
             .items
             .into_iter()
-            .map(|i| sleuth_service::CreatureToken { hash: i.hash, count: i.count })
+            .map(|i| sloth_service::CreatureToken { hash: i.hash, count: i.count })
             .collect();
         done(self.svc.token_sheet_add_creatures(items).await)
     }
@@ -1651,7 +1651,7 @@ impl SleuthServer {
         &self,
         Parameters(p): Parameters<CompendiumSearchParams>,
     ) -> ToolResult {
-        let q = sleuth_service::CompendiumQuery {
+        let q = sloth_service::CompendiumQuery {
             kind: p.kind.into(),
             query: p.query.unwrap_or_default(),
             level: p.level,
@@ -1709,13 +1709,13 @@ impl SleuthServer {
         &self,
         Parameters(p): Parameters<PlannerUpdateParams>,
     ) -> ToolResult {
-        let patch = sleuth_service::SessionPatch {
+        let patch = sloth_service::SessionPatch {
             name: p.name,
             date: p.date,
             notes: p.notes,
             checklist: p.checklist.map(|l| {
                 l.into_iter()
-                    .map(|c| sleuth_service::CheckItem { id: c.id, text: c.text, done: c.done })
+                    .map(|c| sloth_service::CheckItem { id: c.id, text: c.text, done: c.done })
                     .collect()
             }),
             include_token_sheet: p.include_token_sheet,
@@ -1748,7 +1748,7 @@ impl SleuthServer {
                     )));
                 }
             };
-            items.push(sleuth_service::PlanRef { kind, ref_id: r.ref_id, copies: r.copies });
+            items.push(sloth_service::PlanRef { kind, ref_id: r.ref_id, copies: r.copies });
         }
         done(self.svc.planner_items_add(p.session, items).await)
     }
@@ -1796,7 +1796,7 @@ impl SleuthServer {
         description = "Make a clock: name, segments (2-24, default 4), color, every_secs (advance one segment every N seconds; omit for a hand-filled clock) and run (start the timer)."
     )]
     async fn clocks_create(&self, Parameters(p): Parameters<ClockCreateParams>) -> ToolResult {
-        let new = sleuth_service::ClockNew {
+        let new = sloth_service::ClockNew {
             name: p.name,
             segments: p.segments,
             color: p.color,
@@ -1810,7 +1810,7 @@ impl SleuthServer {
         description = "Change a clock: name, segments, filled, color, notes, every_secs (0 removes the timer), events (replaces them: [{id?, at, repeat?, text}], something that happens when segment `at` fills and, with repeat, every `repeat` segments after). Filling it stops its timer."
     )]
     async fn clocks_update(&self, Parameters(p): Parameters<ClockUpdateParams>) -> ToolResult {
-        let patch = sleuth_service::ClockPatch {
+        let patch = sloth_service::ClockPatch {
             name: p.name,
             segments: p.segments,
             filled: p.filled,
@@ -1819,7 +1819,7 @@ impl SleuthServer {
             every_secs: p.every_secs,
             events: p.events.map(|l| {
                 l.into_iter()
-                    .map(|e| sleuth_service::ClockEvent {
+                    .map(|e| sloth_service::ClockEvent {
                         id: e.id,
                         at: e.at,
                         repeat: e.repeat,
@@ -2013,7 +2013,7 @@ impl SleuthServer {
         let items = p
             .items
             .into_iter()
-            .map(|i| sleuth_service::MusicTagSuggestion {
+            .map(|i| sloth_service::MusicTagSuggestion {
                 track_id: i.track_id,
                 title: String::new(),
                 add: i.add,
@@ -2232,7 +2232,7 @@ impl SleuthServer {
     }
 }
 
-impl SleuthServer {
+impl SlothServer {
     /// Card options from tool params, defaulting the format to the `card_page_format` setting.
     async fn card_opts(&self, p: &CardsParams) -> Result<CardOptions, ServiceError> {
         let format = match p.format.as_deref() {
@@ -2253,7 +2253,7 @@ impl SleuthServer {
     }
 }
 
-impl SleuthServer {
+impl SlothServer {
     async fn cutout_inner(&self, p: CutoutCreateParams) -> Result<(Value, Vec<u8>), ServiceError> {
         let (source, mut params, name, size, asset_id) = match (p.asset_id, p.source_path) {
             (Some(id), _) => {
@@ -2279,7 +2279,7 @@ impl SleuthServer {
             params.outline_px = px.min(40);
         }
         if let Some(c) = p.outline_color {
-            params.outline_rgb = sleuth_core::settings::HexColor::parse(&c)
+            params.outline_rgb = sloth_core::settings::HexColor::parse(&c)
                 .ok_or_else(|| {
                     ServiceError::InvalidInput(format!("outline_color {c:?} is not #rrggbb"))
                 })?
@@ -2326,7 +2326,7 @@ impl SleuthServer {
     }
 }
 
-impl SleuthServer {
+impl SlothServer {
     async fn token_compose_inner(
         &self,
         p: TokenComposeParams,
@@ -2365,7 +2365,7 @@ impl SleuthServer {
                 None
             } else {
                 Some(
-                    sleuth_core::settings::HexColor::parse(&bg)
+                    sloth_core::settings::HexColor::parse(&bg)
                         .ok_or_else(|| {
                             ServiceError::InvalidInput(format!("background {bg:?} is not #rrggbb"))
                         })?
@@ -2386,7 +2386,7 @@ impl SleuthServer {
             params.pan[1] = v;
         }
         if let Some(name) = p.filter_preset {
-            params.filters = sleuth_core::token::token_preset_pipeline(&name).ok_or_else(|| {
+            params.filters = sloth_core::token::token_preset_pipeline(&name).ok_or_else(|| {
                 ServiceError::InvalidInput(format!("unknown token filter preset {name:?}"))
             })?;
         } else if let Some(pl) = p.filters {
@@ -2434,18 +2434,18 @@ impl SleuthServer {
 }
 
 #[tool_handler(router = self.tool_router)]
-impl ServerHandler for SleuthServer {
+impl ServerHandler for SlothServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("sleuth", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("sloth", env!("CARGO_PKG_VERSION")))
             .with_instructions(INSTRUCTIONS)
     }
 }
 
 // ── maps / AoE helpers and params ───────────────────────────────────────────
 
-impl SleuthServer {
-    async fn current_map(&self) -> Result<sleuth_service::MapDoc, ServiceError> {
+impl SlothServer {
+    async fn current_map(&self) -> Result<sloth_service::MapDoc, ServiceError> {
         self.svc
             .map_get()
             .await?
@@ -2456,7 +2456,7 @@ impl SleuthServer {
     async fn map_patch(
         &self,
         patch: Map<String, Value>,
-    ) -> Result<sleuth_service::MapDoc, ServiceError> {
+    ) -> Result<sloth_service::MapDoc, ServiceError> {
         let doc = self.current_map().await?;
         let mut v =
             serde_json::to_value(&doc).map_err(|e| ServiceError::Internal(e.to_string()))?;
@@ -2468,7 +2468,7 @@ impl SleuthServer {
                 obj.insert(k, val);
             }
         }
-        let doc: sleuth_service::MapDoc =
+        let doc: sloth_service::MapDoc =
             serde_json::from_value(v).map_err(|e| ServiceError::InvalidInput(e.to_string()))?;
         self.svc.map_set(doc).await
     }
@@ -2600,14 +2600,14 @@ pub struct MapSaveParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct AoeParams {
     #[schemars(with = "Value")]
-    pub config: sleuth_core::aoe::AoeConfig,
+    pub config: sloth_core::aoe::AoeConfig,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct AoePresetSaveParams {
     pub name: String,
     #[schemars(with = "Value")]
-    pub config: sleuth_core::aoe::AoeConfig,
+    pub config: sloth_core::aoe::AoeConfig,
     pub overwrite: Option<bool>,
 }
 
@@ -2639,7 +2639,7 @@ pub struct AoeSheetExportParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct AoeExportParams {
     #[schemars(with = "Value")]
-    pub config: sleuth_core::aoe::AoeConfig,
+    pub config: sloth_core::aoe::AoeConfig,
     pub path: String,
 }
 
@@ -2649,13 +2649,13 @@ pub struct AoeExportParams {
 pub struct MusicQueryParams {
     /// {tags, text}
     #[schemars(with = "Option<Value>")]
-    pub query: Option<sleuth_service::MusicTrackQuery>,
+    pub query: Option<sloth_service::MusicTrackQuery>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MusicTrackParams {
     #[schemars(with = "Value")]
-    pub input: sleuth_service::TrackInput,
+    pub input: sloth_service::TrackInput,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -2671,7 +2671,7 @@ pub struct MusicChannelAddParams {
 pub struct MusicChannelPatchParams {
     pub id: String,
     #[schemars(with = "Value")]
-    pub patch: sleuth_service::MusicChannelPatch,
+    pub patch: sloth_service::MusicChannelPatch,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -2686,7 +2686,7 @@ pub struct MusicSoundbiteParams {
 pub struct MusicDuckParams {
     /// off | soft | strong
     #[schemars(with = "String")]
-    pub mode: sleuth_service::DuckMode,
+    pub mode: sloth_service::DuckMode,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -2697,13 +2697,13 @@ pub struct MusicVolumeParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MusicSoundscapeParams {
     #[schemars(with = "Value")]
-    pub input: sleuth_service::SoundscapeInput,
+    pub input: sloth_service::SoundscapeInput,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MusicPlaylistParams {
     #[schemars(with = "Value")]
-    pub input: sleuth_service::PlaylistInput,
+    pub input: sloth_service::PlaylistInput,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -2808,11 +2808,11 @@ pub enum CompendiumKindParam {
     Item,
 }
 
-impl From<CompendiumKindParam> for sleuth_service::CompendiumKind {
+impl From<CompendiumKindParam> for sloth_service::CompendiumKind {
     fn from(k: CompendiumKindParam) -> Self {
         match k {
-            CompendiumKindParam::Spell => sleuth_service::CompendiumKind::Spell,
-            CompendiumKindParam::Item => sleuth_service::CompendiumKind::Item,
+            CompendiumKindParam::Spell => sloth_service::CompendiumKind::Spell,
+            CompendiumKindParam::Item => sloth_service::CompendiumKind::Item,
         }
     }
 }
@@ -2839,9 +2839,9 @@ pub struct CompendiumRefParams {
     pub id: String,
 }
 
-impl From<CompendiumRefParams> for sleuth_service::CompendiumRef {
+impl From<CompendiumRefParams> for sloth_service::CompendiumRef {
     fn from(p: CompendiumRefParams) -> Self {
-        sleuth_service::CompendiumRef { kind: p.kind.into(), id: p.id }
+        sloth_service::CompendiumRef { kind: p.kind.into(), id: p.id }
     }
 }
 

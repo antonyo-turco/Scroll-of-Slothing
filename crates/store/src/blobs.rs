@@ -98,7 +98,7 @@ impl Store {
             .ok_or_else(|| StoreError::NotFound(format!("blob {hash}")))
     }
 
-    /// Filesystem path of a stored blob (for streaming / the `sleuth://` protocol).
+    /// Filesystem path of a stored blob (for streaming / the `sloth://` protocol).
     pub fn blob_file(&self, hash: &str) -> Result<PathBuf> {
         if hash.len() < 4 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
             return Err(StoreError::Invalid(format!("bad blob hash {hash:?}")));

@@ -4,7 +4,7 @@ import bold from '../../../assets/fonts/LiberationSans-Bold.ttf?url';
 import italic from '../../../assets/fonts/LiberationSans-Italic.ttf?url';
 import boldItalic from '../../../assets/fonts/LiberationSans-BoldItalic.ttf?url';
 
-export const CARD_FONT = 'Sleuth Liberation Sans';
+export const CARD_FONT = 'Sloth Liberation Sans';
 
 let done = false;
 

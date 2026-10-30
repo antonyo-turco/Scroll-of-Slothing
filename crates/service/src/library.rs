@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 use image::DynamicImage;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use sleuth_core::imaging;
-use sleuth_core::units::SizeLabel;
-use sleuth_store::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, NewAsset, Store};
+use sloth_core::imaging;
+use sloth_core::units::SizeLabel;
+use sloth_store::{Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, NewAsset, Store};
 
 use crate::{Result, Service, ServiceError};
 

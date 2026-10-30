@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 use serde_json::{Map, Value};
-use sleuth_core::settings::{Settings, SettingsErrors};
+use sloth_core::settings::{Settings, SettingsErrors};
 
 use crate::{Result, Service};
 
@@ -38,7 +38,7 @@ impl Service {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
-    use sleuth_core::units::PageFormat;
+    use sloth_core::units::PageFormat;
 
     use crate::temp_service;
 

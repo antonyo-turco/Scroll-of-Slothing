@@ -46,11 +46,11 @@ Reference: Python `ui/token_compositing.py`.
 5. **Outer clip.** Clip to the border's outer edge, in its shape. The centre comes from the alpha bounding box; the radius is the largest that fits the box (circle: `min(w,h)/2`). A blank border has no alpha, so there's no outer clip: the content mask is the token's edge.
 
 ## Filters
-- `sleuth_core::token::TOKEN_FILTERS`: the colour and tone map filters (docs/features/map-filters.md): autocontrast, contrast, lightness, clarity, sharpen, sepia, grayscale, posterize, edge_boost. The ink-saving B&W filters (adaptive, threshold, dither, line_art, canny) are for printing maps; other kinds in a token pipeline are ignored.
+- `sloth_core::token::TOKEN_FILTERS`: the colour and tone map filters (docs/features/map-filters.md): autocontrast, contrast, lightness, clarity, sharpen, sepia, grayscale, posterize, edge_boost. The ink-saving B&W filters (adaptive, threshold, dither, line_art, canny) are for printing maps; other kinds in a token pipeline are ignored.
 - Presets: the map presets that use only token filters (8 of 18, including "None (clear all)", Most legible, Posterized 3/4, Soft and Clean grayscale, Sepia print, Faded parchment). `token_filter_catalog` (service, Tauri command, MCP tool) lists the defs and these presets.
 
 ## Shapes
-`sleuth_core::token::TokenShape`, each scaled so it touches the square canvas:
+`sloth_core::token::TokenShape`, each scaled so it touches the square canvas:
 - `circle`;
 - `square`;
 - `hex`: a pointy-top regular hexagon (vertices at top and bottom, √3/2 as wide as tall; it fits Roll20's vertical hex grid);

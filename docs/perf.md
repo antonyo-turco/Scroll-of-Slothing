@@ -3,9 +3,9 @@
 The map paginator does the heaviest pixel work in the app, so it carries the budgets. The benchmark drives the service exactly as the UI does:
 
 ```
-cargo bench -p sleuth-service --bench perf              # report
-cargo bench -p sleuth-service --bench perf -- --strict  # exit 1 if a step is over budget
-cargo bench -p sleuth-service --bench perf -- --size 3000x2000
+cargo bench -p sloth-service --bench perf              # report
+cargo bench -p sloth-service --bench perf -- --strict  # exit 1 if a step is over budget
+cargo bench -p sloth-service --bench perf -- --size 3000x2000
 ```
 
 Source: `crates/service/benches/perf.rs`. The input is a synthetic 6000×4500 px (27 MP) parchment map with a grid every 100 px, about a 300 dpi battle map. The page size is A4 at 1" squares.

@@ -9,10 +9,10 @@ use std::sync::Arc;
 
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
-use sleuth_core::imaging;
-use sleuth_core::token::{self, TokenParams, TokenShape, compose_shaped, detect_shape};
-use sleuth_core::units::SizeLabel;
-use sleuth_store::{AssetImages, AssetPatch, NewAsset, Store};
+use sloth_core::imaging;
+use sloth_core::token::{self, TokenParams, TokenShape, compose_shaped, detect_shape};
+use sloth_core::units::SizeLabel;
+use sloth_store::{AssetImages, AssetPatch, NewAsset, Store};
 
 use crate::library::{check_size, store_encoded};
 use crate::{Asset, FilterCatalog, FilterPreset, Result, Service, ServiceError};

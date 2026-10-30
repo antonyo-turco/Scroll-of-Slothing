@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use crate::{Result, ServiceError};
 
 #[cfg(windows)]
-const SERVICE: &str = "sleuth";
+const SERVICE: &str = "sloth";
 
 pub(crate) enum Secrets {
     /// The OS credential store.
@@ -29,7 +29,7 @@ impl Secrets {
             #[cfg(windows)]
             Secrets::System => match entry(name)?.get_password() {
                 Ok(v) => Ok(Some(v)),
-                Err(keyring::Error::NoEntry) => Ok(None),
+                Err(keyring::Error::NoEntry) => Ok(migrate_legacy(name)),
                 Err(e) => Err(store_err(e)),
             },
             #[cfg(not(windows))]
@@ -75,6 +75,17 @@ impl Secrets {
 #[cfg(windows)]
 fn entry(name: &str) -> Result<keyring::Entry> {
     keyring::Entry::new(SERVICE, name).map_err(store_err)
+}
+
+/// Moves a key saved under the former service name (`sleuth`) to the current one.
+#[cfg(windows)]
+fn migrate_legacy(name: &str) -> Option<String> {
+    let old = keyring::Entry::new("sleuth", name).ok()?;
+    let value = old.get_password().ok()?;
+    if entry(name).and_then(|e| e.set_password(&value).map_err(store_err)).is_ok() {
+        let _ = old.delete_credential();
+    }
+    Some(value)
 }
 
 #[cfg(windows)]

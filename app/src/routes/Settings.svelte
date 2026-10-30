@@ -252,14 +252,14 @@
         {@render toggle('mcp_http_enabled', 'Enable in-app MCP server (HTTP, localhost only)')}
         <InfoTip
           label="About the MCP server"
-          text="Lets AI assistants such as Claude drive the app over a local connection. The standalone sleuth-mcp server works regardless of this setting."
+          text="Lets AI assistants such as Claude drive the app over a local connection. The standalone sloth-mcp server works regardless of this setting."
         />
       </div>
       {#if app.settings.mcp_http_enabled}
         <p class="muted hint" data-testid="mcp-url">
           {#if mcp}
             Endpoint <code>{mcp.url}</code>, header <code>Authorization: Bearer {mcp.token}</code>. For Claude Code:
-            <code>claude mcp add --transport http sleuth {mcp.url} --header "Authorization: Bearer {mcp.token}"</code>
+            <code>claude mcp add --transport http sloth {mcp.url} --header "Authorization: Bearer {mcp.token}"</code>
           {:else}Starting… (if this stays, port 8765 may be in use){/if}
         </p>
       {/if}

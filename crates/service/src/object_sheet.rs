@@ -6,11 +6,11 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use sleuth_core::cutout::CutoutParams;
-use sleuth_core::imaging;
-use sleuth_core::pack::shelf::SheetMode;
-use sleuth_core::units::{PageFormat, SizeLabel};
-use sleuth_store::Store;
+use sloth_core::cutout::CutoutParams;
+use sloth_core::imaging;
+use sloth_core::pack::shelf::SheetMode;
+use sloth_core::units::{PageFormat, SizeLabel};
+use sloth_store::Store;
 
 use crate::library::check_size;
 use crate::token_sheet::{self, SheetLayout, thumb_of};

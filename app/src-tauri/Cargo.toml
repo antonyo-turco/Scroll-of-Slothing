@@ -1,21 +1,21 @@
 [package]
-name = "sleuth-app"
-description = "Kastanomata's Scroll of Sleuthing desktop app"
+name = "sloth-app"
+description = "Kastanomata's Scroll of Slothing desktop app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "sleuth_app_lib"
+name = "sloth_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-sleuth-core.workspace = true
-sleuth-service.workspace = true
-sleuth-mcp.workspace = true
+sloth-core.workspace = true
+sloth-service.workspace = true
+sloth-mcp.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"

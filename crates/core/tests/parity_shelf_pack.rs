@@ -2,8 +2,8 @@
 //! (fixtures/parity/shelf_pack.json).
 
 use serde_json::Value;
-use sleuth_core::pack::shelf::{SheetMode, ShelfItem, pack};
-use sleuth_core::units::{PageFormat, SizeLabel};
+use sloth_core::pack::shelf::{SheetMode, ShelfItem, pack};
+use sloth_core::units::{PageFormat, SizeLabel};
 
 #[test]
 fn shelf_packing_matches_python_exactly() {

@@ -360,12 +360,12 @@ export function youtubeErrorMessage(code: number): string {
   }
 }
 
-/** URL of an uploaded media blob (Range-capable `sleuth://media/<hash>`). */
+/** URL of an uploaded media blob (Range-capable `sloth://media/<hash>`). */
 export function mediaUrl(hash: string): string {
   if (!isTauri()) return `mock-media:${hash}`;
   return navigator.userAgent.includes('Windows')
-    ? `http://sleuth.localhost/media/${hash}`
-    : `sleuth://localhost/media/${hash}`;
+    ? `http://sloth.localhost/media/${hash}`
+    : `sloth://localhost/media/${hash}`;
 }
 
 /** Subscribes the engine to commands from the service. */

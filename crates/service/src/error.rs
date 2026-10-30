@@ -1,5 +1,5 @@
 use serde::Serialize;
-use sleuth_store::StoreError;
+use sloth_store::StoreError;
 
 /// Stable, machine-readable error categories (exposed to the UI and MCP).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

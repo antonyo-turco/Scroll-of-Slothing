@@ -11,15 +11,15 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sleuth_core::combat::creature::{self, ColumnKind};
-use sleuth_core::combat::link::{self, EncounterImport, EncounterItem, LinkKind};
-use sleuth_core::combat::{CONDITIONS, Row, Sort, Tracker};
-use sleuth_store::Store;
+use sloth_core::combat::creature::{self, ColumnKind};
+use sloth_core::combat::link::{self, EncounterImport, EncounterItem, LinkKind};
+use sloth_core::combat::{CONDITIONS, Row, Sort, Tracker};
+use sloth_store::Store;
 
 use crate::{JobId, Result, Service, ServiceError};
 
 const KEY: &str = "combat.tracker";
-const LOCK_KEY: &str = "_sleuthLocked";
+const LOCK_KEY: &str = "_slothLocked";
 const ENCOUNTERS_KEY: &str = "combat.encounters";
 const PARTIES_KEY: &str = "combat.parties";
 /// 5etools lair actions and regional effects, synced next to the bestiary files.
@@ -715,7 +715,7 @@ impl Service {
             let _ = std::fs::remove_dir_all(&tmp);
             std::fs::create_dir_all(&tmp).map_err(io)?;
             let client = reqwest::blocking::Client::builder()
-                .user_agent(concat!("sleuth/", env!("CARGO_PKG_VERSION")))
+                .user_agent(concat!("sloth/", env!("CARGO_PKG_VERSION")))
                 .connect_timeout(std::time::Duration::from_secs(10))
                 .timeout(std::time::Duration::from_secs(120))
                 .build()
@@ -862,7 +862,7 @@ mod tests {
 
         // a new column fills from each creature's stat block
         let mut t = svc.combat_get().await.unwrap();
-        t.stats_cols.push(sleuth_core::combat::Column {
+        t.stats_cols.push(sloth_core::combat::Column {
             id: "ac".into(),
             is_editable: true,
             is_player_visible: 0,
@@ -909,7 +909,7 @@ mod tests {
 
 /// The rolling and import options are app settings (Settings → Combat), not
 /// per-tracker state; they still travel in links for 5etools.
-fn apply_settings(t: &mut Tracker, st: &sleuth_core::settings::Settings) {
+fn apply_settings(t: &mut Tracker, st: &sloth_core::settings::Settings) {
     t.is_roll_init = st.combat_roll_init;
     t.is_roll_hp = st.combat_roll_hp;
     t.is_roll_groups = st.combat_roll_groups;
@@ -1053,7 +1053,7 @@ impl Service {
         self.blocking(move |s| {
             let mut list = load_encounters(s)?;
             let creatures = clean_creatures(creatures);
-            let now = sleuth_store::now();
+            let now = sloth_store::now();
             let ix = match &id {
                 Some(id) => list
                     .iter()
@@ -1125,7 +1125,7 @@ impl Service {
             if t.rows.is_empty() {
                 return Err(ServiceError::InvalidInput("the tracker is empty".into()));
             }
-            let now = sleuth_store::now();
+            let now = sloth_store::now();
             let mut e = SavedEncounter {
                 id: new_id(),
                 name: name.trim().to_string(),
@@ -1172,7 +1172,7 @@ impl Service {
         };
         let svc = self.clone();
         self.blocking(move |s| {
-            let now = sleuth_store::now();
+            let now = sloth_store::now();
             let given = name
                 .or_else(|| data.get("name").and_then(Value::as_str).map(Into::into))
                 .unwrap_or_default();
@@ -1511,7 +1511,7 @@ impl Service {
                 name: name.trim().into(),
                 notes,
                 heroes,
-                updated: sleuth_store::now(),
+                updated: sloth_store::now(),
             };
             match id {
                 Some(id) => {
@@ -1601,7 +1601,7 @@ mod party_tests {
         assert!(p.heroes.iter().all(|h| !h.id.is_empty()));
 
         let mut t = svc.combat_get().await.unwrap();
-        t.stats_cols.push(sleuth_core::combat::Column {
+        t.stats_cols.push(sloth_core::combat::Column {
             id: "ac".into(),
             is_editable: true,
             is_player_visible: 0,
@@ -1631,7 +1631,7 @@ mod party_tests {
 // ── .denc files ──
 
 /// File format marker of `.denc` encounter files.
-pub const DENC_FORMAT: &str = "sleuth-encounters";
+pub const DENC_FORMAT: &str = "sloth-encounters";
 
 impl Service {
     /// Writes saved encounters (all, or `ids`) to a `.denc` file: JSON with
@@ -1675,7 +1675,7 @@ impl Service {
         let svc = self.clone();
         self.blocking(move |s| {
             let mut list = load_encounters(s)?;
-            let now = sleuth_store::now();
+            let now = sloth_store::now();
             let added: Vec<SavedEncounter> = incoming
                 .into_iter()
                 .map(|e| SavedEncounter { id: new_id(), pinned: false, updated: now.clone(), ..e })
@@ -1715,7 +1715,7 @@ mod denc_tests {
 fn apply_stats_to_row(
     r: &mut Row,
     stats: &serde_json::Map<String, Value>,
-    cols: &[sleuth_core::combat::Column],
+    cols: &[sloth_core::combat::Column],
 ) {
     if let Some(hp) = stats.get("hp").and_then(|h| h.get("average")).and_then(Value::as_i64) {
         r.hp_max = Some(hp);
@@ -1921,7 +1921,7 @@ fn creature_image_url(mon: &Value, base: &str, kind: CreatureImage) -> Option<St
 
 fn fetch_image(url: &str) -> Result<Vec<u8>> {
     let client = reqwest::blocking::Client::builder()
-        .user_agent(concat!("sleuth/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("sloth/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(std::time::Duration::from_secs(10))
         .timeout(std::time::Duration::from_secs(60))
         .build()

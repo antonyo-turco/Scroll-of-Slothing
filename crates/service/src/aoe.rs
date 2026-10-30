@@ -8,13 +8,13 @@ use std::path::PathBuf;
 
 use image::RgbImage;
 use serde::{Deserialize, Serialize};
-use sleuth_core::aoe::{self, AoeConfig, SHEET_GAP_IN};
-use sleuth_core::imaging;
-use sleuth_core::maps::tiling::{self, TileParams};
-use sleuth_core::pack::maxrects::SheetLayout;
-use sleuth_core::units::PageFormat;
-use sleuth_pdf::PdfError;
-use sleuth_store::Store;
+use sloth_core::aoe::{self, AoeConfig, SHEET_GAP_IN};
+use sloth_core::imaging;
+use sloth_core::maps::tiling::{self, TileParams};
+use sloth_core::pack::maxrects::SheetLayout;
+use sloth_core::units::PageFormat;
+use sloth_pdf::PdfError;
+use sloth_store::Store;
 
 use crate::{JobId, Result, Service, ServiceError};
 
@@ -332,7 +332,7 @@ impl Service {
             let (img, cell) = c.render();
             ctx.check()?;
             let plan = template_tiles(&c, i64::from(img.width()), i64::from(img.height()), cell);
-            let pdf = sleuth_pdf::map_tiles::render(
+            let pdf = sloth_pdf::map_tiles::render(
                 &img,
                 &plan.tiles,
                 c.page_format.size_pt(),
@@ -448,7 +448,7 @@ impl Service {
             }
             ctx.check()?;
             let n = pages.len();
-            let pdf = sleuth_pdf::image_pages::render(pages, format, &mut |p| {
+            let pdf = sloth_pdf::image_pages::render(pages, format, &mut |p| {
                 ctx.progress(0.4 + 0.55 * p, "writing pages");
                 !ctx.is_cancelled()
             })
@@ -470,7 +470,7 @@ fn pdf_err(e: PdfError) -> ServiceError {
 mod tests {
     use std::time::Duration;
 
-    use sleuth_core::aoe::Shape;
+    use sloth_core::aoe::Shape;
 
     use super::*;
     use crate::{JobState, temp_service};

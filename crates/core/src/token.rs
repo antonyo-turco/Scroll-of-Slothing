@@ -777,7 +777,7 @@ mod tests {
         }
     }
 
-    /// Timing check: `cargo test -p sleuth-core --release compose_speed -- --ignored --nocapture`.
+    /// Timing check: `cargo test -p sloth-core --release compose_speed -- --ignored --nocapture`.
     #[test]
     #[ignore]
     fn compose_speed() {

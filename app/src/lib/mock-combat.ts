@@ -1,5 +1,5 @@
 // In-memory combat tracker for browser dev and tests. A compact port of
-// sleuth_core::combat (sort, turns, rounds, condition countdown, column hooks)
+// sloth_core::combat (sort, turns, rounds, condition countdown, column hooks)
 // over a tiny built-in bestiary that appears after "Sync".
 
 import type {
@@ -73,7 +73,7 @@ const similarKey = (r: CombatRow) =>
   JSON.stringify([r.name, r.custom_name, r.scaled_cr, r.scaled_summon_spell_level, r.scaled_summon_class_level, r.source]);
 const label = (r: CombatRow) => (r.custom_name || r.name).toLowerCase();
 
-/** sleuth_core::combat::Tracker::sorted */
+/** sloth_core::combat::Tracker::sorted */
 export function sortRows(t: Tracker): void {
   const m = t.dir === 'DESC' ? -1 : 1;
   const cmp = (a: number | string, b: number | string) => (a < b ? -1 : a > b ? 1 : 0);

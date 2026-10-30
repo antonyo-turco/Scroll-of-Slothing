@@ -19,7 +19,7 @@ import type {
 } from './types';
 import { createMockBackend, mockBlobUrl, type Backend } from './mock';
 
-const EVENT_CHANNEL = 'sleuth://event';
+const EVENT_CHANNEL = 'sloth://event';
 
 export const isTauri = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -49,14 +49,14 @@ export function setBackend(b: Backend): void {
   backend = b;
 }
 
-/** URL for a stored blob served by the `sleuth://` protocol (or a mock image). */
+/** URL for a stored blob served by the `sloth://` protocol (or a mock image). */
 export function blobUrl(hash: string | null | undefined): string {
   if (!hash) return '';
   if (!isTauri()) return mockBlobUrl(hash);
   // WebView2 (Windows) maps custom schemes to http://<scheme>.localhost
   return navigator.userAgent.includes('Windows')
-    ? `http://sleuth.localhost/blob/${hash}`
-    : `sleuth://localhost/blob/${hash}`;
+    ? `http://sloth.localhost/blob/${hash}`
+    : `sloth://localhost/blob/${hash}`;
 }
 
 const call = <T>(cmd: string, args?: Record<string, unknown>) => getBackend().invoke<T>(cmd, args);
@@ -349,5 +349,5 @@ export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'];
 /** The first dropped path with an image extension (any case). */
 export const firstImagePath = (paths: string[]): string | undefined =>
   paths.find((p) => IMAGE_EXTENSIONS.includes(p.split('.').pop()?.toLowerCase() ?? ''));
-/** Matches sleuth_stt::audio::EXTENSIONS. */
+/** Matches sloth_stt::audio::EXTENSIONS. */
 export const AUDIO_EXTENSIONS = ['wav', 'mp3', 'flac', 'ogg', 'oga', 'm4a', 'mp4', 'aac', 'mka', 'mkv', 'webm', 'caf', 'aiff'];

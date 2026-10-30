@@ -1,7 +1,7 @@
 # Legacy import (from Orb of Many Functions)
 
 ```
-sleuth import-legacy <path\to\creatures.db> [--settings <app_settings.json>] [--aoe <aoe_presets.json>] [--data-dir <dir>] [--json]
+sloth import-legacy <path\to\creatures.db> [--settings <app_settings.json>] [--aoe <aoe_presets.json>] [--data-dir <dir>] [--json]
 ```
 
 - The source database is opened **read-only** (`?mode=ro`, URI). Never point this command at the only copy of your data; the reference repo should stay untouched.

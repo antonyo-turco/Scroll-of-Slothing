@@ -14,7 +14,7 @@ use crate::{CancelFn, Result, SAMPLE_RATE, Segment, SttError};
 pub struct LocalOptions {
     /// ISO 639-1 code (`it`, `en`) or `auto`.
     pub language: String,
-    /// Initial prompt, typically [`sleuth_core::stt::glossary_prompt`].
+    /// Initial prompt, typically [`sloth_core::stt::glossary_prompt`].
     pub prompt: Option<String>,
     /// Beam search width; 1 means greedy (faster, a little less accurate).
     pub beam_size: u32,

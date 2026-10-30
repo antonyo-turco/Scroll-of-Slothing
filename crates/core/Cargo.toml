@@ -1,12 +1,12 @@
 [package]
-name = "sleuth-core"
-description = "Pure domain logic and algorithms for Kastanomata's Scroll of Sleuthing"
+name = "sloth-core"
+description = "Pure domain logic and algorithms for Kastanomata's Scroll of Slothing"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "sleuth_core"
+name = "sloth_core"
 
 [dependencies]
 serde.workspace = true

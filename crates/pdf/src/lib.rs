@@ -1,5 +1,5 @@
 //! PDF writers for the printable sheets (krilla). Layout coordinates from
-//! `sleuth_core::pack` use a bottom-left origin (ReportLab convention); krilla
+//! `sloth_core::pack` use a bottom-left origin (ReportLab convention); krilla
 //! draws top-left, so every writer converts with `top()`.
 
 pub mod cards;
@@ -16,7 +16,7 @@ use krilla::image::{BitsPerComponent, CustomImage, Image, ImageColorspace};
 use krilla::num::NormalizedF32;
 use krilla::paint::{Stroke, StrokeDash};
 use krilla::surface::Surface;
-use sleuth_core::settings::{CutLineStyle, HexColor, Settings};
+use sloth_core::settings::{CutLineStyle, HexColor, Settings};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PdfError {

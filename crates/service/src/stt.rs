@@ -7,14 +7,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
-use sleuth_core::settings::SttEngine;
-use sleuth_core::stt::{
+use sloth_core::settings::SttEngine;
+use sloth_core::stt::{
     Correction, Corrections, ExportFormat, GREEDY_FACTOR, Segment, blend_speed, estimate_secs,
     export, glossary_prompt,
 };
-use sleuth_stt::cloud::{self, ApiFormat, ChunkReply, CloudConfig, CloudModelSpec, KeyInfo};
-use sleuth_stt::local::{LocalModel, LocalOptions};
-use sleuth_stt::{SttError, audio, models};
+use sloth_stt::cloud::{self, ApiFormat, ChunkReply, CloudConfig, CloudModelSpec, KeyInfo};
+use sloth_stt::local::{LocalModel, LocalOptions};
+use sloth_stt::{SttError, audio, models};
 
 use crate::{JobCtx, JobId, Result, Service, ServiceError};
 
@@ -696,7 +696,7 @@ impl Service {
         let cancel = || ctx.is_cancelled();
         ctx.progress(0.0, "decoding audio");
         let samples = audio::decode_file(path, &cancel)?;
-        let duration_ms = samples.len() as u64 * 1000 / sleuth_stt::SAMPLE_RATE as u64;
+        let duration_ms = samples.len() as u64 * 1000 / sloth_stt::SAMPLE_RATE as u64;
         ctx.check()?;
 
         let language = opts.language.clone().unwrap_or_else(|| "it".into());
@@ -946,7 +946,7 @@ mod tests {
         // 3 s of tone: one chunk, one request.
         let tone: Vec<f32> = (0..48_000).map(|i| (i as f32 * 0.05).sin() * 0.3).collect();
         let wav = d.path().join("tone.wav");
-        std::fs::write(&wav, sleuth_core::stt::wav_pcm16(&tone, 16_000)).unwrap();
+        std::fs::write(&wav, sloth_core::stt::wav_pcm16(&tone, 16_000)).unwrap();
         let opts = TranscribeOptions {
             engine: Some(SttEngine::Cloud),
             corrections: vec![Correction { from: "beholdr".into(), to: "beholder".into() }],
@@ -963,7 +963,7 @@ mod tests {
         assert_eq!(st.state, crate::JobState::Done, "{:?}", st.error);
         let r: TranscribeResult = serde_json::from_value(st.result.unwrap()).unwrap();
         assert_eq!(r.engine, SttEngine::Cloud);
-        assert_eq!(r.model, sleuth_core::settings::DEFAULT_STT_CLOUD_MODEL);
+        assert_eq!(r.model, sloth_core::settings::DEFAULT_STT_CLOUD_MODEL);
         assert_eq!(r.duration_ms, 3000);
         assert_eq!(r.cost, Some(0.002));
         assert_eq!(
@@ -1014,7 +1014,7 @@ mod tests {
 
         let tone: Vec<f32> = (0..48_000).map(|i| (i as f32 * 0.05).sin() * 0.3).collect();
         let wav = d.path().join("tone.wav");
-        std::fs::write(&wav, sleuth_core::stt::wav_pcm16(&tone, 16_000)).unwrap();
+        std::fs::write(&wav, sloth_core::stt::wav_pcm16(&tone, 16_000)).unwrap();
         let opts = TranscribeOptions {
             engine: Some(SttEngine::Cloud),
             endpoint: Some("my-nim".into()),
@@ -1060,8 +1060,7 @@ mod tests {
     async fn estimates_use_measured_speeds_and_prices() {
         let (d, svc) = temp_service();
         let wav = d.path().join("ten-minutes.wav");
-        std::fs::write(&wav, sleuth_core::stt::wav_pcm16(&vec![0.0; 16_000 * 600], 16_000))
-            .unwrap();
+        std::fs::write(&wav, sloth_core::stt::wav_pcm16(&vec![0.0; 16_000 * 600], 16_000)).unwrap();
 
         let e = svc.transcribe_estimate(wav.clone(), None, None).await.unwrap();
         assert_eq!(e.duration_ms, Some(600_000));

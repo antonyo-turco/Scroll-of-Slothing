@@ -1,14 +1,14 @@
-//! `sleuth://` URI scheme (on Windows: `http://sleuth.localhost/...`).
+//! `sloth://` URI scheme (on Windows: `http://sloth.localhost/...`).
 //!
-//! - `sleuth://localhost/blob/<hash>` — a stored blob (original or derivative).
-//! - `sleuth://localhost/media/<hash>` — an uploaded audio/video blob, streamed
+//! - `sloth://localhost/blob/<hash>` — a stored blob (original or derivative).
+//! - `sloth://localhost/media/<hash>` — an uploaded audio/video blob, streamed
 //!   with HTTP Range support so `<audio>` can seek without loading the file.
 //!
 //! Requests are answered from the blocking pool so the UI thread never waits.
 
 use std::io::{Read, Seek, SeekFrom};
 
-use sleuth_service::Service;
+use sloth_service::Service;
 use tauri::http::{Request, Response, StatusCode, header};
 use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 

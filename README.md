@@ -1,4 +1,4 @@
-# Kastanomata's Scroll of Sleuthing
+# Kastanomata's Scroll of Slothing
 
 A fast, local-first prep and print toolkit for Dungeon Masters. It turns art into printable tokens, standees, cards and tiled battle maps, keeps everything in a searchable library, and runs the table's music.
 
@@ -15,19 +15,19 @@ It is a ground-up Rust rewrite of *Orb of Many Functions* (Python/Tkinter), buil
   - Map Paginator: grid sizing (rows×cols, reference square, PPI, cell side), grid detection, perspective de-warp, embedded-grid removal, 14 print filters with 18 presets, and tiled PDF export with overlap, cut lines and a fewest-pages layout.
   - AoE templates: printable spell templates.
 - **Music**: tracks, playlists, soundscapes, soundboards and a live mixer, with `.dmix` mix files.
-- **Automation**: an MCP server (`sleuth-mcp`) and a CLI (`sleuth-cli`), both thin wrappers over the same service layer as the UI.
+- **Automation**: an MCP server (`sloth-mcp`) and a CLI (`sloth-cli`), both thin wrappers over the same service layer as the UI.
 
 ## Install (Windows)
 Build the MSI installer (see below) and run it:
 
 ```powershell
 cd app; npm run tauri build
-# -> target/release/bundle/msi/Scroll of Sleuthing_<version>_x64_en-US.msi
+# -> target/release/bundle/msi/Scroll of Slothing_<version>_x64_en-US.msi
 ```
 
 The installer also registers `.dmix` files with the app.
 
-Your data lives in `%APPDATA%\sleuth`: a SQLite database plus a content-addressed `blobs/` folder for images and PDFs. Set `SLEUTH_DATA_DIR` to use another folder.
+Your data lives in `%APPDATA%\sloth`: a SQLite database plus a content-addressed `blobs/` folder for images and PDFs. Set `SLOTH_DATA_DIR` to use another folder.
 
 ## Build from source
 Prerequisites:
@@ -47,15 +47,15 @@ cd app; npm run dev            # UI only, in a browser, against an in-memory moc
 
 pwsh scripts/check.ps1         # full gate: fmt, clippy -D warnings, cargo test, svelte-check, vitest, Playwright
 pwsh scripts/check.ps1 -Quick  # the same without the Tauri crate and the e2e tests
-cargo run -p sleuth-cli -- --help
+cargo run -p sloth-cli -- --help
 ```
 
 The Playwright tests use the installed Microsoft Edge, so no browser download is needed.
 
 ## MCP server
 ```powershell
-cargo build -p sleuth-mcp --release
-claude mcp add sleuth -- <repo>/target/release/sleuth-mcp.exe --data-dir <dir>
+cargo build -p sloth-mcp --release
+claude mcp add sloth -- <repo>/target/release/sloth-mcp.exe --data-dir <dir>
 ```
 
 The tools are listed in [`docs/mcp-tools.md`](docs/mcp-tools.md). The MCP process and the app can share a data folder; every write lands in a change log, which keeps the UI in sync.

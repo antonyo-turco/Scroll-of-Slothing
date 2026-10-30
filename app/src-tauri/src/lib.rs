@@ -1,5 +1,5 @@
-//! Tauri shell: thin commands over `sleuth_service`, an event bridge, and the
-//! `sleuth://` protocol that serves stored images without base64 over IPC.
+//! Tauri shell: thin commands over `sloth_service`, an event bridge, and the
+//! `sloth://` protocol that serves stored images without base64 over IPC.
 
 mod commands;
 mod mcp_http;
@@ -7,11 +7,11 @@ mod protocol;
 
 use std::time::Duration;
 
-use sleuth_service::Service;
+use sloth_service::Service;
 use tauri::{Emitter, Manager};
 
-/// Name of the Tauri event carrying [`sleuth_service::Event`]s to the UI.
-pub const EVENT_CHANNEL: &str = "sleuth://event";
+/// Name of the Tauri event carrying [`sloth_service::Event`]s to the UI.
+pub const EVENT_CHANNEL: &str = "sloth://event";
 /// Tauri event sent after a `.dmix` opened with the app was imported.
 pub const DMIX_OPENED_EVENT: &str = "music://dmix-opened";
 
@@ -41,7 +41,7 @@ pub fn run() {
         )
         .init();
 
-    let data_dir = sleuth_service::default_data_dir();
+    let data_dir = sloth_service::default_data_dir();
     let service = Service::open(&data_dir).unwrap_or_else(|e| {
         panic!("cannot open data dir {}: {e}", data_dir.display());
     });
@@ -56,7 +56,7 @@ pub fn run() {
             open_dmix_args(app, args);
         }))
         .plugin(tauri_plugin_dialog::init())
-        .register_asynchronous_uri_scheme_protocol("sleuth", protocol::handle)
+        .register_asynchronous_uri_scheme_protocol("sloth", protocol::handle)
         .manage(service)
         .manage(mcp_http::McpHttp::default())
         .setup(|app| {
@@ -75,7 +75,7 @@ pub fn run() {
                 loop {
                     match rx.recv().await {
                         Ok(ev) => {
-                            if matches!(&ev, sleuth_service::Event::StoreChanged { entity, .. } if entity == "settings") {
+                            if matches!(&ev, sloth_service::Event::StoreChanged { entity, .. } if entity == "settings") {
                                 mcp_http::sync(&svc, &handle.state::<mcp_http::McpHttp>()).await;
                             }
                             let _ = handle.emit(EVENT_CHANNEL, ev);

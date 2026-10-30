@@ -4,11 +4,11 @@
 //! the caller that ticks is the one that gets the notifications.
 
 use serde::{Deserialize, Serialize};
-use sleuth_core::clocks::{
+use sloth_core::clocks::{
     Clock, ClockEvent, MAX_EVERY_SECS, MAX_SEGMENTS, MIN_EVERY_SECS, valid_every, valid_segments,
 };
-use sleuth_core::settings::HexColor;
-use sleuth_store::{Store, now};
+use sloth_core::settings::HexColor;
+use sloth_store::{Store, now};
 
 use crate::{Result, Service, ServiceError};
 

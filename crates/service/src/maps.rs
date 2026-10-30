@@ -11,15 +11,15 @@ use std::sync::{Arc, Mutex};
 
 use image::RgbImage;
 use serde::{Deserialize, Serialize};
-use sleuth_core::imaging;
-use sleuth_core::maps::filters::{self, FilterStep};
-use sleuth_core::maps::grid::{self, DEFAULT_DPI, GridModel, GridStyle};
-use sleuth_core::maps::homography::{self, Pt};
-use sleuth_core::maps::tiling::{self, FewestPages, FitCheck, Tile, TileParams};
-use sleuth_core::maps::{degrid, detect};
-use sleuth_core::units::{PT_PER_INCH, PageFormat};
-use sleuth_pdf::{CutLine, PdfError};
-use sleuth_store::{AssetImages, AssetPatch, NewAsset, Store};
+use sloth_core::imaging;
+use sloth_core::maps::filters::{self, FilterStep};
+use sloth_core::maps::grid::{self, DEFAULT_DPI, GridModel, GridStyle};
+use sloth_core::maps::homography::{self, Pt};
+use sloth_core::maps::tiling::{self, FewestPages, FitCheck, Tile, TileParams};
+use sloth_core::maps::{degrid, detect};
+use sloth_core::units::{PT_PER_INCH, PageFormat};
+use sloth_pdf::{CutLine, PdfError};
+use sloth_store::{AssetImages, AssetPatch, NewAsset, Store};
 
 use crate::library::store_encoded;
 use crate::tokens::{SourceImage, source_info, store_source};
@@ -308,7 +308,7 @@ pub fn compute_layout(doc: &MapDoc) -> MapLayout {
         };
         format!(
             "{prefix}{total} page(s) · {cols}×{rows} grid · 1 square = {}\"",
-            sleuth_core::aoe::fmt_g(doc.square_in)
+            sloth_core::aoe::fmt_g(doc.square_in)
         )
     };
     let (pw, ph) = tiling::page_size_pt(doc.format, doc.landscape);
@@ -822,7 +822,7 @@ impl Service {
         let cut =
             doc.cut_border.then(|| CutLine::from_settings(&s.load_settings().unwrap_or_default()));
         let margin = finite(doc.margin_in).max(0.0) * PT_PER_INCH;
-        let pdf = sleuth_pdf::map_tiles::render(
+        let pdf = sloth_pdf::map_tiles::render(
             &composite,
             &tiles,
             tiling::page_size_pt(doc.format, doc.landscape),

@@ -4,7 +4,7 @@
 
 use std::sync::atomic::Ordering;
 
-use sleuth_core::settings::ROUTES;
+use sloth_core::settings::ROUTES;
 
 use crate::{Event, Result, Service, ServiceError};
 

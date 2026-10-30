@@ -1,4 +1,4 @@
-//! `sleuth` — scriptable access to the service layer. Every command prints a
+//! `sloth` — scriptable access to the service layer. Every command prints a
 //! human summary, or JSON with `--json` (stable, for scripts and agents).
 
 use std::path::PathBuf;
@@ -7,17 +7,17 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::Serialize;
 use serde_json::{Map, Value};
-use sleuth_core::settings::SttEngine;
-use sleuth_core::stt::{Correction, ExportFormat};
-use sleuth_service::{
+use sloth_core::settings::SttEngine;
+use sloth_core::stt::{Correction, ExportFormat};
+use sloth_service::{
     AssetPatch, AssetQuery, AssetSort, CloudKeyStatus, ExportWhat, ImportFile, JobState,
     LegacyImportOptions, Service, TranscribeOptions, TranscribeResult,
 };
 
 #[derive(Parser)]
-#[command(name = "sleuth", version, about = "Kastanomata's Scroll of Sleuthing CLI")]
+#[command(name = "sloth", version, about = "Kastanomata's Scroll of Slothing CLI")]
 struct Cli {
-    /// Data directory (default: $SLEUTH_DATA_DIR or %APPDATA%\sleuth).
+    /// Data directory (default: $SLOTH_DATA_DIR or %APPDATA%\sloth).
     #[arg(long, global = true)]
     data_dir: Option<PathBuf>,
     /// Print machine-readable JSON.
@@ -64,7 +64,7 @@ enum Cmd {
         /// Cloud: an endpoint id added in Settings (default: openrouter).
         #[arg(long)]
         endpoint: Option<String>,
-        /// Local: a model id (see `sleuth stt models`). Cloud: an OpenRouter model id.
+        /// Local: a model id (see `sloth stt models`). Cloud: an OpenRouter model id.
         #[arg(long)]
         model: Option<String>,
         /// Language code, or `auto`.
@@ -195,7 +195,7 @@ enum TagsCmd {
 #[derive(Subcommand)]
 enum SettingsCmd {
     Get,
-    /// Set a value, e.g. `sleuth settings set map_square_in 1.5`.
+    /// Set a value, e.g. `sloth settings set map_square_in 1.5`.
     Set {
         key: String,
         value: String,
@@ -251,7 +251,7 @@ async fn main() -> Result<()> {
         )
         .init();
     let cli = Cli::parse();
-    let dir = cli.data_dir.clone().unwrap_or_else(sleuth_service::default_data_dir);
+    let dir = cli.data_dir.clone().unwrap_or_else(sloth_service::default_data_dir);
     let svc = Service::open(&dir).with_context(|| format!("opening data dir {}", dir.display()))?;
     let j = cli.json;
 
@@ -289,7 +289,7 @@ async fn main() -> Result<()> {
         }
         Cmd::Music(c) => match c {
             MusicCmd::Tracks { category } => {
-                let q = sleuth_service::MusicTrackQuery { category, ..Default::default() };
+                let q = sloth_service::MusicTrackQuery { category, ..Default::default() };
                 print(j, &svc.music_tracks_list(q).await?, |ts| {
                     for t in ts {
                         println!("{:<10} {}  [{}]", t.category, t.title, t.tags.join(", "));

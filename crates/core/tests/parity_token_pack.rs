@@ -2,8 +2,8 @@
 //! `PDFGenerator.generate_preview_pages` (fixtures/parity/token_pack.json).
 
 use serde_json::Value;
-use sleuth_core::pack::token_grid::{GridMode, TokenItem, pack};
-use sleuth_core::units::{PageFormat, SizeLabel};
+use sloth_core::pack::token_grid::{GridMode, TokenItem, pack};
+use sloth_core::units::{PageFormat, SizeLabel};
 
 fn fixture(name: &str) -> Value {
     let path = format!("{}/../../fixtures/parity/{name}", env!("CARGO_MANIFEST_DIR"));

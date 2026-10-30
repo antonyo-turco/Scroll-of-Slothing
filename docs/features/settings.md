@@ -47,7 +47,7 @@ under Combat.
 | `combat_reset_keep_players` | bool | `false` | | combat tracker: Reset removes only creatures and keeps the players (*new*) |
 | `combat_import_append` | bool | `false` | | combat tracker: encounter import: add to the current combat (*new*) |
 
-The OpenRouter API key is **not** a setting: it is kept in the Windows Credential Manager (entry `sleuth` / `openrouter_api_key`), see `features/transcribe.md`.
+The OpenRouter API key is **not** a setting: it is kept in the Windows Credential Manager (entry `sloth` / `openrouter_api_key`), see `features/transcribe.md`.
 
 **Dash patterns**
 | Style | PDF dash (pt) | Canvas preview dash |
@@ -87,9 +87,9 @@ Other controls:
 - Legacy values that Python accepted but that break later calculations are reset to their defaults on import. For example, `map_square_in: false` was coerced to 0.0 and then divided by. Coercion itself matches Python exactly; see the golden test `crates/core/tests/parity_settings.rs`.
 
 ## Parity checklist (Python `app_settings.py`, `ui/settings_panel.py`)
-- [x] All 14 legacy keys with the same defaults (`app_settings.py:20-38`): `sleuth_core::settings` tests
+- [x] All 14 legacy keys with the same defaults (`app_settings.py:20-38`): `sloth_core::settings` tests
 - [x] Legacy coercion (`_coerce`): golden fixture `settings_coerce.json`
-- [x] Cut-line dash patterns (`:14`) and the ReportLab stroke behaviour (`:98`): the sheet PDFs stroke one cut line per item with the configured dash (`sleuth_pdf::token_sheet` test `cut_border_adds_stroked_paths`, `[2 3]` for dashed)
+- [x] Cut-line dash patterns (`:14`) and the ReportLab stroke behaviour (`:98`): the sheet PDFs stroke one cut line per item with the configured dash (`sloth_pdf::token_sheet` test `cut_border_adds_stroked_paths`, `[2 3]` for dashed)
 - [x] Validation: floats ≥ 0, and square/calibration/width > 0 (`settings_panel.py:149`)
 - [x] Restore defaults with confirmation
 - [x] Start view and the collapsed sidebar are honoured at launch

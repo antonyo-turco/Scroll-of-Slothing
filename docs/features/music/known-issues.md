@@ -45,4 +45,4 @@ Fix these when the music phase is built.
 | 15 | Kept as in Python for now: the playlist channel is not in the mixer and is not ducked. Open question for the user (`mixer-soundbites-ducking.md`). |
 | 16 | Partly fixed: one connection per call; tags and links are still read per track, which is fine at library sizes. |
 | 17 | Fixed: every picker uses ids. |
-| 18 | Gone: uploads are served by blob hash only (`sleuth://localhost/media/<hash>`). |
+| 18 | Gone: uploads are served by blob hash only (`sloth://localhost/media/<hash>`). |

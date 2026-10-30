@@ -67,7 +67,7 @@ Unscheduled ideas, deferred items and declined ones are listed in `future-featur
 - **Phase 6:**
   - The performance benchmark and its budgets (`perf.md`); everything is within budget.
   - The accessibility pass: axe on every route in both themes, a skip link, the dialog focus trap, the palette combobox, and contrast fixes (`ux.md`, "Accessibility").
-  - The MSI build: `npm run tauri build` produces `target/release/bundle/msi/Scroll of Sleuthing_<version>_x64_en-US.msi`, which registers `.dmix`.
+  - The MSI build: `npm run tauri build` produces `target/release/bundle/msi/Scroll of Slothing_<version>_x64_en-US.msi`, which registers `.dmix`.
   - In-app MCP HTTP: already implemented and covered by `crates/mcp/tests/http_e2e.rs`.
   - The docs review.
 

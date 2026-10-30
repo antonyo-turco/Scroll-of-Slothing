@@ -5150,14 +5150,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
-name = "sleuth-app"
+name = "sloth-app"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "sleuth-core",
- "sleuth-mcp",
- "sleuth-service",
+ "sloth-core",
+ "sloth-mcp",
+ "sloth-service",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -5168,21 +5168,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "sleuth-cli"
+name = "sloth-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
  "serde",
  "serde_json",
- "sleuth-core",
- "sleuth-service",
+ "sloth-core",
+ "sloth-service",
  "tokio",
  "tracing-subscriber",
 ]
 
 [[package]]
-name = "sleuth-core"
+name = "sloth-core"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
@@ -5201,7 +5201,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sleuth-legacy"
+name = "sloth-legacy"
 version = "0.1.0"
 dependencies = [
  "rusqlite",
@@ -5212,7 +5212,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sleuth-mcp"
+name = "sloth-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5226,8 +5226,8 @@ dependencies = [
  "schemars 1.2.2",
  "serde",
  "serde_json",
- "sleuth-core",
- "sleuth-service",
+ "sloth-core",
+ "sloth-service",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -5237,18 +5237,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "sleuth-pdf"
+name = "sloth-pdf"
 version = "0.1.0"
 dependencies = [
  "image",
  "krilla",
  "lopdf",
- "sleuth-core",
+ "sloth-core",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "sleuth-service"
+name = "sloth-service"
 version = "0.1.0"
 dependencies = [
  "arboard",
@@ -5261,11 +5261,11 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "sleuth-core",
- "sleuth-legacy",
- "sleuth-pdf",
- "sleuth-store",
- "sleuth-stt",
+ "sloth-core",
+ "sloth-legacy",
+ "sloth-pdf",
+ "sloth-store",
+ "sloth-stt",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -5274,14 +5274,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "sleuth-store"
+name = "sloth-store"
 version = "0.1.0"
 dependencies = [
  "blake3",
  "rusqlite",
  "serde",
  "serde_json",
- "sleuth-core",
+ "sloth-core",
  "tempfile",
  "thiserror 2.0.21",
  "time",
@@ -5290,7 +5290,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sleuth-stt"
+name = "sloth-stt"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
@@ -5299,7 +5299,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sleuth-core",
+ "sloth-core",
  "symphonia",
  "tempfile",
  "thiserror 2.0.21",

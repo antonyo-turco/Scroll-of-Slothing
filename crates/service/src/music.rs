@@ -23,7 +23,7 @@ use std::time::Duration;
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sleuth_store::{
+use sloth_store::{
     MusicChannel, MusicPlaylist, MusicSoundbite, MusicSoundboard, MusicSoundboardButton,
     MusicSoundscape, MusicSoundscapeChannel, MusicSoundscapeSoundbite, MusicTrack, MusicTrackQuery,
     MusicTrackRow, Store,
@@ -470,13 +470,13 @@ impl Service {
     }
 
     /// Tags the title suggests that each track doesn't have yet
-    /// (`sleuth_core::music::suggest_tags`). Nothing is changed.
+    /// (`sloth_core::music::suggest_tags`). Nothing is changed.
     pub async fn music_tags_suggest(&self) -> Result<Vec<TagSuggestion>> {
         self.blocking(|s| {
             Ok(s.music_tracks_list(&TrackQuery::default())?
                 .into_iter()
                 .filter_map(|t| {
-                    let add: Vec<String> = sleuth_core::music::suggest_tags(&t.title)
+                    let add: Vec<String> = sloth_core::music::suggest_tags(&t.title)
                         .into_iter()
                         .filter(|g| !t.tags.iter().any(|x| x.eq_ignore_ascii_case(g)))
                         .map(String::from)
@@ -634,7 +634,7 @@ impl Service {
             let t = s.music_track_get(&track_id)?;
             // Without an explicit role, the track's category decides.
             let role = check_role(
-                role.as_deref().unwrap_or(sleuth_core::music::role_for_category(&t.category)),
+                role.as_deref().unwrap_or(sloth_core::music::role_for_category(&t.category)),
             )?;
             // the sfx role forces looping off
             let looping = role != "sfx" && looping.unwrap_or(t.loop_by_default);
@@ -1558,7 +1558,7 @@ impl Service {
                 })
                 .collect::<Result<Vec<_>>>()?;
             let doc = json!({
-                "format": "sleuth-dmix",
+                "format": "sloth-dmix",
                 "version": 1,
                 "name": name,
                 "master_volume": meta.master_volume,
@@ -1581,7 +1581,7 @@ impl Service {
                 let raw = std::fs::read(&path)?;
                 let doc: Value = serde_json::from_slice(&raw)
                     .map_err(|e| invalid(format!("not a .dmix file: {e}")))?;
-                if doc["format"] != "sleuth-dmix" {
+                if doc["format"] != "sloth-dmix" {
                     return Err(invalid("not a .dmix file"));
                 }
                 if doc["version"].as_i64().unwrap_or(0) > 1 {

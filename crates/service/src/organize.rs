@@ -1,7 +1,7 @@
 //! Tags. Spec: docs/features/tags.md. (Campaigns and sessions were removed from the
 //! app at the user's request; their tables are kept, unused.)
 
-use sleuth_store::{RenameOutcome, TagCount};
+use sloth_store::{RenameOutcome, TagCount};
 
 use crate::{Result, Service};
 

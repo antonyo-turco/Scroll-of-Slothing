@@ -8,7 +8,7 @@
 
 use image::RgbaImage;
 use serde_json::Value;
-use sleuth_core::token::{TokenParams, compose};
+use sloth_core::token::{TokenParams, compose};
 
 fn dir() -> String {
     format!("{}/../../fixtures/parity", env!("CARGO_MANIFEST_DIR"))

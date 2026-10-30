@@ -3,7 +3,7 @@
 use image::RgbImage;
 use krilla::Document;
 use krilla::page::PageSettings;
-use sleuth_core::units::PageFormat;
+use sloth_core::units::PageFormat;
 
 use crate::{PdfError, Progress, Result, draw_image, raw_rgb_image};
 

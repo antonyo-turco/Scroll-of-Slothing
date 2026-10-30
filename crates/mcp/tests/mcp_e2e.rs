@@ -4,8 +4,8 @@
 use rmcp::model::{CallToolRequestParams, CallToolResult, ClientConfig};
 use rmcp::{ClientHandler, ServiceExt};
 use serde_json::{Value, json};
-use sleuth_mcp::SleuthServer;
-use sleuth_service::Service;
+use sloth_mcp::SlothServer;
+use sloth_service::Service;
 
 #[derive(Clone, Default)]
 struct Client;
@@ -34,7 +34,7 @@ async fn library_workflow_over_mcp() {
 
     let (server_io, client_io) = tokio::io::duplex(1 << 20);
     tokio::spawn(async move {
-        SleuthServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
+        SlothServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
     });
     let client = Client.serve(client_io).await.unwrap();
 
@@ -101,7 +101,7 @@ fn tools_are_documented() {
     let doc =
         std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/mcp-tools.md"))
             .unwrap();
-    let missing: Vec<String> = SleuthServer::tool_names()
+    let missing: Vec<String> = SlothServer::tool_names()
         .into_iter()
         .filter(|t| !doc.contains(&format!("`{t}`")))
         .collect();
@@ -118,7 +118,7 @@ async fn token_workflow_over_mcp() {
         .unwrap();
     let (server_io, client_io) = tokio::io::duplex(1 << 22);
     tokio::spawn(async move {
-        SleuthServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
+        SlothServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
     });
     let client = Client.serve(client_io).await.unwrap();
     let call = |name: &'static str, a: Value| {
@@ -197,7 +197,7 @@ async fn cutout_workflow_over_mcp() {
     .unwrap();
     let (server_io, client_io) = tokio::io::duplex(1 << 22);
     tokio::spawn(async move {
-        SleuthServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
+        SlothServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
     });
     let client = Client.serve(client_io).await.unwrap();
     let call = |name: &'static str, a: Value| {
@@ -258,7 +258,7 @@ async fn cards_workflow_over_mcp() {
     let svc = Service::open(dir.path().join("data")).unwrap();
     let (server_io, client_io) = tokio::io::duplex(1 << 20);
     tokio::spawn(async move {
-        SleuthServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
+        SlothServer::new(svc).serve(server_io).await.unwrap().waiting().await.unwrap();
     });
     let client = Client.serve(client_io).await.unwrap();
     let call = |name: &'static str, a: Value| {

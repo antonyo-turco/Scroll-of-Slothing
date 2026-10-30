@@ -1,16 +1,16 @@
 [package]
-name = "sleuth-service"
+name = "sloth-service"
 description = "Application service layer: the single API used by the UI, MCP and CLI"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "sleuth_service"
+name = "sloth_service"
 
 [dependencies]
-sleuth-core.workspace = true
-sleuth-store.workspace = true
+sloth-core.workspace = true
+sloth-store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -20,9 +20,9 @@ uuid.workspace = true
 image.workspace = true
 rayon.workspace = true
 arboard.workspace = true
-sleuth-legacy.workspace = true
-sleuth-pdf.workspace = true
-sleuth-stt.workspace = true
+sloth-legacy.workspace = true
+sloth-pdf.workspace = true
+sloth-stt.workspace = true
 fastrand.workspace = true
 base64.workspace = true
 reqwest = { version = "0.13", features = ["blocking"] }
@@ -33,7 +33,7 @@ keyring = { version = "3", features = ["windows-native"] }
 
 [dev-dependencies]
 tempfile.workspace = true
-sleuth-legacy = { workspace = true, features = ["fixture"] }
+sloth-legacy = { workspace = true, features = ["fixture"] }
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]

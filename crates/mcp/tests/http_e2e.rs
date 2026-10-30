@@ -1,7 +1,7 @@
 //! The loopback HTTP transport: bearer-token gate and a real `initialize`
 //! round trip over raw HTTP/1.1 (no client library needed).
 
-use sleuth_mcp::http::serve;
+use sloth_mcp::http::serve;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -23,7 +23,7 @@ async fn post(port: u16, token: Option<&str>, body: &str) -> String {
 #[tokio::test(flavor = "multi_thread")]
 async fn token_gate_and_initialize() {
     let dir = tempfile::tempdir().unwrap();
-    let svc = sleuth_service::Service::open(dir.path()).unwrap();
+    let svc = sloth_service::Service::open(dir.path()).unwrap();
     let h = serve(svc, 0, Some("s3cret".into())).await.unwrap();
     let port = h.addr.port();
     let init = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;

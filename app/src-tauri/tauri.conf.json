@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Scroll of Sleuthing",
+  "productName": "Scroll of Slothing",
   "version": "0.1.0",
-  "identifier": "dev.kastanomata.sleuth",
+  "identifier": "dev.kastanomata.sloth",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Kastanomata's Scroll of Sleuthing",
+        "title": "Kastanomata's Scroll of Slothing",
         "width": 1360,
         "height": 820,
         "minWidth": 900,
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: sleuth: http://sleuth.localhost https://i.ytimg.com; media-src 'self' blob: sleuth: http://sleuth.localhost; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' data: blob: sloth: http://sloth.localhost https://i.ytimg.com; media-src 'self' blob: sloth: http://sloth.localhost; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {
@@ -41,10 +41,10 @@
         "ext": [
           "dmix"
         ],
-        "name": "Sleuth mix",
-        "description": "Scroll of Sleuthing music mix",
+        "name": "Sloth mix",
+        "description": "Scroll of Slothing music mix",
         "role": "Viewer",
-        "mimeType": "application/x-sleuth-dmix"
+        "mimeType": "application/x-sloth-dmix"
       }
     ]
   }

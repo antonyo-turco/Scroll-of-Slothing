@@ -6,7 +6,7 @@
 > - Store: `crates/store/src/music.rs`, migration `V2__music.sql`.
 > - Service: `crates/service/src/music.rs`, which owns the live state, the soundbite timers and the SFX queue.
 > - Engine: `app/src/lib/music-engine.ts`, mounted by `MusicEngine.svelte`. The UI is in `app/src/routes/music/`.
-> - Tauri: the `music_*` commands. `sleuth://localhost/media/<hash>` streams uploads with Range support.
+> - Tauri: the `music_*` commands. `sloth://localhost/media/<hash>` streams uploads with Range support.
 > - `.dmix` files are associated with the app. Opening one imports it, loads the mix and plays it, even when the app is already running (single instance).
 > - MCP: the `music_*` tools, listed in `docs/mcp-tools.md`.
 
@@ -49,7 +49,7 @@ The Python app has a DM music system for live sessions:
 YouTube also needs a real page origin to embed videos. The Tauri app origin provides that, and it is the reason the Python app ran an HTTP server.
 
 **Local files**
-- Serve them with a `sleuth://media/<blob>` protocol that supports Range requests.
+- Serve them with a `sloth://media/<blob>` protocol that supports Range requests.
 - Store uploads in the blob store, not at absolute paths.
 
 **Control and state**

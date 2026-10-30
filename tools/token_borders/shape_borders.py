@@ -2,7 +2,7 @@
 
 Each output pixel is mapped back onto the ring: its distance from the centre is
 measured with the shape's own polygon norm (the same shapes and orientation as
-`sleuth_core::token::TokenShape`), so the frame keeps the ring's width and bevel along
+`sloth_core::token::TokenShape`), so the frame keeps the ring's width and bevel along
 every side, and its angle is kept, so the lighting (bright upper left) matches
 the round border. 3x3 supersampling per pixel. Run once from the repo root:
 
@@ -17,7 +17,7 @@ SQRT2 = 2 ** 0.5
 
 
 def polygon_norm(sides, normal_deg, circumradius):
-    """Norm of a regular polygon in radius units (sleuth_core::token::TokenShape):
+    """Norm of a regular polygon in radius units (sloth_core::token::TokenShape):
     1 on the outline, constant along every side."""
     apothem = circumradius * np.cos(np.pi / sides)
     angles = np.radians(normal_deg + 360.0 * np.arange(sides) / sides)

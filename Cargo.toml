@@ -10,13 +10,13 @@ license = "MIT"
 authors = ["Antonio Turco"]
 
 [workspace.dependencies]
-sleuth-core = { path = "crates/core" }
-sleuth-pdf = { path = "crates/pdf" }
-sleuth-store = { path = "crates/store" }
-sleuth-service = { path = "crates/service" }
-sleuth-mcp = { path = "crates/mcp" }
-sleuth-legacy = { path = "crates/legacy" }
-sleuth-stt = { path = "crates/stt" }
+sloth-core = { path = "crates/core" }
+sloth-pdf = { path = "crates/pdf" }
+sloth-store = { path = "crates/store" }
+sloth-service = { path = "crates/service" }
+sloth-mcp = { path = "crates/mcp" }
+sloth-legacy = { path = "crates/legacy" }
+sloth-stt = { path = "crates/stt" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -60,19 +60,19 @@ opt-level = 2
 
 # Our pixel and PDF crates do per-pixel work on images up to 8000 px; unoptimized
 # they make `tauri dev` and the tests crawl. Keep them optimized in dev too.
-[profile.dev.package.sleuth-core]
+[profile.dev.package.sloth-core]
 opt-level = 2
 # Incremental builds of optimized crates can reuse stale codegen units and leave
 # the rlib with undefined `.llvm.*` symbols at link time (seen with rustc 1.98
 # when linking the app). These crates gain little from incremental anyway.
 incremental = false
 
-[profile.dev.package.sleuth-pdf]
+[profile.dev.package.sloth-pdf]
 opt-level = 2
 incremental = false
 
 # Decoding and resampling hours of audio is per-sample work too.
-[profile.dev.package.sleuth-stt]
+[profile.dev.package.sloth-stt]
 opt-level = 2
 incremental = false
 

@@ -1,5 +1,5 @@
 // Pure helpers for the Map Paginator canvas (all coordinates in full-res image px).
-// Mirrors sleuth_core::maps::grid (line positions, dash patterns).
+// Mirrors sloth_core::maps::grid (line positions, dash patterns).
 
 export type GridStyle = 'solid' | 'dashed' | 'dotted' | 'broken';
 export type Rect = [number, number, number, number]; // x, y, w, h

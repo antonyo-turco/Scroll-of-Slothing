@@ -7,7 +7,7 @@ pub mod cloud;
 pub mod local;
 pub mod models;
 
-pub use sleuth_core::stt::Segment;
+pub use sloth_core::stt::Segment;
 
 /// Whisper's input rate: mono f32 at 16 kHz.
 pub const SAMPLE_RATE: u32 = 16_000;

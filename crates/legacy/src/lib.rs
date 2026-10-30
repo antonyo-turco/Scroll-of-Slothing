@@ -1,5 +1,5 @@
 //! Read-only access to Orb of Many Functions data. This crate only *reads* the
-//! old format; writing into the new store is done by `sleuth_service`
+//! old format; writing into the new store is done by `sloth_service`
 //! (`legacy_import`). Spec: docs/legacy-import.md.
 //!
 //! The database is opened with `mode=ro`, so the source is never modified.

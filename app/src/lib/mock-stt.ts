@@ -24,7 +24,7 @@ const clock = (ms: number, sep: string | null) => {
   return sep === null ? `${h}:${p(m)}:${p(s)}` : `${p(h)}:${p(m)}:${p(s)}${sep}${p(ms % 1000, 3)}`;
 };
 
-/** Mirrors sleuth_core::stt::export. */
+/** Mirrors sloth_core::stt::export. */
 export function mockExport(segments: Segment[], format: TranscriptFormat, title: string | null): string {
   const segs = segments.filter((s) => s.text.trim());
   switch (format) {

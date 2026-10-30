@@ -126,7 +126,7 @@ fn download_from(
     let dl_err = |e: &dyn std::fmt::Display| SttError::Download(e.to_string());
 
     let client = reqwest::blocking::Client::builder()
-        .user_agent(concat!("sleuth/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("sloth/", env!("CARGO_PKG_VERSION")))
         // No overall timeout: big models take minutes. The user can cancel instead.
         .timeout(None)
         .connect_timeout(std::time::Duration::from_secs(30))

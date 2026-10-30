@@ -1,12 +1,12 @@
 [package]
-name = "sleuth-legacy"
+name = "sloth-legacy"
 description = "Read-only reader for Orb of Many Functions data (creatures.db, app_settings.json, aoe_presets.json)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "sleuth_legacy"
+name = "sloth_legacy"
 
 [dependencies]
 rusqlite.workspace = true

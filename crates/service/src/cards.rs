@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sleuth_core::cards::{Card, DeckLayout, Flip, layout, parse};
-use sleuth_core::units::PageFormat;
-use sleuth_pdf::PdfError;
-use sleuth_store::{Deck, DeckSummary};
+use sloth_core::cards::{Card, DeckLayout, Flip, layout, parse};
+use sloth_core::units::PageFormat;
+use sloth_pdf::PdfError;
+use sloth_store::{Deck, DeckSummary};
 
 use crate::token_sheet::check_sheet_format;
 use crate::{JobId, Result, Service, ServiceError};
@@ -69,7 +69,7 @@ pub(crate) fn render_deck(
     let (start, span) = range;
     ctx.progress(start + 0.05 * span, "laying out cards");
     let l = layout(&cards, opts.format, opts.double_sided, opts.flip);
-    let bytes = sleuth_pdf::cards::render(&l, &mut |p| {
+    let bytes = sloth_pdf::cards::render(&l, &mut |p| {
         ctx.progress(start + span * (0.1 + 0.85 * p), "rendering pages");
         !ctx.is_cancelled()
     })

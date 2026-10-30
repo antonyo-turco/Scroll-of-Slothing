@@ -12,7 +12,7 @@
             ┌─────────── app/src (Svelte 5) ────────────┐
             │ routes · inspector · canvas · jobs tray    │
             └──────────────┬─────────────────────────────┘
-                 invoke()  │  events (job:*, store:changed)   sleuth:// protocol (images)
+                 invoke()  │  events (job:*, store:changed)   sloth:// protocol (images)
             ┌──────────────▼─────────────┐        ┌──────────────────────┐
             │ app/src-tauri (commands)   │        │ crates/mcp (rmcp)    │◄── Claude / any MCP client
             └──────────────┬─────────────┘        └──────────┬───────────┘
@@ -37,16 +37,16 @@
 - **service** is the only public API. Each user action is an `async fn`. CPU work runs in `spawn_blocking`.
   - Long operations (exports, full-resolution FFT, legacy import) are **Jobs**: an id, progress 0..1, a message, a cancel token, and a result.
   - Service emits `Event`s (`JobProgress`, `JobDone`, `StoreChanged{entity,id}`).
-- **mcp** registers one tool per service call. It runs either standalone (`sleuth-mcp`, stdio) or inside the app (streamable HTTP on localhost with a bearer token, off by default).
+- **mcp** registers one tool per service call. It runs either standalone (`sloth-mcp`, stdio) or inside the app (streamable HTTP on localhost with a bearer token, off by default).
 - **cli** gives scriptable access to service (`--json`), plus `import-legacy`.
-- **app/src-tauri** contains only thin commands and the `sleuth://` URI scheme:
-  - `sleuth://blob/<hash>[?w=<px>]` serves a stored or derived image;
-  - `sleuth://preview/<key>` serves an in-memory render (for example the current token compose).
+- **app/src-tauri** contains only thin commands and the `sloth://` URI scheme:
+  - `sloth://blob/<hash>[?w=<px>]` serves a stored or derived image;
+  - `sloth://preview/<key>` serves an in-memory render (for example the current token compose).
 
 ## Multi-process consistency
 The standalone MCP process and the app can both open the same data dir. SQLite WAL handles concurrent access.
 1. Every service write inserts a `change_log` row.
-2. The app polls `max(change_log.seq)` every 500 ms (`Service::spawn_change_watcher`). New rows, whether written by this process or another one, are broadcast as `StoreChanged` events and forwarded to the UI on the `sleuth://event` Tauri channel. The UI refetches only the affected queries.
+2. The app polls `max(change_log.seq)` every 500 ms (`Service::spawn_change_watcher`). New rows, whether written by this process or another one, are broadcast as `StoreChanged` events and forwarded to the UI on the `sloth://event` Tauri channel. The UI refetches only the affected queries.
 
 ## Responsiveness rules
 1. Never block a command. Pixel and PDF work goes to `spawn_blocking`/rayon.

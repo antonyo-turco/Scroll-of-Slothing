@@ -97,7 +97,7 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 
 ## Preview
 - Paged (◀ Page N of M ▶). The page is scaled to fit the pane.
-- Pages are rendered client-side from the layout JSON, using thumbnail-sized images from `sleuth://blob/<hash>?w=`.
+- Pages are rendered client-side from the layout JSON, using thumbnail-sized images from `sloth://blob/<hash>?w=`.
 - The layout is recomputed in Rust, debounced 120 ms (Python used 180 ms).
 
 ## MCP

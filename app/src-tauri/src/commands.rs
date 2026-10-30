@@ -6,15 +6,15 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use serde_json::{Map, Value};
-use sleuth_core::cards::DeckLayout;
-use sleuth_core::combat::{Sort, Tracker};
-use sleuth_core::cutout::CutoutParams;
-use sleuth_core::pack::shelf::SheetMode;
-use sleuth_core::settings::Settings;
-use sleuth_core::stt::{ExportFormat, Segment};
-use sleuth_core::token::TokenParams;
-use sleuth_core::units::PageFormat;
-use sleuth_service::{
+use sloth_core::cards::DeckLayout;
+use sloth_core::combat::{Sort, Tracker};
+use sloth_core::cutout::CutoutParams;
+use sloth_core::pack::shelf::SheetMode;
+use sloth_core::settings::Settings;
+use sloth_core::stt::{ExportFormat, Segment};
+use sloth_core::token::TokenParams;
+use sloth_core::units::PageFormat;
+use sloth_service::{
     Asset, AssetPage, AssetPatch, AssetQuery, BestiaryEntry, BestiaryStatus, Border, CardOptions,
     CardSummary, CloudKeyInfo, CloudKeyStatus, CombatCatalog, CombatImport, CompendiumCards,
     CompendiumEntry, CompendiumQuery, CompendiumRef, CompendiumStatus, CutoutDraft, Deck,
@@ -482,11 +482,11 @@ pub async fn deck_write_file(svc: Svc<'_>, markdown: String, path: PathBuf) -> R
 
 // ── maps (Map Paginator) ──
 
-use sleuth_core::aoe::AoeConfig;
-use sleuth_service::{
+use sloth_core::aoe::AoeConfig;
+use sloth_service::{
     AoeInfo, AoePreset, AoeSheet, AoeSheetLayout, FilterCatalog, MapDoc, MapLayout,
 };
-use sleuth_service::{
+use sloth_service::{
     CloudModelSpec, LastTranscript, SttEndpointInfo, SttEndpointInput, TranscribeEstimate,
 };
 
@@ -670,7 +670,7 @@ pub fn aoe_sheet_export_pdf(svc: Svc<'_>, inch: f64, format: PageFormat, path: P
 
 // ── music ──
 
-use sleuth_service::{
+use sloth_service::{
     DuckMode, MixImportResult, MixerState, MusicChannelPatch, MusicEngineEvent, MusicImportReport,
     MusicPlaylist, MusicSoundboard, MusicSoundscape, MusicTagSuggestion, MusicTrack,
     MusicTrackQuery, PlaylistInput, SoundbitePatch, SoundboardInput, SoundscapeInput, TrackInput,
@@ -1287,7 +1287,7 @@ pub async fn bestiary_delete_creature(svc: Svc<'_>, hash: String) -> Res<()> {
 pub async fn image_source_from_creature(
     svc: Svc<'_>,
     hash: String,
-    kind: sleuth_service::CreatureImage,
+    kind: sloth_service::CreatureImage,
 ) -> Res<SourceImage> {
     svc.image_source_from_creature(hash, kind).await
 }
@@ -1295,7 +1295,7 @@ pub async fn image_source_from_creature(
 #[tauri::command]
 pub async fn token_sheet_add_creatures(
     svc: Svc<'_>,
-    items: Vec<sleuth_service::CreatureToken>,
+    items: Vec<sloth_service::CreatureToken>,
 ) -> Res<TokenSheet> {
     svc.token_sheet_add_creatures(items).await
 }
@@ -1312,12 +1312,12 @@ pub async fn bestiary_legendary_group(
 // ── session planner ──
 
 #[tauri::command]
-pub async fn planner_list(svc: Svc<'_>) -> Res<sleuth_service::PlannerSummary> {
+pub async fn planner_list(svc: Svc<'_>) -> Res<sloth_service::PlannerSummary> {
     svc.planner_list().await
 }
 
 #[tauri::command]
-pub async fn planner_session_get(svc: Svc<'_>, id: String) -> Res<sleuth_service::SessionView> {
+pub async fn planner_session_get(svc: Svc<'_>, id: String) -> Res<sloth_service::SessionView> {
     svc.planner_session_get(id).await
 }
 
@@ -1326,7 +1326,7 @@ pub async fn planner_session_create(
     svc: Svc<'_>,
     name: Option<String>,
     current: Option<bool>,
-) -> Res<sleuth_service::SessionView> {
+) -> Res<sloth_service::SessionView> {
     svc.planner_session_create(name, current).await
 }
 
@@ -1334,8 +1334,8 @@ pub async fn planner_session_create(
 pub async fn planner_session_update(
     svc: Svc<'_>,
     id: String,
-    patch: sleuth_service::SessionPatch,
-) -> Res<sleuth_service::SessionView> {
+    patch: sloth_service::SessionPatch,
+) -> Res<sloth_service::SessionView> {
     svc.planner_session_update(id, patch).await
 }
 
@@ -1343,12 +1343,12 @@ pub async fn planner_session_update(
 pub async fn planner_session_delete(
     svc: Svc<'_>,
     id: String,
-) -> Res<sleuth_service::PlannerSummary> {
+) -> Res<sloth_service::PlannerSummary> {
     svc.planner_session_delete(id).await
 }
 
 #[tauri::command]
-pub async fn planner_set_current(svc: Svc<'_>, id: String) -> Res<sleuth_service::SessionView> {
+pub async fn planner_set_current(svc: Svc<'_>, id: String) -> Res<sloth_service::SessionView> {
     svc.planner_set_current(id).await
 }
 
@@ -1356,8 +1356,8 @@ pub async fn planner_set_current(svc: Svc<'_>, id: String) -> Res<sleuth_service
 pub async fn planner_items_add(
     svc: Svc<'_>,
     session: String,
-    items: Vec<sleuth_service::PlanRef>,
-) -> Res<sleuth_service::SessionView> {
+    items: Vec<sloth_service::PlanRef>,
+) -> Res<sloth_service::SessionView> {
     svc.planner_items_add(session, items).await
 }
 
@@ -1367,7 +1367,7 @@ pub async fn planner_item_update(
     session: String,
     item: String,
     copies: u32,
-) -> Res<sleuth_service::SessionView> {
+) -> Res<sloth_service::SessionView> {
     svc.planner_item_update(session, item, copies).await
 }
 
@@ -1376,7 +1376,7 @@ pub async fn planner_item_remove(
     svc: Svc<'_>,
     session: String,
     item: String,
-) -> Res<sleuth_service::SessionView> {
+) -> Res<sloth_service::SessionView> {
     svc.planner_item_remove(session, item).await
 }
 
@@ -1393,15 +1393,15 @@ pub fn planner_print(svc: Svc<'_>, session: String, dir: PathBuf) -> JobId {
 // ── clocks ──
 
 #[tauri::command]
-pub async fn clocks_list(svc: Svc<'_>) -> Res<Vec<sleuth_service::Clock>> {
+pub async fn clocks_list(svc: Svc<'_>) -> Res<Vec<sloth_service::Clock>> {
     svc.clocks_list().await
 }
 
 #[tauri::command]
 pub async fn clocks_create(
     svc: Svc<'_>,
-    clock: sleuth_service::ClockNew,
-) -> Res<sleuth_service::Clock> {
+    clock: sloth_service::ClockNew,
+) -> Res<sloth_service::Clock> {
     svc.clocks_create(clock).await
 }
 
@@ -1409,18 +1409,18 @@ pub async fn clocks_create(
 pub async fn clocks_update(
     svc: Svc<'_>,
     id: String,
-    patch: sleuth_service::ClockPatch,
-) -> Res<sleuth_service::Clock> {
+    patch: sloth_service::ClockPatch,
+) -> Res<sloth_service::Clock> {
     svc.clocks_update(id, patch).await
 }
 
 #[tauri::command]
-pub async fn clocks_advance(svc: Svc<'_>, id: String, by: i64) -> Res<sleuth_service::Clock> {
+pub async fn clocks_advance(svc: Svc<'_>, id: String, by: i64) -> Res<sloth_service::Clock> {
     svc.clocks_advance(id, by).await
 }
 
 #[tauri::command]
-pub async fn clocks_reset(svc: Svc<'_>, id: String) -> Res<sleuth_service::Clock> {
+pub async fn clocks_reset(svc: Svc<'_>, id: String) -> Res<sloth_service::Clock> {
     svc.clocks_reset(id).await
 }
 
@@ -1429,16 +1429,16 @@ pub async fn clocks_run(
     svc: Svc<'_>,
     id: Option<String>,
     run: bool,
-) -> Res<Vec<sleuth_service::Clock>> {
+) -> Res<Vec<sloth_service::Clock>> {
     svc.clocks_run(id, run).await
 }
 
 #[tauri::command]
-pub async fn clocks_delete(svc: Svc<'_>, id: String) -> Res<Vec<sleuth_service::Clock>> {
+pub async fn clocks_delete(svc: Svc<'_>, id: String) -> Res<Vec<sloth_service::Clock>> {
     svc.clocks_delete(id).await
 }
 
 #[tauri::command]
-pub async fn clocks_tick(svc: Svc<'_>) -> Res<Vec<sleuth_service::ClockTick>> {
+pub async fn clocks_tick(svc: Svc<'_>) -> Res<Vec<sloth_service::ClockTick>> {
     svc.clocks_tick().await
 }

@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use sleuth_core::imaging;
+use sloth_core::imaging;
 
 use crate::{Result, ServiceError};
 
@@ -68,7 +68,7 @@ mod win {
     use std::path::PathBuf;
 
     use clipboard_win::{Clipboard, formats, get_clipboard, raw};
-    use sleuth_core::imaging;
+    use sloth_core::imaging;
 
     /// The registered "PNG" format (browsers, Snipping Tool, Office…).
     pub fn png() -> Option<Vec<u8>> {

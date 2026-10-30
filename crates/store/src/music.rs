@@ -25,7 +25,7 @@ pub struct Track {
     pub added_at: String,
     #[serde(default)]
     pub favorite: bool,
-    /// `music`, `ambient` or `soundbite` (`sleuth_core::music::CATEGORIES`).
+    /// `music`, `ambient` or `soundbite` (`sloth_core::music::CATEGORIES`).
     #[serde(default = "default_category")]
     pub category: String,
     pub campaign_ids: Vec<String>,
@@ -330,9 +330,9 @@ impl Store {
     /// Inserts (`id = None`) or replaces a track's fields and links.
     pub fn music_track_save(&self, id: Option<&str>, row: &TrackRow) -> Result<Track> {
         let category = if row.category.trim().is_empty() {
-            sleuth_core::music::guess_category(&row.title, row.loop_by_default, row.duration)
+            sloth_core::music::guess_category(&row.title, row.loop_by_default, row.duration)
                 .to_string()
-        } else if sleuth_core::music::is_category(&row.category) {
+        } else if sloth_core::music::is_category(&row.category) {
             row.category.clone()
         } else {
             return Err(StoreError::Invalid(format!(

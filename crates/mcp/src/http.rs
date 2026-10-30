@@ -1,7 +1,7 @@
 //! MCP over streamable HTTP on loopback, sharing the caller's [`Service`].
 //!
 //! Used by the desktop app when the `mcp_http_enabled` setting is on, and by
-//! `sleuth-mcp --http <port>`. Binds `127.0.0.1` only; rmcp validates the Host
+//! `sloth-mcp --http <port>`. Binds `127.0.0.1` only; rmcp validates the Host
 //! header (localhost / 127.0.0.1 / ::1) to block DNS-rebinding, and every
 //! request must carry `Authorization: Bearer <token>` when a token is set.
 
@@ -16,11 +16,11 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
-use sleuth_service::Service;
+use sloth_service::Service;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
-use crate::SleuthServer;
+use crate::SlothServer;
 
 /// Default loopback port of the in-app server.
 pub const DEFAULT_PORT: u16 = 8765;
@@ -66,7 +66,7 @@ pub async fn serve(svc: Service, port: u16, token: Option<String>) -> std::io::R
     let mut config = StreamableHttpServerConfig::default();
     config.cancellation_token = cancel.child_token();
     let mcp = StreamableHttpService::new(
-        move || Ok(SleuthServer::new(svc.clone())),
+        move || Ok(SlothServer::new(svc.clone())),
         Arc::new(LocalSessionManager::default()),
         config,
     );

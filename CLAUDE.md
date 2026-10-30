@@ -1,4 +1,4 @@
-# CLAUDE.md: notes for agents working on Kastanomata's Scroll of Sleuthing
+# CLAUDE.md: notes for agents working on Kastanomata's Scroll of Slothing
 
 ## What this is
 A Rust rewrite of the Python/Tkinter app **Orb of Many Functions**, a DM print-and-prep toolkit. Stack: Tauri 2 + Svelte 5 (TS) UI, SQLite with a content-addressed blob store, and an MCP server so LLMs can drive it.
@@ -9,7 +9,7 @@ A Rust rewrite of the Python/Tkinter app **Orb of Many Functions**, a DM print-a
 ## Layout constraints
 - `crates/core` is pure logic: no IO, no async.
 - `crates/pdf` uses one bundled font, so preview text metrics equal the PDF's.
-- `app/src-tauri` serves images over the `sleuth://` protocol, never base64 over IPC.
+- `app/src-tauri` serves images over the `sloth://` protocol, never base64 over IPC.
 - `docs/` holds the specs. Keep them in sync with the code.
 
 ## Hard rules
@@ -45,10 +45,10 @@ Run Rust commands from **PowerShell**, not Git Bash. Git Bash's `/usr/bin/link` 
 - `cd app; npm run dev`: run the UI in a plain browser against the in-memory mock backend (`src/lib/mock.ts`).
 - `cd app; npm test`: vitest (jsdom, `pool: 'threads'`; the forks pool times out on this machine).
 - `cd app; npx playwright test`: smoke tests using the installed **Edge** (`channel: 'msedge'`), so no browser download is needed.
-- CLI: `cargo run -p sleuth-cli -- --help`.
+- CLI: `cargo run -p sloth-cli -- --help`.
 - Speech to text (`crates/stt`) builds whisper.cpp, which needs LLVM and CMake. `.cargo/config.toml` sets `LIBCLANG_PATH` and `CMAKE_BUILD_TYPE=Release`. After changing a `GGML_*`/`CMAKE_*` variable, run `cargo clean -p whisper-rs-sys`: its build script doesn't notice env changes.
-- MCP: `cargo build -p sleuth-mcp --release`, then `claude mcp add sleuth -- <repo>/target/release/sleuth-mcp.exe --data-dir <dir>`. The e2e test (`crates/mcp/tests/mcp_e2e.rs`) drives it with a real MCP client. `tools_are_documented` fails if a tool is missing from `docs/mcp-tools.md`.
-- Data dir: `$SLEUTH_DATA_DIR`, otherwise `%APPDATA%\sleuth`. Tests always use temp dirs.
+- MCP: `cargo build -p sloth-mcp --release`, then `claude mcp add sloth -- <repo>/target/release/sloth-mcp.exe --data-dir <dir>`. The e2e test (`crates/mcp/tests/mcp_e2e.rs`) drives it with a real MCP client. `tools_are_documented` fails if a tool is missing from `docs/mcp-tools.md`.
+- Data dir: `$SLOTH_DATA_DIR`, otherwise `%APPDATA%\sloth`. Tests always use temp dirs.
 
 ## Parity workflow
 - Each `docs/features/<feature>.md` ends with a parity checklist with refs into the Python source. Tick items as they are implemented and tested.
@@ -58,7 +58,7 @@ Run Rust commands from **PowerShell**, not Git Bash. Git Bash's `/usr/bin/link` 
   - Python `round()` rounds half to even. Use `f64::round_ties_even`, not `round`.
   - Python `%` and `//` on floats floor toward −∞. Use `rem_euclid` / `div_euclid` (or `(a / b).floor()`).
   - Python `sorted` is stable, and so is Rust `sort_by`. Keep the same key and direction.
-  - ReportLab A4 is `21/2.54*72 × 29.7/2.54*72` pt (`sleuth_core::units::PageFormat`), not 595×842.
+  - ReportLab A4 is `21/2.54*72 × 29.7/2.54*72` pt (`sloth_core::units::PageFormat`), not 595×842.
 
 ## UI and phases
 - UI conventions are in `app/CLAUDE.md`.

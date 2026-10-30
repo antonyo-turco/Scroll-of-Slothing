@@ -3,8 +3,8 @@
 //! and changes exactly what the UI shows.
 
 use serde::Serialize;
-use sleuth_mcp::http::{DEFAULT_PORT, HttpHandle, new_token, serve};
-use sleuth_service::Service;
+use sloth_mcp::http::{DEFAULT_PORT, HttpHandle, new_token, serve};
+use sloth_service::Service;
 use tauri::State;
 use tokio::sync::Mutex;
 

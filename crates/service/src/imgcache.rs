@@ -4,8 +4,8 @@
 use std::sync::{Arc, Mutex};
 
 use image::RgbaImage;
-use sleuth_core::imaging;
-use sleuth_store::Store;
+use sloth_core::imaging;
+use sloth_store::Store;
 
 use crate::{Result, ServiceError};
 

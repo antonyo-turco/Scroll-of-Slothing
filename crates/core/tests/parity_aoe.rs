@@ -3,8 +3,8 @@
 //! (fixtures/parity/{aoe_geometry,maxrects,map_images}.json).
 
 use serde_json::Value;
-use sleuth_core::aoe::{self, Geometry, Shape, Style};
-use sleuth_core::pack::maxrects::{PackItem, pack};
+use sloth_core::aoe::{self, Geometry, Shape, Style};
+use sloth_core::pack::maxrects::{PackItem, pack};
 
 fn fixture(name: &str) -> Value {
     let path = format!("{}/../../fixtures/parity/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -97,7 +97,7 @@ fn maxrects_matches_python() {
         if c["format"] == "A4" {
             let sizes = items.iter().map(|i| (i.w as u32, i.h as u32, dpi));
             let l =
-                aoe::sheet_layout(sizes, sleuth_core::units::PageFormat::A4, 1.0, f(&c["gap_in"]));
+                aoe::sheet_layout(sizes, sloth_core::units::PageFormat::A4, 1.0, f(&c["gap_in"]));
             assert_eq!(l.placed, got.placed);
         }
     }
@@ -130,7 +130,7 @@ fn rendered_templates_match_python() {
             img.as_raw().iter().zip(want.as_raw()).map(|(a, b)| u64::from(a.abs_diff(*b))).sum();
         let mae = sum as f64 / img.as_raw().len() as f64;
         println!("{} mae {mae:.3}", c["shape"]);
-        if let Ok(d) = std::env::var("SLEUTH_DUMP") {
+        if let Ok(d) = std::env::var("SLOTH_DUMP") {
             img.save(format!("{d}/aoe_{}.png", c["shape"].as_str().unwrap())).unwrap();
         }
         assert!(mae <= 1.0, "{}: mae {mae}", c["shape"]);

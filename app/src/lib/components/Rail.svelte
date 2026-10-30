@@ -16,7 +16,7 @@
 <nav class="rail" class:collapsed={app.sidebarCollapsed} aria-label="Main">
   <div class="brand">
     {#if !app.sidebarCollapsed}
-      <span class="title">Scroll of Sleuthing</span>
+      <span class="title">Scroll of Slothing</span>
     {/if}
     <button
       class="btn ghost icon"

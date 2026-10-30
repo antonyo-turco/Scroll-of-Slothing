@@ -36,7 +36,7 @@
       // offline), so the engine stays silent there unless explicitly enabled.
       let audible = isTauri();
       try {
-        audible ||= localStorage.getItem('sleuth.mockAudio') === '1';
+        audible ||= localStorage.getItem('sloth.mockAudio') === '1';
       } catch {
         /* storage unavailable */
       }

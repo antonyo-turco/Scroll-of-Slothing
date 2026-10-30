@@ -32,7 +32,7 @@ mod workspaces;
 use std::path::Path;
 use std::sync::Arc;
 
-use sleuth_store::Store;
+use sloth_store::Store;
 use tokio::sync::broadcast;
 
 pub use aoe::{AoeInfo, AoePlaced, AoePreset, AoeSheet, AoeSheetItem, AoeSheetLayout};
@@ -61,18 +61,18 @@ pub use music::{
 pub use object_sheet::{ObjectItem, ObjectItemPatch, ObjectSheet};
 pub use planner::{PlanEntry, PlanRef, PlannerSummary, SessionPatch, SessionSummary, SessionView};
 pub use settings::SettingsUpdate;
-pub use sleuth_core::clocks::{AutoAdvance, Clock, ClockEvent};
-pub use sleuth_core::planner::{CheckItem, RefKind, Section};
-pub use sleuth_store::{
+pub use sloth_core::clocks::{AutoAdvance, Clock, ClockEvent};
+pub use sloth_core::planner::{CheckItem, RefKind, Section};
+pub use sloth_store::{
     Asset, AssetImages, AssetPage, AssetPatch, AssetQuery, AssetSort, Campaign, RenameOutcome,
     Session, TagCount,
 };
-pub use sleuth_store::{Deck, DeckSummary};
-pub use sleuth_store::{
+pub use sloth_store::{Deck, DeckSummary};
+pub use sloth_store::{
     MusicChannel, MusicPlaylist, MusicSoundbite, MusicSoundboard, MusicSoundboardButton,
     MusicSoundscape, MusicTrack, MusicTrackQuery,
 };
-pub use sleuth_stt::cloud::{CloudModelSpec, KeyInfo as CloudKeyInfo};
+pub use sloth_stt::cloud::{CloudModelSpec, KeyInfo as CloudKeyInfo};
 pub use stt::{
     CloudKeyStatus, EngineEstimate, LastTranscript, SttEndpoint, SttEndpointInfo, SttEndpointInput,
     SttModel, TranscribeEstimate, TranscribeOptions, TranscribeResult,
@@ -85,21 +85,30 @@ pub use ui::editor_route;
 
 pub type Result<T> = std::result::Result<T, ServiceError>;
 
-/// Default data directory: `$SLEUTH_DATA_DIR`, else `%APPDATA%\sleuth`
-/// (`$XDG_DATA_HOME/sleuth` or `~/.local/share/sleuth` elsewhere).
+/// Default data directory: `$SLOTH_DATA_DIR`, else `%APPDATA%\sloth`
+/// (`$XDG_DATA_HOME/sloth` or `~/.local/share/sloth` elsewhere).
+///
+/// A directory left by the app's former name (`sleuth`) is renamed in place on first run.
 pub fn default_data_dir() -> std::path::PathBuf {
     use std::path::PathBuf;
-    if let Some(d) = std::env::var_os("SLEUTH_DATA_DIR") {
+    if let Some(d) = std::env::var_os("SLOTH_DATA_DIR") {
         return PathBuf::from(d);
     }
-    if let Some(d) = std::env::var_os("APPDATA") {
-        return PathBuf::from(d).join("sleuth");
+    let base = if let Some(d) = std::env::var_os("APPDATA") {
+        PathBuf::from(d)
+    } else if let Some(d) = std::env::var_os("XDG_DATA_HOME") {
+        PathBuf::from(d)
+    } else {
+        let home =
+            std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+        home.join(".local").join("share")
+    };
+    let dir = base.join("sloth");
+    let old = base.join("sleuth");
+    if !dir.exists() && old.is_dir() {
+        let _ = std::fs::rename(&old, &dir);
     }
-    if let Some(d) = std::env::var_os("XDG_DATA_HOME") {
-        return PathBuf::from(d).join("sleuth");
-    }
-    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
-    home.join(".local").join("share").join("sleuth")
+    dir
 }
 
 #[derive(Clone)]
@@ -222,7 +231,7 @@ mod tests {
         let mut rx = svc.subscribe();
         let handle = svc.spawn_change_watcher(Duration::from_millis(10));
 
-        // A second, independent store on the same data dir (like sleuth-mcp).
+        // A second, independent store on the same data dir (like sloth-mcp).
         let other = Store::open(dir.path()).unwrap();
         other.record_change("asset", "42", "update").unwrap();
 
