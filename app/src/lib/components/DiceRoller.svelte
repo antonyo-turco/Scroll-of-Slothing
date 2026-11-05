@@ -67,7 +67,8 @@
 
   // Keep the newest roll in view.
   $effect(() => {
-    void dice.rolls.length;
+    void dice.shown.length;
+    void dice.latest;
     void tick().then(() => list?.scrollTo({ top: list.scrollHeight }));
   });
 
@@ -160,7 +161,7 @@
       >
         <Icon name="dice" />
         {#if dice.latest}
-          <span class="pill-expr">{dice.latest.expression}</span>
+          <span class="pill-expr">{dice.latest.label ?? dice.latest.expression}</span>
           <span class="pill-total" data-testid="dice-latest">{dice.latest.total}</span>
         {:else}
           <span class="pill-expr">Roll dice</span>
@@ -188,13 +189,18 @@
         </header>
 
         <ol class="rolls" bind:this={list} aria-live="polite" aria-label="Recent rolls">
-          {#each dice.rolls as r, i (r.id)}
-            <li class:newest={i === dice.rolls.length - 1}>
+          {#each dice.shown as r, i (r.id)}
+            <li class:newest={i === dice.shown.length - 1}>
               <div class="roll-head">
-                <span class="expr">{r.expression}</span>
+                <span class="expr">
+                  {r.label ?? r.expression}
+                  {#if r.tag}<span class="tag" class:bad={r.tag === 'MISS' || r.tag === 'FAILED'}>{r.tag}</span>{/if}
+                </span>
                 <span class="total">{r.total}</span>
               </div>
-              {#if r.groups.length}<div class="detail">{r.detail}</div>{/if}
+              {#if r.who || r.detail !== String(r.total)}
+                <div class="detail">{[r.who, r.label ? `${r.expression}: ${r.detail}` : r.detail].filter(Boolean).join(' · ')}</div>
+              {/if}
             </li>
           {:else}
             <li class="empty">Click a die or type a roll like <code>2d6+3</code>.</li>
@@ -328,9 +334,24 @@
     border-radius: var(--radius-sm);
     background: var(--surface-2);
   }
+  /* An inset ring: an outline would be clipped by the scrolling list. */
   .rolls li.newest {
     background: var(--accent-soft);
-    outline: 1px solid var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .tag {
+    margin-left: var(--space-1);
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    vertical-align: middle;
+  }
+  .tag.bad {
+    background: var(--danger);
+    color: var(--surface);
   }
   .rolls li.empty {
     color: var(--text-muted);

@@ -25,7 +25,8 @@
   import RewardsDialog, { type Fallen } from './RewardsDialog.svelte';
   import { treasureThemes } from '../../lib/rewards';
   import type { ConcAlert, EditorPatch, Fight, LegendItem, RechargeNote, RollLine, TurnCard, Who } from './combat-ui';
-  import { rollAttack, rollFormula } from '../../lib/dice';
+  import { parseNotation, rollAttack, rollFormula } from '../../lib/dice';
+  import { dice } from '../../lib/dice.svelte';
   import { crOfMon, scaleCreature } from '../../lib/scale';
   import Icon from '../../lib/components/Icon.svelte';
   import { difficulty, xpOf } from '../../lib/difficulty';
@@ -274,21 +275,41 @@
   let rollSeq = 0;
   /** Abilities whose last attack was a natural 20: their next damage roll is a crit. */
   const critNext = new Set<string>();
+  /** Also posts a stat block roll into the floating dice roller (docs/features/dice-roller.md). */
+  function toRoller(l: RollLine, notation: string) {
+    const p = parseNotation(notation);
+    const what = l.kind === 'hit' ? (l.entry.endsWith('save') ? '' : ' to hit') : ' damage';
+    dice.post({
+      expression: typeof p === 'string' ? notation : p.text,
+      total: l.total,
+      detail: l.detail,
+      groups: [],
+      label: `${l.entry}${what}`,
+      who: l.who,
+      tag: l.tag || undefined,
+    });
+  }
+  const d20Notation = (bonus: number, adv: -1 | 0 | 1 = 0) =>
+    `${adv > 0 ? 'adv' : adv < 0 ? 'dis' : 'd20'}${bonus >= 0 ? '+' : ''}${bonus}`;
   function doRoll(r: CombatRow, q: RollRequest) {
     const key = `${r.id}|${q.entry}`;
     let line: RollLine;
     if (q.kind === 'hit') {
-      const a = rollAttack(Number(q.value) || 0, q.shift ? 1 : q.ctrl ? -1 : 0);
+      const adv = q.shift ? 1 : q.ctrl ? -1 : 0;
+      const bonus = Number(q.value) || 0;
+      const a = rollAttack(bonus, adv);
       const tag = a.natural === 20 ? 'CRIT' : a.natural === 1 ? 'MISS' : '';
       if (a.natural === 20) critNext.add(key);
       else critNext.delete(key);
       line = { id: ++rollSeq, who: label(r), entry: q.entry, kind: 'hit', total: a.total, detail: a.detail, tag };
+      toRoller(line, d20Notation(bonus, adv));
     } else {
       const crit = q.shift || critNext.has(key);
       critNext.delete(key);
       const d = rollFormula(q.value, crit);
       if (!d) return app.toast('error', `Can't roll “${q.value}”`);
       line = { id: ++rollSeq, who: label(r), entry: q.entry, kind: 'damage', total: d.total, detail: d.detail, tag: crit ? 'CRIT' : '' };
+      toRoller(line, q.value);
     }
     rolls = [line, ...rolls].slice(0, 6);
   }
@@ -727,8 +748,10 @@
       const a = rollAttack(bonus);
       const pass = saveDc ? a.total >= saveDc : false;
       out[r.id] = { total: a.total, pass };
-      lines.push({ id: ++rollSeq, who: label(r), entry: `${saveAbility.toUpperCase()} save`, kind: 'hit', total: a.total, detail: a.detail,
-        tag: saveDc ? (pass ? 'SAVED' : 'FAILED') : '' });
+      const line: RollLine = { id: ++rollSeq, who: label(r), entry: `${saveAbility.toUpperCase()} save`, kind: 'hit', total: a.total, detail: a.detail,
+        tag: saveDc ? (pass ? 'SAVED' : 'FAILED') : '' };
+      lines.push(line);
+      toRoller(line, d20Notation(bonus));
     }
     saveResults = out;
     rolls = [...lines, ...rolls].slice(0, 8);

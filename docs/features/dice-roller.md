@@ -80,12 +80,31 @@ Both entry points post into the same recent-roll list:
 
 ## Recent rolls
 
-- A session-only list of the last **10** rolls, newest at the bottom: the canonical
-  expression, the total (large), and the detail with each die's face (`[3, 5] + 3 = 11`,
+- A session-only list of recent rolls, newest at the bottom: the canonical expression, the
+  total (large), and the detail with each die's face (`[3, 5] + 3 = 11`,
   `[14, 7] adv + 2 = 16`). Constant-only expressions (`5`) show no detail line.
-- The newest roll is picked out with the accent background and outline and a larger total.
-  The list scrolls to keep it in view and is announced politely to screen readers.
+- How many it shows is the `dice_history` setting (Settings › General › Dice roller, 1–50,
+  default 10). Up to 50 are kept, so raising the setting brings older rolls back.
+- The newest roll is picked out with the accent background, an inset accent ring (an outline
+  would be clipped by the scrolling list) and a larger total. The list scrolls to keep it in
+  view and is announced politely to screen readers.
 - **Clear** empties the list.
+
+## Rolls from stat blocks
+
+Every roll made from a stat block in Combat also lands in the roller (added 2026-11-05):
+to-hit rolls (Shift: advantage, Ctrl: disadvantage), damage rolls (crits double the dice) and
+group saving throws. The Combat side panel keeps its own Rolls window as before.
+
+- Such a roll is titled by what was rolled (`Claw to hit`, `Claw damage`, `DEX save`) instead
+  of the expression, with a tag chip for CRIT, MISS, SAVED or FAILED (MISS and FAILED in the
+  danger colour). The line under it reads `creature · expression: detail`, for example
+  `Intellect Devourer · d20 + 4: [14] + 4`. The Compact pill shows the title too.
+- The dice are still rolled by the combat tracker's own `rollFormula` / `rollAttack`
+  (`app/src/lib/dice.ts`), which keep the crit rules; `dice.post` only records the result, so
+  these rolls carry no per-die groups.
+- Posting never changes the widget's state: a hidden roller stays hidden and a compact one
+  just updates its pill.
 
 ## Engine (`crates/core/src/dice.rs`)
 
@@ -129,7 +148,8 @@ Both entry points post into the same recent-roll list:
 - Game-system operators (exploding dice, `kh`/`kl`, rerolls, drop-lowest for stats) beyond the
   `adv`/`dis` terms; crit doubling stays in the combat tracker's `rollFormula`.
 - Per-die colouring, 3D dice, sounds, notifications, or sharing rolls.
-- Binding rolls to creatures in the combat tracker, or a "roll initiative" helper.
+- Rolling from the roller back into the combat tracker (e.g. applying damage to a row), or a
+  "roll initiative" helper.
 - A tens/ones split for `d%`: it shows the d100 face.
 
 ## Checklist
@@ -143,4 +163,6 @@ Both entry points post into the same recent-roll list:
 - [x] Rail button, `D` key and palette command
 - [x] Position and hidden/shown persisted in `workspaces`
 - [x] Playwright smoke test (`app/e2e/dice.spec.ts`)
+- [x] Stat block rolls in Combat post into the roller, with label, creature and tag
+- [x] `dice_history` setting (1–50) for how many rolls the list shows
 - [ ] Tried in the desktop app by the user

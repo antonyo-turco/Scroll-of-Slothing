@@ -3,12 +3,19 @@
 // Position and the hidden/shown preference persist in the `diceRoller` workspace key.
 
 import { api } from './api';
+import { app } from './state.svelte';
 import type { RollResult } from './types';
 
 export type DiceMode = 'hidden' | 'compact' | 'expanded';
 
 export interface PostedRoll extends RollResult {
   id: number;
+  /** Where a roll came from outside the widget, e.g. `Claw to hit`. */
+  label?: string;
+  /** Who rolled it, e.g. the creature. */
+  who?: string;
+  /** CRIT, MISS, SAVED, FAILED. */
+  tag?: string;
 }
 
 interface Saved {
@@ -18,8 +25,8 @@ interface Saved {
 }
 
 const KEY = 'diceRoller';
-/** Recent rolls kept in the list. */
-export const HISTORY = 10;
+/** Most rolls ever kept; the list shows the last `dice_history` (a setting, 1-50). */
+export const MAX_HISTORY = 50;
 
 class DiceRoller {
   mode = $state<DiceMode>('compact');
@@ -34,6 +41,8 @@ class DiceRoller {
   private loaded = false;
 
   readonly latest = $derived(this.rolls.at(-1) ?? null);
+  /** The rolls the list shows, oldest first. */
+  readonly shown = $derived(this.rolls.slice(-Math.max(1, app.settings.dice_history || 10)));
 
   async load(): Promise<void> {
     try {
@@ -93,12 +102,21 @@ class DiceRoller {
     try {
       const r = await api.diceRoll(notation);
       this.error = null;
-      this.rolls = [...this.rolls, { ...r, id: ++this.seq }].slice(-HISTORY);
+      this.push(r);
       return true;
     } catch (e) {
       this.error = (e as { message?: string })?.message ?? String(e);
       return false;
     }
+  }
+
+  /** Posts a roll made elsewhere (stat blocks in Combat) into the list. */
+  post(r: RollResult & { label?: string; who?: string; tag?: string }): void {
+    this.push(r);
+  }
+
+  private push(r: Omit<PostedRoll, 'id'>): void {
+    this.rolls = [...this.rolls, { ...r, id: ++this.seq }].slice(-MAX_HISTORY);
   }
 
   clear(): void {

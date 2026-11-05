@@ -47,3 +47,17 @@ test('dice roller: buttons, expression line, errors, collapse and hide', async (
 
   expect(errors).toEqual([]);
 });
+
+test('dice roller: the dice_history setting limits the list', async ({ page }) => {
+  await page.goto('/#/settings');
+  const field = page.getByRole('spinbutton', { name: 'Recent rolls to show' });
+  await field.fill('2');
+  await field.press('Tab');
+  const roller = page.getByRole('region', { name: 'Dice roller' });
+  await roller.getByRole('button', { name: 'Open the dice roller' }).click();
+  for (let i = 0; i < 4; i++) await roller.getByRole('button', { name: 'd6', exact: true }).click();
+  await expect(roller.locator('.rolls li')).toHaveCount(2);
+  await field.fill('0');
+  await field.press('Tab');
+  await expect(page.getByText('must be a whole number from 1 to 50')).toBeVisible();
+});

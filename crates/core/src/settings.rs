@@ -189,6 +189,8 @@ pub struct Settings {
     pub combat_turn_popup: bool,
     /// Initiative is 10 + bonus (passive) instead of a d20 roll.
     pub combat_passive_initiative: bool,
+    /// Rolls the floating dice roller keeps in its list (1-50).
+    pub dice_history: u32,
 }
 
 impl Default for Settings {
@@ -229,6 +231,7 @@ impl Default for Settings {
             combat_reset_keep_players: false,
             combat_turn_popup: true,
             combat_passive_initiative: false,
+            dice_history: 10,
         }
     }
 }
@@ -339,6 +342,10 @@ impl Settings {
             "combat_reset_keep_players" => set!(combat_reset_keep_players, bool),
             "combat_turn_popup" => set!(combat_turn_popup, bool),
             "combat_passive_initiative" => set!(combat_passive_initiative, bool),
+            "dice_history" => match v.as_u64() {
+                Some(n @ 1..=50) => self.dice_history = n as u32,
+                _ => err("must be a whole number from 1 to 50".into()),
+            },
             "fivetools_base_url" => match v.as_str().map(|u| u.trim().trim_end_matches('/')) {
                 Some(u)
                     if (u.starts_with("https://") || u.starts_with("http://")) && u.len() > 8 =>
@@ -479,6 +486,19 @@ mod tests {
             ..Settings::default()
         };
         assert_eq!(Settings::from_map(&s.to_map()), s);
+    }
+
+    #[test]
+    fn dice_history_is_a_whole_number_from_1_to_50() {
+        let mut s = Settings::default();
+        assert_eq!(s.dice_history, 10);
+        assert!(s.apply_patch(&obj(json!({ "dice_history": 25 }))).is_empty());
+        assert_eq!(s.dice_history, 25);
+        for bad in [json!(0), json!(51), json!(2.5), json!(-1), json!("5")] {
+            let errors = s.apply_patch(&obj(json!({ "dice_history": bad })));
+            assert!(errors.contains_key("dice_history"), "{bad}");
+            assert_eq!(s.dice_history, 25);
+        }
     }
 
     #[test]

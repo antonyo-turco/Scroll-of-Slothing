@@ -37,6 +37,7 @@ function validate(key: string, value: unknown): string | null {
   if (typeof d === 'boolean') return typeof value === 'boolean' ? null : 'expected a boolean';
   if (typeof d === 'number') {
     if (typeof value !== 'number' || !Number.isFinite(value)) return 'expected a number';
+    if (key === 'dice_history') return Number.isInteger(value) && value >= 1 && value <= 50 ? null : 'must be a whole number from 1 to 50';
     const positive = ['cut_line_width', 'map_square_in', 'map_calibration_mm'];
     if (positive.includes(key)) return value > 0 ? null : 'must be > 0';
     return value >= 0 ? null : 'must be ≥ 0';

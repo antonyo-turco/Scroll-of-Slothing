@@ -45,6 +45,8 @@ export interface Settings {
   combat_reset_keep_players: boolean;
   combat_turn_popup: boolean;
   combat_passive_initiative: boolean;
+  /** Rolls the floating dice roller keeps (1-50). */
+  dice_history: number;
 }
 
 export interface SettingsUpdate {
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   combat_reset_keep_players: false,
   combat_turn_popup: true,
   combat_passive_initiative: false,
+  dice_history: 10,
 };
 
 // ── library (crates/store/src/assets.rs) ──
