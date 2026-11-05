@@ -1,59 +1,16 @@
-# Music: designed schema for the new app (migration `V2__music.sql`)
+# Music: schema
 
-These tables reuse the global `campaigns`, `sessions`, `tags` and `blobs` tables.
+The tables are created by `crates/store/migrations/V2__music.sql` (read it for the exact columns and defaults) and extended by V3 and V4 below. They reuse the global `campaigns`, `sessions`, `tags` and `blobs` tables. All ids are uuid `TEXT`.
 
-```sql
-CREATE TABLE music_tracks (
-  id TEXT PRIMARY KEY,                 -- uuid
-  source TEXT NOT NULL CHECK (source IN ('youtube','upload')),
-  url TEXT,                            -- youtube url (NULL for uploads)
-  blob_hash TEXT REFERENCES blobs(hash),-- upload (NULL for youtube)
-  title TEXT NOT NULL,
-  notes TEXT NOT NULL DEFAULT '',
-  loop_by_default INTEGER NOT NULL DEFAULT 1,
-  duration REAL,
-  added_at TEXT NOT NULL
-);
-CREATE TABLE music_track_campaigns (track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE,
-  campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE, PRIMARY KEY (track_id, campaign_id));
-CREATE TABLE music_track_sessions (track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE,
-  session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE, PRIMARY KEY (track_id, session_id));
-CREATE TABLE music_track_tags (track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE,
-  tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (track_id, tag_id));
-
--- live mix (cleared at startup)
-CREATE TABLE music_channels (id TEXT PRIMARY KEY, track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE,
-  volume INTEGER NOT NULL DEFAULT 80, is_looping INTEGER NOT NULL DEFAULT 1,
-  is_playing INTEGER NOT NULL DEFAULT 0, role TEXT NOT NULL DEFAULT 'ambient', position INTEGER NOT NULL);
-CREATE TABLE music_soundbites (id TEXT PRIMARY KEY, track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE,
-  volume INTEGER NOT NULL DEFAULT 80, min_interval REAL NOT NULL DEFAULT 30, max_interval REAL NOT NULL DEFAULT 90);
-
-CREATE TABLE music_soundscapes (id TEXT PRIMARY KEY, name TEXT NOT NULL,
-  campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL,   -- nullable (fixes "(none)" bug)
-  notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
-CREATE TABLE music_soundscape_tags (soundscape_id TEXT REFERENCES music_soundscapes(id) ON DELETE CASCADE,
-  tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (soundscape_id, tag_id));
-CREATE TABLE music_soundscape_channels (id TEXT PRIMARY KEY, soundscape_id TEXT REFERENCES music_soundscapes(id) ON DELETE CASCADE,
-  track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE, volume INTEGER, is_looping INTEGER, role TEXT, position INTEGER);
-CREATE TABLE music_soundscape_soundbites (id TEXT PRIMARY KEY, soundscape_id TEXT REFERENCES music_soundscapes(id) ON DELETE CASCADE,
-  track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE, volume INTEGER, min_interval REAL, max_interval REAL);
-
-CREATE TABLE music_playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL,
-  campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL, created_at TEXT NOT NULL);
-CREATE TABLE music_playlist_items (id TEXT PRIMARY KEY,           -- allows duplicates
-  playlist_id TEXT REFERENCES music_playlists(id) ON DELETE CASCADE,
-  track_id TEXT REFERENCES music_tracks(id) ON DELETE CASCADE, position INTEGER NOT NULL);
-
-CREATE TABLE music_soundboards (id TEXT PRIMARY KEY, name TEXT NOT NULL,
-  campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL, notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
-CREATE TABLE music_soundboard_buttons (id TEXT PRIMARY KEY,       -- stable ids (upsert, not delete+insert)
-  soundboard_id TEXT REFERENCES music_soundboards(id) ON DELETE CASCADE,
-  track_id TEXT REFERENCES music_tracks(id) ON DELETE SET NULL,
-  label TEXT, icon TEXT, color TEXT, position INTEGER NOT NULL,
-  loop_by_default INTEGER NOT NULL DEFAULT 0, volume INTEGER NOT NULL DEFAULT 80,
-  play_mode TEXT NOT NULL CHECK (play_mode IN ('oneshot','restart','toggle')),
-  hotkey TEXT);
-```
+| Table | Holds |
+|---|---|
+| `music_tracks` | `source` (`youtube` or `upload`), `url` or `blob_hash`, title, notes, `loop_by_default`, `duration`, `added_at`, `legacy_id` |
+| `music_track_tags` | track ↔ global tag |
+| `music_track_campaigns`, `music_track_sessions` | links kept from the legacy import; unused since campaigns were removed |
+| `music_channels`, `music_soundbites` | the live mix (cleared when the engine attaches at startup); soundbites have `min_interval`/`max_interval` (default 30/90 s) |
+| `music_soundscapes` (+ `_tags`, `_channels`, `_soundbites`) | saved mixes; `campaign_id` is nullable and unused |
+| `music_playlists`, `music_playlist_items` | playlists; items have their own id, so a track can appear more than once |
+| `music_soundboards`, `music_soundboard_buttons` | boards and buttons with stable ids, `play_mode` (`oneshot`, `restart`, `toggle`), `volume`, `hotkey`, label, icon, colour |
 
 ## Added later (`V3__music_favorites.sql`, 2026-10-18)
 - `music_tracks.favorite INTEGER NOT NULL DEFAULT 0`: the ★ favourite flag (`music_track_set_favorite`).

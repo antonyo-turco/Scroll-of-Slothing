@@ -1,6 +1,6 @@
 # Music: known issues in the Python implementation
 
-Fix these when the music phase is built.
+The problems found in the Python app, and (at the end) how this app handles each one.
 
 ## Startup and process handling
 1. **Blocking startup.** The playlist panel touches the lazy player proxy while it is being constructed. That starts the subprocess during app startup and can block the UI for up to 20 s.
@@ -33,9 +33,9 @@ Fix these when the music phase is built.
 |---|---|
 | 1–4 | Gone by design: no subprocess, no stdin IPC, one engine event path (`player-engine.md`). |
 | 5 | Fixed: the live mix is cleared when the app attaches its engine (`attach_clears_stale_live_state`). |
-| 6 | Fixed: deleting a campaign only unlinks shared tracks (`campaign_delete_keeps_shared_tracks`). |
-| 7 | Fixed: soundscapes without a campaign save (`soundscapes_save_update_load_delete`). |
-| 8 | Fixed: editing a playlist can change its campaign (`playlist_controls`). |
+| 6 | Gone: campaigns were removed (2026-10-11), so nothing deletes campaigns; the schema links tracks only many-to-many with cascade on the link rows. |
+| 7 | Fixed: soundscapes have no campaign field and save (`soundscapes_save_update_load_delete`). |
+| 8 | Gone: playlists have no campaign field since 2026-10-11. |
 | 9 | Fixed: playlists hold duplicates (`playlist_advances_and_soundboard_toggles`). |
 | 10 | Fixed: button ids survive a save (`playlist_advances_and_soundboard_toggles`). |
 | 11 | Fixed: uploads live in the blob store (`uploads_live_in_the_blob_store`). |

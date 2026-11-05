@@ -20,7 +20,7 @@
 | bytes | INTEGER | file size |
 | created | TEXT | ISO-8601 UTC |
 
-Identical bytes are stored once. A blob that no asset references can be removed by `store gc`.
+Identical bytes are stored once. Blobs are never deleted: there is no garbage collection yet (`Store::referenced_blobs` exists but nothing calls it, and it does not count music uploads).
 
 ### assets
 | col | type | notes |

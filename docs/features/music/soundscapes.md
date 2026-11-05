@@ -3,7 +3,7 @@
 A soundscape is a saved mix: a set of channels plus a set of soundbites.
 
 ## Data
-- `music_soundscapes`: `(id, name, campaign_id NOT NULL cascade, notes, created_at)`.
+- `music_soundscapes`: `(id, name, campaign_id, notes, created_at, pinned)`. In Python `campaign_id` was `NOT NULL` with cascade; here it is nullable and unused.
 - Linked tables:
   - `music_soundscape_tags`;
   - `music_soundscape_channels`: `(track_id, volume, is_looping, role)`;
@@ -24,7 +24,7 @@ A soundscape is a saved mix: a set of channels plus a set of soundbites.
 - **Delete** (with confirmation).
 
 ## View (Python `ui/dm_music_soundscape_panel.py`)
-**Header**
+**Header** (Python)
 - "⏹ Stop Music".
 - Campaign filter: All, or a single campaign.
 - ⟳ Refresh.
@@ -39,3 +39,9 @@ A soundscape is a saved mix: a set of channels plus a set of soundbites.
   - the notes.
 - ✕ Delete.
 - Coloured tag pills.
+
+## In this app (`app/src/routes/music/Soundscapes.svelte`)
+- Header: ⟳ Refresh. There is no campaign filter (campaigns were removed) and no Stop Music button here; the global stop is in the Mixer.
+- Each card has the ★ pin, name and channel count, ▶ Load, the expandable summary, **Export .dmix…** (new) and ✕ Delete (with confirmation). The loaded soundscape's card is highlighted.
+- Save and Update are in the Mixer ("💾 Save as New", "✓ Update “name”").
+- MCP: `music_soundscapes_list`, `music_soundscape_save`, `music_play_soundscape`, `music_soundscape_delete`, `music_soundscape_set_pinned`.
