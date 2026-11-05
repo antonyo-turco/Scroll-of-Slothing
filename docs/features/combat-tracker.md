@@ -5,13 +5,17 @@ New feature (not in Orb of Many Functions), requested by the user on 2026-10-25.
 so state and links stay compatible with 5etools. Route `combat`, in the rail's **During** group.
 
 ## Scope
-- **v1:** the core tracker (rows, turns and rounds, HP and wound levels, conditions with
-  durations, per-row and encounter notes, stat columns, default party, settings, lock, sort)
-  and 5etools combat links (`#combat=` and `#encounter=`).
+- **Built:** the core tracker (rows, turns and rounds, HP, temporary HP and wound levels, conditions with
+  durations, per-row and encounter notes, stat columns, default party, settings, lock, sort),
+  5etools combat links (`#combat=` and `#encounter=`), saved encounters and `.denc` files, hero
+  parties, homebrew creatures, 5etools creature tokens on the token sheet, and the play aids below
+  (rolls, limited uses, lair rows, death saves, undo, CR scaling, group actions).
 - **Not planned:** the Player View and the per-row "visible to players" toggle. The
   tracker is for the DM only (user, 2026-10-25); the visibility flag is kept in the data
   only so 5etools links round-trip.
-- **Later:** CR and summon scaling (`ScaleCreature`), Send to Foundry, the Creature Viewer and Notes Viewer panels, `[[1d20]]`/`{@tag}` rendering in notes.
+- **Not built:** 5etools ScaleCreature links and summon scaling (CR scaling here uses the DMG
+  table instead), Send to Foundry, the Creature Viewer and Notes Viewer panels, `[[1d20]]`/`{@tag}`
+  rendering in notes. Future ideas and rejected ones are in `../roadmap.md`.
 
 ## Creature data: the 5etools mirror
 - Setting `fivetools_base_url` (default `http://localhost:8080`): the root of a 5etools
@@ -93,7 +97,7 @@ Tracker, Encounters and Parties.
   total party kill. Both strips sit flush on the status bar.
 - **Side panel.** The stat block (full 5etools entry, with this creature's changes) of the
   selected row or whoever's turn it is, with its notes on top. It can be dragged wider
-  (300–1000 px) or minimized to a strip; both are remembered on this computer. *Edit* opens
+  (300 px up to 40 % of the window, at most 1000 px) or minimized to a strip; both are remembered on this computer. *Edit* opens
   the creature editor: a **Stats** form (name, size, type, CR, AC, HP, max HP, initiative,
   passive Perception, speeds, abilities, saves, skills, resistances, immunities,
   vulnerabilities, condition immunities, senses, languages) and a **5etools JSON** tab with
@@ -253,4 +257,4 @@ load; they are still written into links so 5etools reads them.
 - [x] Saved encounters (create, import 5etools files and links, snapshots, start, link) and hero parties: service tests, e2e
 - [x] UI: tracker under During, add creature dialog, conditions, columns, settings, mock backend, axe in both themes
 - [ ] Spell and item links, spellcasting pips, print tokens, next-session encounters, rewards: tests to write
-- [ ] Tracker rework (HP strips, temp HP, defeated, difficulty strip, side panel editor, sides, turn card), homebrew, `.denc`, creature tokens: tests to write (service tests exist for homebrew, temp HP and `.denc` but have not been run)
+- [ ] Tracker rework (HP strips, temp HP, defeated, difficulty strip, side panel editor, sides, turn card), play aids (rolls, limited uses, lair, death saves, undo, CR scaling, group actions), creature tokens: no e2e coverage yet (`app/e2e/combat.spec.ts` covers the v1 tracker, encounters and parties). Service tests `denc_round_trip` and `homebrew_creatures_and_stat_changes` exist in `crates/service/src/combat.rs`; their passing was not confirmed during the 2026-11-05 docs review. Vitest covers `difficulty.ts` and `scale.ts`; `dice.ts` has no test.

@@ -41,14 +41,14 @@ Built:
 Not built:
 - Storing transcripts (no migration yet), so no Transcripts tab and no saved cost.
 - Live transcription (local and cloud).
-- Unticked checklist items need tests: local file transcription, model download/delete, corrections, MCP e2e coverage, the UI checklist.
+- Not covered by automated tests: local transcription with a real model, a real model download, MCP e2e.
 
 ## Phase 9: Combat tracker
-Built: the 5etools-compatible tracker, the cached 5etools bestiary, combat and encounter links, saved encounters, hero parties, homebrew creatures, `.denc` files, stat block rolls, the rolls window, undo.
+Built: the 5etools-compatible tracker, the cached 5etools bestiary, combat and encounter links, saved encounters, hero parties, homebrew creatures, `.denc` files, creature tokens, and the play aids (stat block rolls, limited uses, lair rows, death saves, undo, CR scaling, group actions).
 
 Not done:
 - The MCP tools are not covered by `mcp_e2e.rs`.
-- The tracker rework (HP strips, temp HP, defeated list, difficulty, side panel editor, homebrew, `.denc`, creature tokens) has no UI tests; the service tests for homebrew, temp HP and `.denc` exist but are not confirmed as run.
+- The tracker rework and the play aids have no e2e tests; the service tests for homebrew and `.denc` exist but were not confirmed as passing.
 
 ### Possible future features (not to build until asked)
 Saved at the user's request on 2026-10-25:
