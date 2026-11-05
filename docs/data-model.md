@@ -49,7 +49,7 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 - `asset_tags(asset_id FK CASCADE, tag_id FK CASCADE, PK(asset_id, tag_id))`
 
 ### campaigns / sessions / links (unused)
-The feature was removed on 2026-10-11; the tables remain in V1 and nothing reads or writes them.
+The feature was removed on 2026-10-11; the tables remain in V1. Only the legacy importer still writes them; nothing in the app reads them.
 
 - `campaigns(id TEXT PK uuid, name, created)`
 - `sessions(id TEXT PK uuid, campaign_id FK CASCADE, name, notes, created)`
