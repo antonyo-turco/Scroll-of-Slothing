@@ -15,7 +15,7 @@ Release (`bench`) profile, the user's Windows 11 development machine.
 
 | Step | Budget | Baseline | Notes |
 |---|---|---|---|
-| Open file (import + 2048 px proxy) | 4 s | 163 ms | The proxy is cached per blob. |
+| Open file (import + 2000 px working proxy) | 4 s | 163 ms | The proxy is cached per blob. |
 | Preview, no filters | 250 ms | 57 ms | The proxy re-encoded as PNG: the floor of every preview. |
 | Preview, filter presets (median of 17) | 400 ms | 297 ms | Debounced 120 ms in the UI; stale results are dropped. |
 | Preview, slowest preset ("Max detail B&W") | 800 ms | 550 ms | |

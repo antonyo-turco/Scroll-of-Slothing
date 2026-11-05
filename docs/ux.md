@@ -8,13 +8,13 @@
   - the inspector on the right, made of titled sections.
 - **Show the common, fold the rare.** Advanced options start collapsed.
 - **Never freeze.** Anything slower than about 50 ms runs as a job with progress and a cancel button. The UI only renders.
-- **Nothing is lost.** Editors and sheets autosave to the `workspaces` table.
+- **Nothing is lost.** Editors, sheets and the combat tracker autosave to the `workspaces` table (except transcripts, which are not saved yet).
 - **Destructive actions ask for confirmation**: delete, clear all, overwrite preset, restore defaults.
 
 ## Navigation
 Campaigns and sessions (the Python "Manage Campaigns" tab, the top-bar campaign picker, and every campaign or session filter) were removed at the user's request on 2026-10-11. Most material is reused across sessions; tags and the ★ Pinned star organise it instead. See `features/campaigns-sessions.md`.
 
-The left rail has 8 destinations instead of Python's 16 tabs, in three headed groups (`Destination.group` in `nav.ts`) that follow the game: Library on top, then **Before** the session, the print tools (Tokens to Maps); **During**, Music and Combat; **After**, Transcribe. Collapsed, the headings become separators. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
+The left rail has 8 destinations (plus Settings) instead of Python's 16 tabs, in three headed groups (`Destination.group` in `nav.ts`) that follow the game: Library on top, then **Before** the session, the print tools (Tokens to Maps); **During**, Music and Combat; **After**, Transcribe. Collapsed, the headings become separators. It can collapse to icons only, and that state is saved in the `sidebar_collapsed` setting.
 
 | Route | Python tabs it replaces |
 |---|---|
@@ -50,34 +50,35 @@ Per view:
 - **Map Paginator**: canvas tools in the toolbar band; the inspector has three tabs that follow the workflow: **Scale** (detect or set the square size, grid position), **Pages** (paper, print area, pages and their preview, Advanced) and **Look** (printed grid lines, embedded-grid removal, filters). Choosing a canvas tool brings up the tab it edits.
 - **AoE templates**: preview mode in the toolbar band, settings in the inspector, exports in the top bar.
 - **Cards**: two equal panes (`.view.split`): the Markdown editor and the page previews, each with its toolbar band and status line. File actions are in the top bar.
+- **Combat**: Tracker, Encounters and Parties tabs in the top bar; the tracker table in the centre with the Defeated list and difficulty strip under it, and the stat block side panel on the right (resizable).
+- **Transcribe**: the File view: the transcript in the centre, engine and options in the inspector.
 - **Music**: its five tabs are in the top bar. Each tab has a toolbar band, a scrolling body and a centred empty state. Stop Music stays at the right end of the top bar; the Mixer adds its `.dmix` actions before it.
 
 "Save to library" in the editors always opens the same dialog (`SaveAssetDialog.svelte`). It asks for the name, the print size (tokens and cut-outs) and the tags, prefilled from the file or the library asset. For an item opened from the library it offers **Update existing** or **Save as new**. The editors have no name or size fields of their own. Tags use the shared chip input (`TagInput.svelte`), also used by the Library inspector.
 
 ## Global elements
-- **Print tray**: a badge at the bottom of the rail showing how many items are on the token and object sheets. Clicking it opens that sheet.
-- **Jobs tray**: shows each running export or import with progress and cancel. It shows "Open file" / "Show in folder" when a job finishes.
-- **Toasts**: successes and errors. Errors include a "details" expander.
+- **Jobs tray** (`JobsTray.svelte`): each running job (export, import, sync, transcription) with its progress and a cancel button.
+- **Toasts** (`Toasts.svelte`): successes and errors. Errors have a "details" expander.
+- **Command palette** (`CommandPalette.svelte`, Ctrl+K): any route or action.
 
 ## Keyboard
-| Keys | Action |
-|---|---|
-| Tab (first stop) | "Skip to content", which moves focus past the rail and top bar |
-| Ctrl+K | Command palette (any route or action) |
-| Ctrl+V | Paste an image into the current editor |
-| Ctrl+Z / Ctrl+Shift+Z | Undo / redo inside editors (lasso points, map region, de-warp) |
-| Ctrl+S | Save (to the library, or the current deck) |
-| Ctrl+E | Export (the primary export of the view) |
-| Ctrl+F | Focus search (Library) |
-| Esc | Cancel the current gesture, close the drawer or dialog |
-| Enter | Close the polygon (object cutter) |
-| Space + drag | Pan any canvas |
-| Wheel | Zoom at the cursor |
-| Touchpad pinch (or Ctrl + wheel) | Zoom smoothly at the cursor |
-| Touchpad two-finger scroll | Pan (Shift: sideways) |
-| Touchscreen: two fingers | Pinch to zoom and pan together |
-| Shift (held) | Disable snapping (map region, reference box, page layout) |
-| 1–9, or a button's own hotkey | Soundboard buttons (on the Soundboard tab) |
+Only these shortcuts exist; each is handled by the view named.
+
+| Keys | Where | Action |
+|---|---|---|
+| Tab (first stop) | everywhere | "Skip to content", past the rail and top bar |
+| Ctrl+K | everywhere | Command palette |
+| Esc | dialogs, palette, ⓘ tips | Close |
+| Ctrl+V | Token Cutter, Object Cutter, Map Paginator | Paste an image |
+| Ctrl+S | Token Cutter, Cards | Save to library / save deck |
+| Ctrl+E | Token Sheet, Object Sheet, Cards | Export PDF |
+| Ctrl+F, Ctrl+A, Esc | Library | Focus search, select all, clear selection |
+| Enter, Esc, Ctrl+Z | Object Cutter | Close the polygon, reset, undo the last point |
+| Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z | Combat | Undo, redo |
+| ↑/↓ (Shift 5, Ctrl 10) | Combat HP boxes | Step the value |
+| 1–9, or a button's own hotkey | Music → Soundboard | Press a button |
+| Space + drag, wheel, pinch, two-finger scroll | canvases | Pan and zoom (see below) |
+| Shift (held) | Map Paginator | Disable snapping (print area, reference square, page layout) |
 
 ## Canvas gestures
 `app/src/lib/gestures.ts` is shared by the Map Paginator, the Token Cutter and the Object Cutter.
@@ -95,7 +96,7 @@ Files can be dropped anywhere on the window:
 ## Visual design
 - Colours are CSS custom properties with light and dark themes, which follow the system unless set in Settings. Neutral surfaces with one accent colour.
 - 8 px spacing grid. System font for the UI. Liberation Sans is used only in previews and PDFs.
-- Icons: one consistent inline SVG set (Lucide); no emoji in the main UI chrome.
+- Icons: one small inline SVG set in Lucide style (`Icon.svelte`, no icon library). The Music views use emoji glyphs on some buttons (▶ ⏸ ⏹ 💾 📹), as in Python.
 - Minimum target size 28 px. Focus rings are always visible. Every icon-only button has an `aria-label`.
 
 ## Accessibility
