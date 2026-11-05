@@ -85,7 +85,7 @@ You write cards in markdown, preview them exactly as they will print, and export
 - Cutting guides across the whole page: dashed `[2,3]`, 0.3 pt, grey 0.6. These are fixed and do not use the cut-line setting.
 
 ## Editor UI
-**Layout:** a plain markdown text editor on the left (monospace, native undo; no editor library needed) and the exact preview on the right.
+**Layout:** a plain `<textarea>` markdown editor on the left (monospace, native undo; no editor library) and the exact preview on the right.
 - The preview updates live, debounced 250 ms (Python only updated on Ctrl+Enter).
 - It shows front and back pages and lets you page through them.
 - Click a page to enlarge it.
@@ -94,12 +94,12 @@ You write cards in markdown, preview them exactly as they will print, and export
 - Each one appends its template, adding a `---` separator if the deck already has content.
 - The template text matches Python's `TEMPLATES` (see below).
 
-**Help ("?"):** the format reference, with a "Copy" button. The text is Python's `REFERENCE_TEXT`.
+**Help ("?"):** the format reference in a dialog, with a "Copy to clipboard" button. The text is Python's `REFERENCE_TEXT`.
 
 **Deck actions**
-- Save deck and load deck as `.md` or `.txt` (UTF-8).
-- Decks are also stored in the `card_decks` table, with a "Recent decks" menu.
-- The current editor is autosaved in the `workspaces` table (`cards.editor`).
+- **Open .md…** and **Save as .md…** read and write `.md` or `.txt` files (UTF-8).
+- **Save deck…** (Ctrl+S) stores the deck in the `card_decks` table, with its options; a deck opened from there can also be saved as new. The **Saved decks…** picker in the editor toolbar loads one.
+- The current editor is autosaved (500 ms after the last change) in the `workspaces` table (`cards.editor`), by the UI.
 
 **Footer**
 - Format: A4 or Letter. The default comes from the `card_page_format` setting, which defaults to A4.
@@ -151,7 +151,7 @@ Description text here.
 | `cards_templates` | | `{templates, reference}` (verbatim from Python) |
 | `cards_parse` | `{markdown}` | the parsed cards |
 | `cards_validate` | `{markdown, format?, double_sided?, flip?}` | `{cards, pages, overflow:[titles], backs}` |
-| `cards_export_pdf` | `{markdown \| deck_id, path, format?, double_sided?, flip?}` | writes the PDF |
+| `cards_export_pdf` | `{markdown \| deck_id, path, format?, double_sided?, flip?}` | Job; its result is `{path, pages, cards, overflow}` |
 | `decks_list` | | the saved decks |
 | `decks_get` | | one deck |
 | `decks_save` | `{id?, name, markdown}` | saves a deck |

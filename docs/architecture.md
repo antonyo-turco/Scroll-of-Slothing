@@ -91,4 +91,4 @@ Editor and sheet state lives in the `workspaces` table (key → JSON), autosaved
 | secrets | `keyring` |
 | async | `tokio` |
 | tests | `proptest`, `insta`, `tempfile` |
-| UI | Svelte 5, Vite, TypeScript, CodeMirror 6 (cards), vitest, Playwright |
+| UI | Svelte 5, Vite, TypeScript, vitest, Playwright (the card editor is a plain textarea) |

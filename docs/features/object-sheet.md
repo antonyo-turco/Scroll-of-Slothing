@@ -35,9 +35,11 @@ The sheet is autosaved in `workspaces` under the key `object_sheet`.
 - Images are embedded with alpha preserved. Export runs as a background Job.
 
 ## MCP
-- `object_sheet_list`, `object_sheet_add`, `object_sheet_update`, `object_sheet_remove`, `object_sheet_clear`
-- `object_sheet_layout`
-- `object_sheet_export_pdf {path, format?, mode?}`
+- `object_sheet_list`, `object_sheet_clear`, `object_sheet_layout`
+- `object_sheet_add {asset_ids?, paths?, size?}`
+- `object_sheet_update {id, label?, size?, scale?, copies?}`, `object_sheet_remove {id}`
+- `object_sheet_set_options {format?, mode?}` (`Letter`/`A4`, `flat`/`standee`)
+- `object_sheet_export_pdf {path}` (Job)
 
 ## Intentional changes
 - UI consistency pass (2026-10-11, branch `ui/consistency`): the page preview is in the centre and the list of cut-outs on the right, like the other views; Add images and Export PDF are in the top bar, paper options and the pager in the toolbar band, Clear all in the panel footer.

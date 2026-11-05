@@ -70,15 +70,15 @@ The transparency checkerboard for preview uses an 8 px square in colours (204,20
 
 ## Performance design
 - Pan and zoom are shown live as a client-side canvas transform of the preview proxy, with the border overlaid.
-- The real compose runs in Rust on the **preview proxy**, debounced (80 ms), and tagged with a generation number so stale results are dropped.
+- The real compose runs in Rust on the **preview proxy**. There is no timer: at most one render is in flight, and if parameters change meanwhile, one more render runs with the latest state when it returns (`requestRender` in `TokenCutter.svelte`).
 - Export, save and add-to-sheet compose once from the full-resolution original, scaled down to the border size.
 
 ## Persistence
 - `params_json = {border, bg, ring_inset_pct, pan, zoom, filters}` is stored (`filters` defaults to empty for older assets) on the asset, so re-editing restores the exact framing.
-- The unsaved editor state is autosaved to the `workspaces` table.
+- The unsaved editor draft is autosaved (400 ms after the last change) to the `workspaces` table under `tokens.cutter`, written by the UI.
 
 ## MCP
-- `token_compose {source: path|asset_id, border?, bg?, ring_inset_pct?, pan?, zoom?, filter_preset? | filters?, name?, size?, save_to_library?, add_to_sheet?, out_png?}`
+- `token_compose {source_path | asset_id, border?, background?, ring_inset_pct?, zoom?, pan_x?, pan_y?, filter_preset? | filters?, name?, size?, save_to_library?, update_existing?, add_to_sheet?, out_png?}`
   - Returns `{asset_id?, png_path?}` and a preview image.
 - `token_filter_catalog`
 - `token_borders_list`

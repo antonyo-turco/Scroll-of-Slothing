@@ -50,7 +50,7 @@ under Combat.
 The OpenRouter API key is **not** a setting: it is kept in the Windows Credential Manager (entry `sleuth` / `openrouter_api_key`), see `features/transcribe.md`.
 
 **Dash patterns**
-| Style | PDF dash (pt) | Canvas preview dash |
+| Style | PDF dash (pt), also used by the sheet previews | Settings preview line |
 |---|---|---|
 | Dashed | `[2,3]` | `[3,2]` |
 | Dotted | `[0.5,2]` | `[1,2]` |

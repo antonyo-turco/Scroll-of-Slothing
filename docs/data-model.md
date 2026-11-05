@@ -71,7 +71,7 @@ The feature was removed on 2026-10-11; the tables remain in V1. Only the legacy 
 - `combat.encounters`: saved encounters (creature lists and tracker snapshots), see `features/combat-tracker.md`
 - `combat.parties`: saved hero parties
 - `combat.tracker`: the combat tracker in the 5etools serial form (see `features/combat-tracker.md`); changes are logged as `combat/tracker`
-- `cards.editor`: the card editor state, written by the UI (`routes/cards/Cards.svelte`), not by the service
+- Written by the UI, not the service: `cards.editor` (card editor), `tokens.cutter` and `cutouts.cutter` (cutter drafts), `library.view` (Cards/List/Pills), `aoe.editor` (AoE single-template editor), `transcribe.file` (Transcribe file tab), `transcribe.cloud_ok` (cloud cost confirmed once)
 - `token.borders`: user-added token borders
 - `music.live`: the live mix metadata; `music.requests`: the queue of UI requests from MCP (see `features/music/data-model.md`)
 - `transcribe.speeds`: measured transcription speeds, used for time estimates

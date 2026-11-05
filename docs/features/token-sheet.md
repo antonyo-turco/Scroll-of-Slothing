@@ -30,7 +30,7 @@ Each item has:
 - copies (1–99, default 1).
 
 Items can be added in these ways:
-- uploaded on this page (png/jpg/jpeg/bmp/webp);
+- uploaded on this page, or dropped onto it (png, jpg, jpeg, webp, gif, bmp);
 - with "Add to sheet" from the Token Cutter;
 - from the Library, one asset or in bulk.
 
@@ -79,23 +79,26 @@ Reference: Python `pdf_generator.py`, `utils.py`.
 - With 36 pt, the vertical centring offset can differ from Python's. For example, on Letter there are 21 half-inch rows instead of 10 inch rows, so the top offset is 18 pt instead of 36 pt. The app path is checked with property tests: no overlap, inside the margins, every copy either placed or reported, and page count no higher than with 72 pt cells.
 
 ## PDF
-- Images are embedded directly as PNG, with alpha flattened on white. **Python wrote a temporary JPEG for each token.**
-- The cut circle uses the cut-line style.
+- Images are embedded directly as PNG, keeping their alpha. **Python wrote a temporary JPEG for each token, flattened on white.**
+- The cut line (circle or the token's polygon) uses the cut-line style.
 - Export runs as a Job with progress, so the UI never blocks.
 
 ## Preview
 - Paged (◀ Page N of M ▶). The page is scaled to fit the pane.
 - Pages are rendered client-side from the layout JSON, using thumbnail-sized images from `sleuth://blob/<hash>?w=`.
-- The layout is recomputed in Rust, debounced 120 ms (Python used 180 ms).
+- The layout is recomputed in Rust after each sheet edit (no debounce timer; Python debounced 180 ms). Edits made elsewhere (Cutter, Library, MCP) show up live through `change_log`.
+- The preview draws cut lines with the PDF dash pattern (`[2,3]` dashed, `[0.5,2]` dotted).
 
 ## MCP
 - `token_sheet_list`
-- `token_sheet_add {items:[{asset_id|path, size?, copies?, label?}]}`
-- `token_sheet_update {index, size?, copies?}`
-- `token_sheet_remove {index}`
+- `token_sheet_add {asset_ids?, paths?, size?}`: library assets and/or image files (files get `size`, default Medium)
+- `token_sheet_add_creatures`: 5etools creature tokens (see "From 5etools")
+- `token_sheet_update {id, label?, size?, copies?}`
+- `token_sheet_remove {id}`
 - `token_sheet_clear`
+- `token_sheet_set_options {format?, cut_border?}` (`Letter` or `A4`)
 - `token_sheet_layout` returns pages and placements, plus any skipped items.
-- `token_sheet_export_pdf {path, format?, cut_border?}`
+- `token_sheet_export_pdf {path}` (Job)
 
 ## Parity checklist (Python `ui/token_sheet_panel.py`, `pdf_generator.py`, `image_manager.py`)
 - [x] Upload, list, thumbnails, size, copies, remove, clear (clear asks for confirmation)
