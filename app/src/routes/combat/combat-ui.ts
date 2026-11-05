@@ -5,8 +5,8 @@ import type { CombatRow } from '../../lib/types';
 
 export type Mon = Record<string, unknown>;
 
-/** One line of the rolls window. */
-export type RollLine = { id: number; who: string; entry: string; kind: 'hit' | 'damage'; total: number; detail: string; tag: string };
+/** A stat block roll, posted to the floating dice roller. */
+export type RollLine = { who: string; entry: string; kind: 'hit' | 'damage'; total: number; detail: string; tag: string };
 
 export type ConcAlert = { id: number; who: string; damage: number; dc: number };
 export type RechargeNote = { rowId: string; who: string; ability: string; need: number };

@@ -94,7 +94,8 @@ Both entry points post into the same recent-roll list:
 
 Every roll made from a stat block in Combat also lands in the roller (added 2026-11-05):
 to-hit rolls (Shift: advantage, Ctrl: disadvantage), damage rolls (crits double the dice) and
-group saving throws. The Combat side panel keeps its own Rolls window as before.
+group saving throws. The roller is the only place they show: the Combat side panel's old
+Rolls window was removed.
 
 - Such a roll is titled by what was rolled (`Claw to hit`, `Claw damage`, `DEX save`) instead
   of the expression, with a tag chip for CRIT, MISS, SAVED or FAILED (MISS and FAILED in the
