@@ -3,14 +3,14 @@
 Takes a battle-map image, works out its grid, cleans it up, and prints it at true scale (for example 1 square = 1 inch) across several pages, with optional overlap and cut borders.
 
 ## Loading
-- From a file (png, jpg, jpeg, bmp, webp), by paste, by drag and drop, or with "Open in editor" from the Library.
+- From a file (png, jpg, jpeg, webp, gif, bmp), by paste, by drag and drop, or with "Open in editor" from the Library.
 - Clicking the empty canvas opens the file browser.
 - A **working proxy** of at most 2000 px (`WORK_MAX`) drives all interaction. Export always uses full resolution.
 - DPI detection: if the image's `dpi` metadata is greater than 1 it is used; otherwise 70 is assumed (`DEFAULT_DPI`).
 
 ## View
-- Mouse wheel zooms ×1.1 around the cursor. The −/+ buttons zoom ×1.25. Zoom is clamped to 0.1–12. "Fit" fits the map to the view.
-- Pan with a middle-button drag. Left-drag pans too when no other tool is active.
+- A mouse wheel notch zooms ×1.1 around the cursor; a touchpad pinch zooms smoothly. The −/+ buttons zoom ×1.25. Zoom is clamped to 0.1–12. "Fit" fits the map to the view.
+- Pan with a middle-button drag, Space + drag, a two-finger touchpad scroll, or a left-drag when no other tool is active (the Pan tool). Touchscreens pinch to zoom and pan (`app/src/lib/gestures.ts`).
 - **Zoom and pan are client-side transforms of the proxy, with the grid and overlays drawn as vector graphics.** Python re-scaled the whole composite with LANCZOS on every mouse move.
 
 ## Grid model
@@ -69,7 +69,7 @@ See `map-filters.md`.
 **Export composite order**: remove grid (if chosen) → filters → grid overlay.
 
 ## Automatic detection (new; `core::maps::detect`)
-Both run on the working proxy (≤ 2048 px, 30–300 ms) and are buttons, never automatic.
+Both run on the 2000 px working proxy (30–300 ms) and are buttons, never automatic.
 
 **⌗ Detect grid** (Grid section, `map_detect_grid`) switches to Cell side with the detected square size and line offset.
 - Each axis becomes an edge profile: the summed brightness steps per column or row, high-passed so only sharp peaks remain.
@@ -174,21 +174,29 @@ Defaults come from Settings.
 - Re-opening an asset restores the full state. Python restored only the image.
 
 ## MCP
+The paginator holds one document (`MapDoc`), shared with the UI through the `map_paginator` workspace. Most tools return the updated document.
+
 | Tool | Input |
 |---|---|
-| `map_open` | `{source}` → `{session_id}` |
-| `map_set_grid` | `{mode, ...}` |
-| `map_set_style` | |
-| `map_set_filters` | `{preset? \| pipeline?}` |
+| `map_get` | the current document |
+| `map_open` | `{path}` or `{hash, name?}` |
+| `map_open_asset` | `{id}` (restores the saved state) |
+| `map_update` | `{patch}`: a partial `MapDoc`, merged |
+| `map_set_grid` | `{mode, rows?, cols?, square_cells?, ref_n?, ref_quad?, ppi?, side?, offset_x?, offset_y?}` |
+| `map_set_style` | `{color?, thickness?, opacity?, visible?, style?}` |
+| `map_set_filters` | `{preset?}` or `{pipeline?}` |
+| `map_filter_catalog` | filter defs and presets |
 | `map_remove_grid` | `{on}` |
-| `map_dewarp` | `{quad, n}` |
-| `map_set_print` | |
-| `map_set_region` | |
-| `map_toggle_page` | |
-| `map_layout` | returns the tiles |
-| `map_preview_page` | `{index}` → PNG |
-| `map_export_pdf` | `{path}` |
-| `map_save_asset` | `{name, asset_id?}` |
+| `map_detect_grid` / `map_fit_region` | see "Automatic detection" |
+| `map_dewarp` | `{quad, n}`; `map_undo_dewarp` undoes it |
+| `map_set_print` | `{format?, landscape?, square_in?, calibration_mm?, margin_in?, overlap_in?, align_to_grid?, cut_border?}` |
+| `map_set_region` | `{region?, page_offset?}` |
+| `map_toggle_page` | `{col, row, include}` |
+| `map_layout` | the tiles, plus `fewest` when it beats the current layout |
+| `map_fewest_pages` | applies the fewest-pages layout |
+| `map_preview` / `map_preview_page` | the working preview; `{index}` → one printed page as PNG |
+| `map_export_pdf` | `{path}` (Job) |
+| `map_save_asset` | `{name, asset_id?}` (Job; `asset_id` updates that asset) |
 
 ## Intentional changes
 - Save to library asks for the name and tags in one dialog; the tags are applied when the save job finishes.

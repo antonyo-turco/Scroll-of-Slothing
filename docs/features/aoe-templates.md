@@ -92,8 +92,8 @@ Units: `px_per_ft = px_per_square / feet_per_square`. Coordinates start at the t
 - "Full sheet": all pages side by side.
 
 **Sheet list**
-- Add current, multi-select, Remove selected, Clear sheet, set the gap.
-- The sheet is autosaved in `workspaces` under the key `aoe.sheet`.
+- Add current, multi-select, Remove selected, Clear sheet… (asks first), set the gap.
+- The single-template editor is autosaved by the UI under `aoe.editor`; the sheet is autosaved in `workspaces` under the key `aoe.sheet`.
 
 **Export**
 - Export the sheet as a PDF (each page is a full-page image).
@@ -101,19 +101,23 @@ Units: `px_per_ft = px_per_square / feet_per_square`. Coordinates start at the t
 - Save the current template as a PNG.
 
 ## MCP
+A template is passed as `config`, the preset config object (keys listed under "User presets").
+
 | Tool | Input / output |
 |---|---|
-| `aoe_render` | `{shape, a_ft, b_ft?, feet_per_square?, inch?, style...}` → PNG preview + `{footprint_ft, inches, pages}` |
-| `aoe_presets_list` | |
-| `aoe_presets_save` | |
-| `aoe_presets_delete` | |
-| `aoe_sheet_add` | |
-| `aoe_sheet_list` | |
-| `aoe_sheet_remove` | |
-| `aoe_sheet_clear` | |
-| `aoe_sheet_export_pdf` | `{path}` |
-| `aoe_export_template_pdf` | |
-| `aoe_export_png` | |
+| `aoe_render` | `{config}` → PNG preview + info (`footprint_ft`, inches, pages) |
+| `aoe_info` | `{config}` → the info only |
+| `aoe_presets_list` | built-in and user presets |
+| `aoe_presets_save` | `{name, config, overwrite?}` (an existing name needs `overwrite: true`) |
+| `aoe_presets_delete` | `{name}` (user presets only) |
+| `aoe_sheet_add` | `{config}` |
+| `aoe_sheet_list` / `aoe_sheet_clear` | |
+| `aoe_sheet_remove` | `{ids}` |
+| `aoe_sheet_set_gap` | `{gap_in}` |
+| `aoe_sheet_layout` | `{inch?, format?}` → pages, placements, skipped |
+| `aoe_sheet_export_pdf` | `{path, inch?, format?}` (Job; the result lists skipped items) |
+| `aoe_export_template_pdf` | `{config, path}` (Job; tiled at true scale) |
+| `aoe_export_png` | `{config, path}` |
 
 ## Intentional changes
 - UI consistency pass (2026-10-11, branch `ui/consistency`): exports in the top bar; the inspector uses the shared sections (Preset, Shape & size, Scale & paper, Style, Sheet).
