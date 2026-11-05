@@ -8,7 +8,7 @@ import type {
   SheetItemPatch, SheetLayout, SourceImage, TagCount, TokenDraft, TokenParams, TokenSheet,
   CutoutDraft, CutoutParams, ObjectItemPatch, ObjectSheet, SheetMode,
   CardOptions, CardTemplates, Deck, DeckLayout, DeckSummary,
-  Clock, ClockNew, ClockPatch, ClockTick,
+  Clock, ClockNew, ClockPatch, ClockTick, RollResult,
   PlannerSummary, PlanRef, SessionPatch, SessionView,
   MapDoc, MapLayout, FilterCatalog, FilterDef, FilterPreset, AoeConfig, AoeInfo, AoePreset, AoeSheet, AoeSheetLayout,
   CloudKeyInfo, CloudKeyStatus, CloudModelSpec, LastTranscript, Segment, SttEndpointInfo, SttEndpointInput, SttModel, TranscribeEstimate,
@@ -251,6 +251,7 @@ export const api = {
   clocksRun: (id: string | null, run: boolean) => call<Clock[]>('clocks_run', { id, run }),
   clocksDelete: (id: string) => call<Clock[]>('clocks_delete', { id }),
   clocksTick: () => call<ClockTick[]>('clocks_tick'),
+  diceRoll: (notation: string) => call<RollResult>('dice_roll', { notation }),
   encountersList: () => call<EncounterSummary[]>('encounters_list'),
   encounterSave: (id: string | null, name: string, notes: string, creatures: EncounterCreature[]) =>
     call<EncounterSummary>('encounter_save', { id, name, notes, creatures }),

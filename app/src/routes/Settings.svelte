@@ -246,6 +246,10 @@
       </div>
       {@render toggle('sidebar_collapsed', 'Start with the sidebar collapsed')}
     </section>
+    <section class="card">
+      <h2>Dice roller <InfoTip label="About the dice roller" text="The floating roller opens with the Dice button at the bottom of the rail or the D key. Rolls from stat blocks in Combat land in its list too." /></h2>
+      {@render numberField('dice_history', 'Recent rolls to show', 1, 'rolls (1–50)')}
+    </section>
     <details class="card advanced">
       <summary><h2>Advanced</h2></summary>
       <div class="label-row">

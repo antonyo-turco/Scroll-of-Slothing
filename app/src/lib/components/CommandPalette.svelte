@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ALL_VIEWS, findView } from '../nav';
   import { app } from '../state.svelte';
+  import { dice } from '../dice.svelte';
 
   interface Command {
     id: string;
@@ -20,6 +21,7 @@
       return { id: `go:${v.id}`, label, run: () => app.navigate(v.id) };
     }),
     { id: 'toggle-sidebar', label: 'Toggle sidebar', run: () => app.toggleSidebar() },
+    { id: 'dice', label: 'Dice roller: show or hide (D)', run: () => dice.toggle() },
     { id: 'theme-light', label: 'Theme: light', run: () => void app.updateSettings({ theme: 'light' }) },
     { id: 'theme-dark', label: 'Theme: dark', run: () => void app.updateSettings({ theme: 'dark' }) },
     { id: 'theme-system', label: 'Theme: follow system', run: () => void app.updateSettings({ theme: 'system' }) },

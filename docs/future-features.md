@@ -42,6 +42,23 @@ Picked up 2026-10-26: XP split and individual treasure in `features/combat-track
 aids, *Rewards*). Hoard and magic-item rolls on the creature's treasure themes are left to the
 Tables page above.
 
+### After-session tools (After)
+Agreed 2026-11-05 as future features for the After group, which so far holds only Transcribe.
+None of them is note-taking; each reads data the app already has.
+- **Combat report.** A post-session summary built from the encounters the Combat tracker ran:
+  rounds and real time per encounter, damage dealt and taken per PC, who dropped to 0 and how
+  often, the longest fight. Meant for balancing the next session. The tracker keeps only the
+  current state today, so this needs a light per-encounter record (totals at the end of each
+  fight, not the per-round timeline that was declined as a "combat log" below).
+- **XP and loot splitter.** Totals XP (or a milestone) from the encounters fought in a session
+  and splits treasure among the PCs who were there, with remainder rules (who gets the odd
+  coin, items claimed by whom). Prints a "loot receipt" handout through the card printer. It
+  extends the per-fight *Rewards* in `features/combat-tracker.md` to a whole session.
+- **Clock and world advance.** An end-of-session pass over the Clocks: step faction clocks, the
+  in-world calendar and downtime turns forward in one go, then show a "what ticked" summary
+  (which clocks moved and the events they reached). Likely an After mode of Clocks rather than
+  a new destination.
+
 ## Deferred
 Possible later, out of bounds for now:
 - **Music cues:** switch the Music mixer to a chosen soundscape when combat starts or a boss's

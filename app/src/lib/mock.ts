@@ -17,6 +17,7 @@ import { createSttMockHandlers } from './mock-stt';
 import { createCombatMockHandlers } from './mock-combat';
 import { createPlannerMockHandlers } from './mock-planner';
 import { createClocksMockHandlers } from './mock-clocks';
+import { rollNotation } from './dice';
 import { createCompendiumMockHandlers } from './mock-compendium';
 
 export interface Backend {
@@ -36,6 +37,7 @@ function validate(key: string, value: unknown): string | null {
   if (typeof d === 'boolean') return typeof value === 'boolean' ? null : 'expected a boolean';
   if (typeof d === 'number') {
     if (typeof value !== 'number' || !Number.isFinite(value)) return 'expected a number';
+    if (key === 'dice_history') return Number.isInteger(value) && value >= 1 && value <= 50 ? null : 'must be a whole number from 1 to 50';
     const positive = ['cut_line_width', 'map_square_in', 'map_calibration_mm'];
     if (positive.includes(key)) return value > 0 ? null : 'must be > 0';
     return value >= 0 ? null : 'must be ≥ 0';
@@ -702,6 +704,11 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
   Object.assign(handlers, createCombatMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createClocksMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
+  handlers.dice_roll = ({ notation }) => {
+    const r = rollNotation(String(notation ?? ''));
+    if (typeof r === 'string') throw { code: 'invalid_input', message: r };
+    return r;
+  };
   Object.assign(handlers, createCompendiumMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createPlannerMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), (cmd, args = {}) => handlers[cmd](args)));
 

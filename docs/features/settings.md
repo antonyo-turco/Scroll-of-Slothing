@@ -46,6 +46,7 @@ under Combat.
 | `combat_reset_confirm` | bool | `true` | | combat tracker: ask before Reset (*new*) |
 | `combat_reset_keep_players` | bool | `false` | | combat tracker: Reset removes only creatures and keeps the players (*new*) |
 | `combat_import_append` | bool | `false` | | combat tracker: encounter import: add to the current combat (*new*) |
+| `dice_history` | int | `10` | 1–50 | floating dice roller: how many recent rolls its list keeps (*new*) |
 
 The OpenRouter API key is **not** a setting: it is kept in the Windows Credential Manager (entry `sloth` / `openrouter_api_key`), see `features/transcribe.md`.
 

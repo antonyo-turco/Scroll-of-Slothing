@@ -147,6 +147,12 @@ pub struct NameParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct DiceRollParams {
+    /// Dice notation: `NdM` and number terms joined by + or - (`2d6+3`, `d20-1`, `2d8+1d6+4`), `d%` for d100, `adv` / `dis` for 2d20 keep higher / lower (`adv+5`). At most 200 dice.
+    pub notation: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct StrIdParams {
     pub id: String,
 }
@@ -1858,6 +1864,13 @@ impl SlothServer {
     )]
     async fn clocks_tick(&self) -> ToolResult {
         done(self.svc.clocks_tick().await)
+    }
+
+    #[tool(
+        description = "Roll dice: returns the canonical expression, the total, a readable detail (`[3, 5] + 3 = 11`) and each die's faces (`kept` for adv/dis). Nothing is stored."
+    )]
+    async fn dice_roll(&self, Parameters(p): Parameters<DiceRollParams>) -> ToolResult {
+        done(self.svc.dice_roll(&p.notation).await)
     }
 
     #[tool(

@@ -5188,6 +5188,7 @@ dependencies = [
  "ab_glyph",
  "base64 0.22.1",
  "fast_image_resize",
+ "fastrand",
  "flate2",
  "image",
  "proptest",

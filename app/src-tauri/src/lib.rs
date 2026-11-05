@@ -240,6 +240,7 @@ pub fn run() {
             commands::clocks_run,
             commands::clocks_delete,
             commands::clocks_tick,
+            commands::dice_roll,
             commands::encounters_list,
             commands::encounter_save,
             commands::encounter_set_pinned,

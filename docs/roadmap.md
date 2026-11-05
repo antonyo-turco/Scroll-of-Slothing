@@ -29,6 +29,8 @@ The features on the old repo's `feature/dnd-integration` and `dev-dnd-legacy` br
 ## Parity status
 On 2026-10-18 the user declared that the rewrite has reached parity with Orb of Many Functions and is feature-complete. Phase 8 (Transcribe) is a new feature beyond parity and does not block the release. On 2026-10-25 the last unticked items (AoE templates, Map Paginator, Map filters) got their tests and the user confirmed the Music alpha test, so every parity checklist is ticked.
 
+Now that full parity is reached, **future features live outside the boundaries of the old project** (they are new, not ports): they are scored against this app's own specs in `docs/features/*.md` and do not get a Python parity checklist. The first such feature is the floating dice roller (`features/dice-roller.md`).
+
 ## Next features
 In order. The parity sprint runs on `sprint/full-parity` and merges back into `dev`.
 

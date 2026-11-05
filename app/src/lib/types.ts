@@ -45,6 +45,8 @@ export interface Settings {
   combat_reset_keep_players: boolean;
   combat_turn_popup: boolean;
   combat_passive_initiative: boolean;
+  /** Rolls the floating dice roller keeps (1-50). */
+  dice_history: number;
 }
 
 export interface SettingsUpdate {
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   combat_reset_keep_players: false,
   combat_turn_popup: true,
   combat_passive_initiative: false,
+  dice_history: 10,
 };
 
 // ── library (crates/store/src/assets.rs) ──
@@ -1114,4 +1117,24 @@ export interface ClockTick {
   segments: number;
   full: boolean;
   events: FiredEvent[];
+}
+
+// ── dice (crates/core/src/dice.rs) ──
+
+export interface DieGroup {
+  sides: number;
+  faces: number[];
+  /** adv / dis: the face that counts. */
+  kept?: number;
+  /** -1 when the term is subtracted. */
+  sign: number;
+}
+
+export interface RollResult {
+  /** Canonical expression, e.g. `2d6 + 3`. */
+  expression: string;
+  total: number;
+  /** e.g. `[3, 5] + 3 = 11`. */
+  detail: string;
+  groups: DieGroup[];
 }
