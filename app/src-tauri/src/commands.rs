@@ -1390,6 +1390,13 @@ pub fn planner_print(svc: Svc<'_>, session: String, dir: PathBuf) -> JobId {
     svc.planner_print(session, dir)
 }
 
+// ── dice ──
+
+#[tauri::command]
+pub async fn dice_roll(svc: Svc<'_>, notation: String) -> Res<sloth_service::RollResult> {
+    svc.dice_roll(&notation).await
+}
+
 // ── clocks ──
 
 #[tauri::command]

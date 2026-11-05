@@ -2,6 +2,7 @@
   import { DESTINATIONS, SETTINGS_DEST, findView, type Destination } from '../nav';
   import { app } from '../state.svelte';
   import { musicUi } from '../music-ui.svelte';
+  import { dice } from '../dice.svelte';
   import Icon from './Icon.svelte';
   import PlayIndicator from './PlayIndicator.svelte';
 
@@ -58,6 +59,17 @@
   </ul>
 
   <div class="bottom">
+    <button
+      class="item"
+      class:active={dice.mode !== 'hidden'}
+      aria-pressed={dice.mode !== 'hidden'}
+      aria-label="Dice roller"
+      title="Dice roller (D)"
+      onclick={() => dice.toggle()}
+    >
+      <Icon name="dice" />
+      {#if !app.sidebarCollapsed}<span>Dice</span>{/if}
+    </button>
     <button
       class="item"
       class:active={current === SETTINGS_DEST.id}

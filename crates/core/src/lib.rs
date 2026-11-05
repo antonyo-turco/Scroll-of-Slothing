@@ -7,6 +7,7 @@ pub mod clocks;
 pub mod combat;
 pub mod compendium;
 pub mod cutout;
+pub mod dice;
 pub mod fonts;
 pub mod imaging;
 pub mod maps;

@@ -17,6 +17,7 @@ import { createSttMockHandlers } from './mock-stt';
 import { createCombatMockHandlers } from './mock-combat';
 import { createPlannerMockHandlers } from './mock-planner';
 import { createClocksMockHandlers } from './mock-clocks';
+import { rollNotation } from './dice';
 import { createCompendiumMockHandlers } from './mock-compendium';
 
 export interface Backend {
@@ -702,6 +703,11 @@ export function createMockBackend(initial: Partial<Settings> = {}, opts: { seed?
   Object.assign(handlers, createCombatMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createSttMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createClocksMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent))));
+  handlers.dice_roll = ({ notation }) => {
+    const r = rollNotation(String(notation ?? ''));
+    if (typeof r === 'string') throw { code: 'invalid_input', message: r };
+    return r;
+  };
   Object.assign(handlers, createCompendiumMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), () => settings));
   Object.assign(handlers, createPlannerMockHandlers((e) => listeners.forEach((l) => l(e as unknown as ServiceEvent)), (cmd, args = {}) => handlers[cmd](args)));
 

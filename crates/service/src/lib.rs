@@ -10,6 +10,7 @@ mod clocks;
 mod combat;
 mod compendium;
 mod cutouts;
+mod dice;
 mod error;
 mod events;
 mod imgcache;
@@ -47,6 +48,7 @@ pub use compendium::{
     CompendiumStatus,
 };
 pub use cutouts::CutoutDraft;
+pub use dice::{DieGroup, RollResult};
 pub use error::{ErrorCode, ServiceError};
 pub use events::Event;
 pub use jobs::{JobCtx, JobId, JobState, JobStatus};

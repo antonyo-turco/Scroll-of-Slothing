@@ -2,6 +2,8 @@
   import { onMount, type Component } from 'svelte';
   import ClockWatcher from './lib/components/ClockWatcher.svelte';
   import CommandPalette from './lib/components/CommandPalette.svelte';
+  import DiceRoller from './lib/components/DiceRoller.svelte';
+  import { dice } from './lib/dice.svelte';
   import JobsTray from './lib/components/JobsTray.svelte';
   import MusicEngine from './lib/components/MusicEngine.svelte';
   import Rail from './lib/components/Rail.svelte';
@@ -35,10 +37,17 @@
     return () => app.dispose();
   });
 
+  /** True while the user types into a field (single-key shortcuts stay off). */
+  const typing = (t: EventTarget | null) =>
+    t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
+
   function onKey(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       app.paletteOpen = !app.paletteOpen;
+    } else if (e.key.toLowerCase() === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && !typing(e.target)) {
+      e.preventDefault();
+      dice.toggle();
     }
   }
 </script>
@@ -61,7 +70,7 @@
 <JobsTray />
 <Toasts />
 <TooltipHost />
-{#if app.ready}<MusicEngine /><ClockWatcher />{/if}
+{#if app.ready}<MusicEngine /><ClockWatcher /><DiceRoller />{/if}
 
 <style>
   .shell {
