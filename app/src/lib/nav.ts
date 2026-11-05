@@ -6,7 +6,7 @@ import type { Component } from 'svelte';
 
 export type IconName =
   | 'library' | 'calendar' | 'token' | 'swords' | 'skull' | 'pencil' | 'copy' | 'braces' | 'undo' | 'trash' | 'scissors' | 'cards' | 'map' | 'flag' | 'music' | 'mic' | 'cpu' | 'cloud' | 'info' | 'grid' | 'list' | 'pills' | 'wind' | 'bell' | 'clock' | 'settings'
-  | 'search' | 'chevron-left' | 'chevron-right' | 'x' | 'check' | 'loader' | 'command';
+  | 'search' | 'chevron-left' | 'chevron-right' | 'x' | 'check' | 'loader' | 'command' | 'dice';
 
 export interface View {
   id: string;

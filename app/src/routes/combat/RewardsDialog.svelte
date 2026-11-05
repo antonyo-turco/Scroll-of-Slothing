@@ -7,6 +7,7 @@
   // End of the fight: the defeated enemies' XP split among the heroes, and each
   // creature's individual treasure (2024 DMG, coins by CR) rolled on demand.
   import Modal from '../../lib/components/Modal.svelte';
+  import Icon from '../../lib/components/Icon.svelte';
   import { app } from '../../lib/state.svelte';
   import { coinTotal, rollIndividualTreasure, splitXp, type CoinRoll } from '../../lib/rewards';
 
@@ -80,14 +81,14 @@
     {#if unknown}<p class="note">{unknown} creature(s) have no CR and give no XP here.</p>{/if}
 
     <div class="list">
-      <div class="head"><span>Creature</span><span>CR</span><span class="num">XP</span><span>Coins</span><span></span></div>
+      <div class="head"><span>Creature</span><span>CR</span><span class="num">XP</span><span>Coins</span><button class="btn ghost icon-btn roll-all" onclick={rollAll} disabled={!fallen.some((f) => f.cr)} aria-label="Roll coins for every creature" title="Roll individual treasure for all"><Icon name="dice" size={20} /></button></div>
       {#each fallen as f (f.id)}
         <div class="line">
           <span class="name">{f.name}{#if f.themes.length}<span class="themes" title="Treasure themes (2024 DMG)">{f.themes.join(', ')}</span>{/if}</span>
           <span>{f.cr ?? '—'}</span>
           <span class="num">{f.xp?.toLocaleString() ?? '—'}</span>
           <span title={coins[f.id]?.detail ?? ''}>{f.id in coins ? (coins[f.id] ? `${coins[f.id]!.amount.toLocaleString()} ${coins[f.id]!.coin}` : 'No CR') : ''}</span>
-          <button class="btn ghost" onclick={() => rollOne(f)} disabled={!f.cr} aria-label="Roll coins for {f.name}" title="Roll its individual treasure">🎲</button>
+          <button class="btn ghost icon-btn" onclick={() => rollOne(f)} disabled={!f.cr} aria-label="Roll coins for {f.name}" title="Roll its individual treasure"><Icon name="dice" size={20} /></button>
         </div>
       {/each}
     </div>
@@ -165,6 +166,18 @@
   }
   .name {
     font-weight: 600;
+  }
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    justify-self: center;
+  }
+  .roll-all {
+    color: var(--danger);
   }
   .themes {
     margin-left: 8px;
