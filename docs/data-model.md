@@ -6,6 +6,7 @@
   - `sleuth.db`: SQLite, WAL mode, `foreign_keys=ON`
   - `blobs/ab/cd/<blake3-hex>.<ext>`: content-addressed files
   - `fivetools/bestiary/`: the combat tracker's copy of a 5etools mirror's `data/bestiary/` (`index.json` and `bestiary-*.json`), refreshed by `bestiary_sync`
+  - `fivetools/homebrew-bestiary.json`: homebrew creatures made in the tracker or over MCP, kept outside the synced copy
   - `legacy/music.json`: music data preserved by the legacy importer; "Import legacy music" (`music_import_legacy`) reads it
 
 ## Tables (migration V1)
@@ -47,7 +48,9 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 - `tags(id INTEGER PK, name TEXT UNIQUE COLLATE NOCASE)`
 - `asset_tags(asset_id FK CASCADE, tag_id FK CASCADE, PK(asset_id, tag_id))`
 
-### campaigns / sessions / links
+### campaigns / sessions / links (unused)
+The feature was removed on 2026-10-11; the tables remain in V1 and nothing reads or writes them.
+
 - `campaigns(id TEXT PK uuid, name, created)`
 - `sessions(id TEXT PK uuid, campaign_id FK CASCADE, name, notes, created)`
 - `asset_campaigns(asset_id, campaign_id)` and `asset_sessions(asset_id, session_id)`. Both cascade on either side.
@@ -68,8 +71,10 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 - `combat.encounters`: saved encounters (creature lists and tracker snapshots), see `features/combat-tracker.md`
 - `combat.parties`: saved hero parties
 - `combat.tracker`: the combat tracker in the 5etools serial form (see `features/combat-tracker.md`); changes are logged as `combat/tracker`
-- `cards.editor`
-- `ui.last_route`
+- `cards.editor`: the card editor state, written by the UI (`routes/cards/Cards.svelte`), not by the service
+- `token.borders`: user-added token borders
+- `music.live`: the live mix metadata; `music.requests`: the queue of UI requests from MCP (see `features/music/data-model.md`)
+- `transcribe.speeds`: measured transcription speeds, used for time estimates
 
 ### settings
 `(key TEXT PK, json TEXT)`. Typed defaults live in Rust (`service::settings`). For keys and defaults, see `features/settings.md`.
@@ -80,8 +85,11 @@ Identical bytes are stored once. A blob that no asset references can be removed 
 ### assets_fts
 An FTS5 virtual table over `name`, `aliases` and `tags`. It is kept in sync by the service layer, not by triggers, because tags are stored in another table.
 
+## Secrets
+The OpenRouter API key (Transcribe cloud engine) is stored in the OS keyring (`service::secrets`), never in SQLite. If no key is saved, the `OPENROUTER_API_KEY` environment variable is used.
+
 ## Music
-Migration `V2__music.sql`: tracks, the live mix, soundscapes, playlists and soundboards. See `features/music/data-model.md`.
+Migrations `V2__music.sql`, `V3__music_favorites.sql` and `V4__music_categories.sql`: tracks, the live mix, soundscapes, playlists and soundboards. See `features/music/data-model.md`.
 
 ## Migration policy
 - Migrations are `crates/store/migrations/V{n}__{name}.sql` files, embedded at compile time and applied in order by `crates/store/src/migrate.rs`, which tracks progress in `PRAGMA user_version`. Each migration runs in one transaction together with its version bump.

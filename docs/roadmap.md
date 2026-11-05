@@ -1,73 +1,68 @@
 # Roadmap
 
-Each phase is developed on `dev`. A phase is done when:
-- tests are green;
-- the parity checklists in its feature docs are ticked;
-- it has been run by hand.
+Status as of 2026-11-05. The per-feature detail lives in each doc's checklist under `features/`; this page only summarises it.
 
-Phases are **not** promoted individually. `master` receives the rewrite only once all phases are complete and the app is at full parity with Orb of Many Functions, and only with the user's explicit approval.
+Work happens on `dev` (or a sprint branch). `master` receives the rewrite once, as a single descriptive merge, when the whole app is at parity with Orb of Many Functions, and only with the user's explicit approval.
 
+## Phases
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Bootstrap: repo, docs/specs, CLAUDE.md, workspace + Tauri/Svelte scaffold, parity fixture tooling, app shell, Settings | done |
-| 1 | Store + blobs, Library, tags, campaigns/sessions, legacy importer, MCP v0, CLI | done (pending review) |
-| 2 | Token Cutter + Token Sheet | done (pending review) |
-| 3 | Object Cutter + Object Sheet | done (pending review) |
-| 4 | Cards | done (pending review) |
-| 5 | Map Paginator + filters + AoE templates | in progress (sprint) |
-| 6 | Perf benchmarks, accessibility, packaging (MSI), in-app MCP HTTP, docs review | done (pending review) |
-| 7 | Music (requested by the user; spec in `features/music/`) | done (pending review; alpha testing pending) |
-| 8 | Transcribe: speech to text from files and live, local Whisper by default plus an OpenRouter-format cloud engine (requested 2026-10-18; spec in `features/transcribe.md`) | in progress (file transcription done; live and the Transcripts tab to do) |
-| 9 | Combat tracker: a port of the 5etools DM Screen Initiative Tracker with 5etools combat/encounter links and a cached bestiary from a 5etools mirror (requested 2026-10-25; spec in `features/combat-tracker.md`) | in progress (v1 core tracker and links) |
+| 0 | Bootstrap: repo, specs, workspace, Tauri/Svelte scaffold, parity fixture tooling, app shell, Settings | done |
+| 1 | Store and blobs, Library, tags, legacy importer, MCP, CLI | done |
+| 2 | Token Cutter, Token Sheet | done |
+| 3 | Object Cutter, Object Sheet | done |
+| 4 | Cards | done |
+| 5 | Map Paginator, map filters, AoE templates | done |
+| 6 | Perf benchmark, accessibility pass, MSI packaging, in-app MCP over HTTP | done |
+| 7 | Music (`features/music/`) | done; alpha test confirmed by the user on 2026-10-25 |
+| 8 | Transcribe (`features/transcribe.md`), beyond parity | partial: see below |
+| 9 | Combat tracker (`features/combat-tracker.md`), beyond parity | partial: see below |
+
+"Done" means the feature doc's checklist is fully ticked: implemented, tested, run by hand.
+
+## Parity
+Every parity checklist (phases 0-7) is ticked. The user declared parity on 2026-10-18; the last map and AoE items got their tests on 2026-10-25.
+
+Still open before the `master` merge:
+- Install the MSI once and double-click a `.dmix` file (the file association only exists in the installed app).
+- User alpha testing of the full build; fix what turns up.
+
+Phases 8 and 9 go beyond parity and do not block the merge.
+
+## Phase 8: Transcribe
+Built:
+- File transcription as a Job, with the local Whisper engine and the OpenRouter-format cloud engine (key in the OS keyring, cost shown, confirmation on first use).
+- Export to TXT, MD, SRT and VTT.
+- Only the File tab exists in the UI (`routes/transcribe/TranscribeFile.svelte`).
+
+Not built:
+- Storing transcripts (no migration yet), so no Transcripts tab and no saved cost.
+- Live transcription (local and cloud).
+- Unticked checklist items need tests: local file transcription, model download/delete, corrections, MCP e2e coverage, the UI checklist.
+
+## Phase 9: Combat tracker
+Built: the 5etools-compatible tracker, the cached 5etools bestiary, combat and encounter links, saved encounters, hero parties, homebrew creatures, `.denc` files, stat block rolls, the rolls window, undo.
+
+Not done:
+- The MCP tools are not covered by `mcp_e2e.rs`.
+- The tracker rework (HP strips, temp HP, defeated list, difficulty, side panel editor, homebrew, `.denc`, creature tokens) has no UI tests; the service tests for homebrew, temp HP and `.denc` exist but are not confirmed as run.
+
+### Possible future features (not to build until asked)
+Saved at the user's request on 2026-10-25:
+- **Music cues:** switch the Music mixer to a chosen soundscape when combat starts or a "boss" row's turn begins.
+- **Quick NPC generator:** make a homebrew creature from a template ("CR 2 brute") with the 2024 DMG statistics by CR.
+
+### Decided against
+- Combat log (a per-round timeline).
+- Maps integration (encounters from a map, AoE templates sized from stat blocks).
+- Player view and per-row "visible to players": the tracker is for the DM only.
+- Custom conditions (removed 2026-10-25).
+
+## Removed
+- Campaigns and sessions (2026-10-11, at the user's request): UI, filters, commands and MCP/CLI tools are gone; the tables remain, unused. See `features/campaigns-sessions.md`.
 
 ## Out of scope
-The features on the old repo's `feature/dnd-integration` and `dev-dnd-legacy` branches: LAN multiplayer, character sheets, encounters. Their combat tracker is replaced by Phase 9, a 5etools-compatible tracker requested on 2026-10-25 (not a port of those branches).
+The old repo's `feature/dnd-integration` and `dev-dnd-legacy` branches (LAN multiplayer, character sheets, their combat tracker). Phase 9 is a new 5etools-compatible tracker, not a port of them.
 
-## Parity status
-On 2026-10-18 the user declared that the rewrite has reached parity with Orb of Many Functions and is feature-complete. Phase 8 (Transcribe) is a new feature beyond parity and does not block the release. On 2026-10-25 the last unticked items (AoE templates, Map Paginator, Map filters) got their tests and the user confirmed the Music alpha test, so every parity checklist is ticked.
-
-## Next features
-In order. The parity sprint runs on `sprint/full-parity` and merges back into `dev`.
-
-1. **Alpha testing of the build** (by the user). Fix what turns up, then tick the remaining parity checklist items:
-   - Map Paginator: loading, zoom and pan, grid styles, print settings, region and tile editing, export and save.
-   - Map filters: user-controlled order.
-   - AoE templates: labels and halo, presets, previews, exports.
-   - Music: the alpha-test item (everything else is ticked; see `features/music/overview.md`).
-   - Install the MSI once and double-click a `.dmix` file (the association only exists in the installed app).
-2. **Release.** Once every checklist is ticked, music included, propose a single descriptive `master` merge and wait for the user's approval.
-
-### Combat tracker: possible future features (out of bounds for now)
-Saved at the user's request on 2026-10-25; not to be built until asked:
-- **Music cues:** switch the Music mixer to a chosen soundscape when combat starts or a "boss" row's turn begins.
-- **Quick NPC generator:** make a homebrew creature from a template ("CR 2 brute") with the 2024 DMG statistics by CR, saved through the homebrew bestiary.
-
-### Combat tracker: decided against
-- **Combat log** (a per-round timeline of damage, conditions and turns).
-- **Maps integration** (starting encounters from a map, AoE templates sized from stat blocks).
-- **Player view** and the per-row "visible to players" toggle: the tracker is for the DM only.
-- **Custom conditions** (removed 2026-10-25).
-
-### Removed
-- Campaigns and sessions (2026-10-11, at the user's request): UI, filters, links, commands and MCP/CLI tools are gone; the tables stay, unused. See `features/campaigns-sessions.md`.
-
-### Open questions (not blocking)
-- Music (`features/music/known-issues.md`, 15): should the playlist channel appear in the mixer and be ducked? It behaves as in Python until the user decides.
-
-### Done in the 2026-10-10 session
-- **Music:** service tests for the mixer, soundbites, SFX queue, ducking, playlists, soundboards, `.dmix` files and legacy import (`crates/service/src/music_tests.rs`). They found and fixed an SFX-queue counter underflow on Stop All. There is also an e2e spec (`app/e2e/music.spec.ts`) and a parity checklist.
-- **YouTube in WebView2:** checked; embeds play from the packaged app's origin, unmuted and without a user gesture. No fallback needed (`features/music/player-engine.md`).
-- **Playback status indicator:** each slot shows loading (dot wave), playing (equalizer bars) or paused.
-- **Phase 6:**
-  - The performance benchmark and its budgets (`perf.md`); everything is within budget.
-  - The accessibility pass: axe on every route in both themes, a skip link, the dialog focus trap, the palette combobox, and contrast fixes (`ux.md`, "Accessibility").
-  - The MSI build: `npm run tauri build` produces `target/release/bundle/msi/Scroll of Sleuthing_<version>_x64_en-US.msi`, which registers `.dmix`.
-  - In-app MCP HTTP: already implemented and covered by `crates/mcp/tests/http_e2e.rs`.
-  - The docs review.
-
-### Build speed (done)
-`.cargo/config.toml`:
-- links with `rust-lld`;
-- builds with line-table-only debug info for our crates and none for dependencies.
-
-This keeps `target/` far smaller (it had grown past 50 GB and filled the disk) and speeds up links. The first build after the change recompiles everything once.
+## Open questions
+- Music (`features/music/known-issues.md`, item 15): should the playlist channel appear in the mixer and be ducked? It behaves as in Python until the user decides.
