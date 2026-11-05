@@ -19,7 +19,6 @@
   import CreatureEditor from './CreatureEditor.svelte';
   import GroupBar from './GroupBar.svelte';
   import HpCell from './HpCell.svelte';
-  import RollsWindow from './RollsWindow.svelte';
   import RefCard, { type RefRequest } from './RefCard.svelte';
   import { printTokens } from './combat-tokens';
   import RewardsDialog, { type Fallen } from './RewardsDialog.svelte';
@@ -270,12 +269,10 @@
     return () => window.removeEventListener('blur', blur);
   });
 
-  // ── rolls from the stat block ──
-  let rolls = $state<RollLine[]>([]);
-  let rollSeq = 0;
+  // ── rolls from the stat block: they go to the floating dice roller ──
   /** Abilities whose last attack was a natural 20: their next damage roll is a crit. */
   const critNext = new Set<string>();
-  /** Also posts a stat block roll into the floating dice roller (docs/features/dice-roller.md). */
+  /** Posts a stat block roll into the floating dice roller (docs/features/dice-roller.md). */
   function toRoller(l: RollLine, notation: string) {
     const p = parseNotation(notation);
     const what = l.kind === 'hit' ? (l.entry.endsWith('save') ? '' : ' to hit') : ' damage';
@@ -293,7 +290,6 @@
     `${adv > 0 ? 'adv' : adv < 0 ? 'dis' : 'd20'}${bonus >= 0 ? '+' : ''}${bonus}`;
   function doRoll(r: CombatRow, q: RollRequest) {
     const key = `${r.id}|${q.entry}`;
-    let line: RollLine;
     if (q.kind === 'hit') {
       const adv = q.shift ? 1 : q.ctrl ? -1 : 0;
       const bonus = Number(q.value) || 0;
@@ -301,17 +297,14 @@
       const tag = a.natural === 20 ? 'CRIT' : a.natural === 1 ? 'MISS' : '';
       if (a.natural === 20) critNext.add(key);
       else critNext.delete(key);
-      line = { id: ++rollSeq, who: label(r), entry: q.entry, kind: 'hit', total: a.total, detail: a.detail, tag };
-      toRoller(line, d20Notation(bonus, adv));
+      toRoller({ who: label(r), entry: q.entry, kind: 'hit', total: a.total, detail: a.detail, tag }, d20Notation(bonus, adv));
     } else {
       const crit = q.shift || critNext.has(key);
       critNext.delete(key);
       const d = rollFormula(q.value, crit);
       if (!d) return app.toast('error', `Can't roll “${q.value}”`);
-      line = { id: ++rollSeq, who: label(r), entry: q.entry, kind: 'damage', total: d.total, detail: d.detail, tag: crit ? 'CRIT' : '' };
-      toRoller(line, q.value);
+      toRoller({ who: label(r), entry: q.entry, kind: 'damage', total: d.total, detail: d.detail, tag: crit ? 'CRIT' : '' }, q.value);
     }
-    rolls = [line, ...rolls].slice(0, 6);
   }
 
   // ── lair: a row at initiative 20 that loses ties, showing the lair actions ──
@@ -735,7 +728,6 @@
   /** Each selected creature rolls its own save (its save bonus, else the ability modifier). */
   function groupSaves() {
     const out: typeof saveResults = {};
-    const lines: RollLine[] = [];
     for (const r of selRows) {
       const m = merged(r);
       if (!m) {
@@ -748,13 +740,10 @@
       const a = rollAttack(bonus);
       const pass = saveDc ? a.total >= saveDc : false;
       out[r.id] = { total: a.total, pass };
-      const line: RollLine = { id: ++rollSeq, who: label(r), entry: `${saveAbility.toUpperCase()} save`, kind: 'hit', total: a.total, detail: a.detail,
-        tag: saveDc ? (pass ? 'SAVED' : 'FAILED') : '' };
-      lines.push(line);
-      toRoller(line, d20Notation(bonus));
+      toRoller({ who: label(r), entry: `${saveAbility.toUpperCase()} save`, kind: 'hit', total: a.total, detail: a.detail,
+        tag: saveDc ? (pass ? 'SAVED' : 'FAILED') : '' }, d20Notation(bonus));
     }
     saveResults = out;
-    rolls = [...lines, ...rolls].slice(0, 8);
   }
   function groupCondition() {
     if (!selRows.length) return;
@@ -1224,9 +1213,6 @@
         {#if active.length > 1}<p class="note">Also acting: {active.slice(1).map(label).join(', ')}</p>{/if}
       {:else}
         <p class="note">The stat block of whoever's turn it is shows here. Press <b>Next turn</b> to start.</p>
-      {/if}
-      {#if rolls.length}
-        <RollsWindow {rolls} onClear={() => (rolls = [])} />
       {/if}
       </div>
     {/if}

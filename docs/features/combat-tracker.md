@@ -114,7 +114,9 @@ Tracker, Encounters and Parties.
 - **Rolls from the stat block.** `{@hit}`, `{@damage}`, `{@dice}` and `{@d20}` tags in the side
   panel are buttons (`app/src/lib/dice.ts`). To hit: Shift advantage, Ctrl disadvantage; a
   natural 20 makes that ability's next damage roll a crit (dice doubled), as does Shift on a
-  damage button. The panel keeps a log of the last rolls (crits and natural 1s marked).
+  damage button. The rolls, and group saves, land in the floating dice roller
+  (`dice-roller.md`), titled by the ability and creature with crits, natural 1s and
+  saved/failed marked. The side panel no longer has its own rolls window (removed 2026-11-05).
 - **Limited uses.** Abilities named "(N/Day)" get N pips; "{@recharge N}" abilities get a
   Recharge badge. At the start of the creature's turn a notice reminds you to roll a d6 for each
   spent recharge (the app does not roll); click the badge when it recharges. Legendary actions (`legendaryActions`, else 3) get pips that refill
@@ -169,7 +171,7 @@ Tracker, Encounters and Parties.
 
 ## Code layout
 `app/src/routes/combat/`: `Combat.svelte` holds the tracker state, the table and the side
-panel; `HpCell`, `GroupBar`, `CombatDock` (Defeated + difficulty), `RollsWindow`,
+panel; `HpCell`, `GroupBar`, `CombatDock` (Defeated + difficulty),
 `CombatNotices` (concentration, recharge, legendary, turn card, round splash),
 `AddCreatureDialog` and `CreatureEditor` are its parts (shared types in `combat-ui.ts`);
 `StatBlock`, `Encounters`, `Parties` and `CombatSettings` are the other views.
