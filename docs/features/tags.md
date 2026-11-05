@@ -5,13 +5,14 @@ Tags are free-form, case-insensitive labels on assets: `tags.name UNIQUE COLLATE
 ## Behaviour
 - `set_asset_tags(asset, names)` replaces the asset's whole tag set. Tags that don't exist yet are created. Matching ignores case.
 - **Rename:** if the new name already exists (case-insensitive), the tag is **merged** into that tag instead.
-- **Merge X into Y:** every link to X is moved to Y, duplicate links are dropped, then X is deleted. Asks for confirmation.
-- **Delete:** removes the tag and all of its links.
+- **Merge X into Y:** every link to X is moved to Y, duplicate links are dropped, then X is deleted. The UI does not ask for confirmation.
+- **Delete:** removes the tag and all of its links (the UI asks first).
 - **Counts:** each tag shows "used by N".
 
 ## UI: the tag manager (a dialog in Library)
-- One row per tag: an editable name, the "used by N" count, Rename and Delete.
-- A row at the top for "Merge [X] into [Y]".
+Opened with "Manage tags…" in the Library top bar.
+- A row at the top: "Merge [X] into [Y]" and a Merge button.
+- One row per tag: the name as an editable field (renames on blur; a toast says when the rename merged into an existing tag), the "used by N" count, and Delete, which asks inline (Delete / Keep).
 
 ## MCP
 - `tags_list` (with counts)

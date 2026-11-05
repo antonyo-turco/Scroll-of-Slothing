@@ -51,7 +51,7 @@ under Combat.
 The OpenRouter API key is **not** a setting: it is kept in the Windows Credential Manager (entry `sloth` / `openrouter_api_key`), see `features/transcribe.md`.
 
 **Dash patterns**
-| Style | PDF dash (pt) | Canvas preview dash |
+| Style | PDF dash (pt), also used by the sheet previews | Settings preview line |
 |---|---|---|
 | Dashed | `[2,3]` | `[3,2]` |
 | Dotted | `[0.5,2]` | `[1,2]` |
@@ -63,19 +63,10 @@ The OpenRouter API key is **not** a setting: it is kept in the Windows Credentia
 - Unknown keys are ignored.
 
 ## UI
-Settings sit at the bottom of the rail and open as one page with these sections:
-- General
-- Cut guide line (style, width, colour picker, with a live preview line)
-- Tokens
-- Cut-outs
-- Cards
-- Maps
-- Advanced (MCP)
-
-Other controls:
-- **Restore defaults** asks for confirmation.
-- Saving is automatic, with an inline "Saved" toast. There is no Save button.
-- Invalid numbers show an inline error and are not saved.
+Settings open from the bottom of the rail, laid out in the tabs listed under Layout. The Cut guides tab has a live preview line.
+- Saving is automatic, with a "Saved" toast. There is no Save button.
+- Invalid values show an inline error per field and are not saved.
+- **Restore defaults** (in the Data tab) asks for confirmation.
 
 ## MCP
 - `settings_get` returns everything.
@@ -83,7 +74,7 @@ Other controls:
 
 ## Intentional changes
 - Saving is automatic, and settings apply live everywhere.
-- New keys: `object_page_format`, `card_page_format`, `theme`, `mcp_http_enabled`.
+- New keys: `object_page_format`, `card_page_format`, `theme`, `mcp_http_enabled`, the `stt_*` keys (Transcribe), `fivetools_base_url` and the `combat_*` keys (Combat tracker).
 - `start_tab`, which held a label, became `start_view`, which holds a route id. The legacy importer maps the old labels to routes. The five Python music tabs (Library, Mixer, Soundscapes, Playlists, Soundboard) map to the single `music` route. Unknown labels fall back to the default.
 - Legacy values that Python accepted but that break later calculations are reset to their defaults on import. For example, `map_square_in: false` was coerced to 0.0 and then divided by. Coercion itself matches Python exactly; see the golden test `crates/core/tests/parity_settings.rs`.
 

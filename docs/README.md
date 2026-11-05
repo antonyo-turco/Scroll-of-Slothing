@@ -8,7 +8,7 @@
 | [mcp-tools.md](mcp-tools.md) | MCP server and tool reference |
 | [legacy-import.md](legacy-import.md) | Migrating data from Orb of Many Functions |
 | [perf.md](perf.md) | Performance budgets and the benchmark |
-| [roadmap.md](roadmap.md) | Phases and status |
+| [roadmap.md](roadmap.md) | Current status per phase, open items, future and rejected ideas |
 
 ## Feature specs (each one ends with a parity checklist)
 - [Library](features/library.md) · [Tags](features/tags.md) · [Campaigns & sessions (removed)](features/campaigns-sessions.md) · [Settings](features/settings.md)
@@ -19,4 +19,5 @@
 - [Music](features/music/overview.md): [library](features/music/library-tracks.md) · [mixer](features/music/mixer-soundbites-ducking.md) · [soundscapes](features/music/soundscapes.md) · [playlists](features/music/playlists.md) · [soundboard](features/music/soundboard.md) · [engine](features/music/player-engine.md) · [schema](features/music/data-model.md) · [known issues](features/music/known-issues.md)
 
 ## New features (beyond parity)
-- [Transcribe](features/transcribe.md): speech to text from files and live, local or cloud
+- [Transcribe](features/transcribe.md): speech to text from audio files, local or cloud (live transcription not built yet)
+- [Combat tracker](features/combat-tracker.md): a 5etools-compatible initiative tracker with encounters, parties and homebrew creatures

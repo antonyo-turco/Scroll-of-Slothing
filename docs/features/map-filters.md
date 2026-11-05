@@ -1,6 +1,6 @@
 # Map filters
 
-A filter pipeline that makes battle maps easier to read and cheaper to print. It is used by the Map Paginator.
+A filter pipeline that makes battle maps easier to read and cheaper to print. It is used by the Map Paginator, and the Token Cutter uses its colour and tone filters (see `token-cutter.md`, "Filters").
 
 ## Model
 - A pipeline is an ordered list of `{type, enabled, params}`.

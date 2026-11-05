@@ -16,8 +16,8 @@ Cuts an object out of an image with a lasso, optionally adds a sticker-style con
 - Reset (Esc).
 
 **View**
-- Mouse wheel zooms ×1.1 around the cursor. Buttons −/+ zoom ×1.25. "Fit" fits the image. Zoom is clamped to 0.25–10, and the percentage is shown.
-- Pan with the middle mouse button, or with Space + drag (Space + drag is new).
+- A mouse wheel notch zooms ×1.1 around the cursor; a touchpad pinch zooms smoothly. Buttons −/+ zoom ×1.25 around the centre. "Fit" fits the image. Zoom is clamped to 0.25–10, and the percentage is shown.
+- Pan with the middle mouse button, Space + drag, or a two-finger touchpad scroll; touchscreens pinch to zoom and pan. The gestures are shared with the Token Cutter and Map Paginator (`app/src/lib/gestures.ts`, `ux.md` "Canvas gestures").
 
 **Lasso drawing:** line `#ff3b3b`, 2 px wide, vertex dots 3 px.
 
@@ -53,22 +53,22 @@ Python reference: `ui/cutout_compositing.py`.
 
 ## Performance
 - While points are being drawn, the lasso preview is a client-side overlay.
-- The mask and outline are computed in Rust on the preview proxy, debounced. Moving the slider no longer blocks the UI.
+- The mask and outline are computed in Rust on the preview proxy, with at most one render in flight; changes made meanwhile trigger one more render with the latest state. Moving the slider never blocks the UI.
 - Export uses full resolution.
 
 ## Persistence
 `params_json = {mode, points: [[x, y]…], outline_rgb, outline_px}`. Re-editing restores the trace. **Python only reloaded the original image**, so the user had to trace again.
 
 ## MCP
-`cutout_create {source: path|asset_id, points:[[x,y],...], outline_px?, outline_rgb?, name?, size?, save_to_library?, add_to_sheet?, out_png?}`
+`cutout_create {source_path | asset_id, points?:[[x,y],...], outline_px?, outline_color?, name?, size?, save_to_library?, update_existing?, add_to_sheet?, out_png?}`
 
 ## Intentional changes
 - UI consistency pass (2026-10-11, branch `ui/consistency`): Open image, Paste, Save PNG, Add to sheet and Save to library are in the top bar; the zoom cluster floats on the canvas; the toolbar band keeps only the selection tools.
 - The lasso edge is anti-aliased; PIL's polygon fill is hard. Pixel coverage follows PIL's convention (a pixel is the point at its integer coordinate), so the crop box is identical and interior pixels are untouched. Only edge pixels differ: 0.007 % (rectangle), 0.35 % (triangle) and 0.49 % (star) of the crop in the golden cases.
 - The outline dilation is a separable O(n) square dilation instead of `thickness` passes of a 3×3 max filter. It is mathematically identical: a property test checks it against the naive version, and the golden outputs match Python **exactly**.
 - The trace (mode, points) and outline settings are saved with the asset, so re-editing restores them. Python reloaded only the image.
-- The cutter draft is autosaved and restored after a restart.
-- Keyboard: Enter closes the polygon, Esc resets, Ctrl+Z undoes a point, Ctrl+V pastes. Space+drag pans, alongside the middle-drag from Python.
+- The cutter draft is autosaved (workspace key `cutouts.cutter`, written by the UI) and restored after a restart.
+- Keyboard: Enter closes the polygon, Esc resets, Ctrl+Z undoes a point, Ctrl+V pastes. Space+drag and touchpad gestures pan, alongside the middle-drag from Python.
 
 ## Parity checklist (Python `ui/object_cutter_panel.py`, `ui/cutout_compositing.py`)
 - [x] Polygon and freehand modes; close via double-click, right-click or Enter; undo; reset

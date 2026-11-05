@@ -26,6 +26,8 @@ The `sfx` role forces looping off when the channel is inserted.
 
 If min is larger than max, the two values are swapped.
 
+The sections below describe Python's behaviour (the parity reference). What this app does differently is under "In this app" at the end.
+
 ## Mixer view (Python `ui/dm_music_mixer_panel.py`)
 
 ### Toolbar
@@ -82,10 +84,14 @@ If min is larger than max, the two values are swapped.
 3. Resets the playlist and soundboard UI.
 4. Clears the active soundscape.
 
-The new app should also run this clean-up **at startup**.
+This app also runs the clean-up **at startup**, when the engine attaches.
 
-## Requirements for the Rust version
-- Parity with everything above.
-- Volume changes apply live while dragging, and from the keyboard.
-- Ducking ramps smoothly.
-- The playlist channel also appears in the mixer and can be ducked (optional; this is a change in behaviour, so confirm it with the user first).
+## In this app (`app/src/routes/music/Mixer.svelte`, `crates/service/src/music.rs`)
+- Everything above is implemented and covered by the service tests listed in `overview.md`.
+- Volume sliders (channels, soundbites, master) apply live while dragging and from the keyboard; the engine ramps gains over 150 ms.
+- A **master volume** is new. The duck mode and master volume are kept in the `music.live` workspace and in `.dmix` files.
+- The toolbar also has **Open .dmix…** and **Save .dmix…** (portable mix files with embedded uploads).
+- The "+ Soundbite" dialog lists every track (no campaign).
+- Soundbite rows have ▶ "Play now (ducks the music)".
+- Soundboard one-shots duck the music too, without queueing (user decision, 2026-10-10).
+- **Not changed:** the playlist channel is still not in the mixer and is not ducked, as in Python. This is an open question for the user (`known-issues.md`, item 15).

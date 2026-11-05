@@ -105,8 +105,8 @@ The indicator appears on:
 - the previewed library row and the status line;
 - the Music entry of the navigation rail, whenever anything is playing or loading.
 
-## Requirements for the Rust version
-- Feature parity with every IPC command and event listed above, as service functions.
-- Per-channel volume, loop, pause and resume; a single preview slot; one-shots; a video toggle (show the YouTube player in a small floating panel).
-- Local files are served from the blob store with Range support.
+## The Rust version
+- `app/src/lib/music-engine.ts`, mounted by `MusicEngine.svelte` in the main webview. Every Python IPC command and event has an equivalent: the service emits `Event::MusicEngine` commands and the engine reports `ended`, `error`, `duration` and the playback status back.
+- Per-channel volume (a Web Audio `GainNode`, ramped over 150 ms), loop, pause and resume; a single preview slot; one-shots; a video toggle that shows the YouTube players in a small floating panel.
+- Uploads are streamed from the blob store with Range support (`sloth://localhost/media/<hash>`, `http://sloth.localhost/media/<hash>` on Windows).
 - No subprocess, and nothing blocks at startup.

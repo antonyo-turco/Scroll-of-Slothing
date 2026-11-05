@@ -38,6 +38,8 @@
   - Long operations (exports, full-resolution FFT, legacy import) are **Jobs**: an id, progress 0..1, a message, a cancel token, and a result.
   - Service emits `Event`s (`JobProgress`, `JobDone`, `StoreChanged{entity,id}`).
 - **mcp** registers one tool per service call. It runs either standalone (`sloth-mcp`, stdio) or inside the app (streamable HTTP on localhost with a bearer token, off by default).
+- **stt** is speech to text: audio decoding (`symphonia`), local Whisper (`whisper-rs`, whisper.cpp) and the OpenRouter-format cloud engine. See `features/transcribe.md`.
+- **legacy** reads the Orb of Many Functions database for `import-legacy` (see `legacy-import.md`).
 - **cli** gives scriptable access to service (`--json`), plus `import-legacy`.
 - **app/src-tauri** contains only thin commands and the `sloth://` URI scheme:
   - `sloth://blob/<hash>[?w=<px>]` serves a stored or derived image;
@@ -62,7 +64,8 @@ Editor and sheet state lives in the `workspaces` table (key → JSON), autosaved
 - the object sheet;
 - the card editor;
 - the AoE sheet;
-- the last map paginator session.
+- the last map paginator session;
+- the combat tracker, saved encounters and parties.
 
 ## Adding a feature (checklist)
 1. Write the algorithm in `core`, with unit and property tests.
@@ -83,6 +86,9 @@ Editor and sheet state lives in the `workspaces` table (key → JSON), autosaved
 | hashing | `blake3` |
 | MCP | `rmcp` |
 | clipboard | `arboard` |
+| HTTP (5etools mirror, cloud STT) | `reqwest` |
+| speech to text | `whisper-rs`, `symphonia` |
+| secrets | `keyring` |
 | async | `tokio` |
 | tests | `proptest`, `insta`, `tempfile` |
-| UI | Svelte 5, Vite, TypeScript, CodeMirror 6 (cards), vitest, Playwright |
+| UI | Svelte 5, Vite, TypeScript, vitest, Playwright (the card editor is a plain textarea) |

@@ -9,7 +9,7 @@
 - Columns: `id`, `soundboard_id`, `track_id`, `label`, `icon` (emoji text), `color`, `position`, `loop_by_default` (default 0), `play_mode`.
 - `play_mode` is one of `oneshot`, `restart`, `toggle`.
 
-**Saving** (`music_set_soundboard_buttons`) deletes every button on the board and inserts them again. This regenerates the button ids every time. The new design should upsert instead, so ids stay stable.
+**Saving** (`music_set_soundboard_buttons`) deletes every button on the board and inserts them again. This regenerated the button ids every time in Python. This app upserts, so ids stay stable.
 
 ## View (Python `ui/dm_music_soundboard_panel.py`)
 **Header**
@@ -32,7 +32,7 @@
 | `restart` | ↺→ | Stops, then calls `play_track` on the channel whose id is the button id. |
 | `toggle` | ↔ | Starts or stops the channel whose id is the button id. |
 
-Volume is fixed at 80. There is no per-button volume.
+Python: volume is fixed at 80, with no per-button volume.
 
 **Edit mode**
 - A table with columns Pos, Icon, Label, Track, Mode, plus ✕ / ↑ / ↓ controls.
@@ -47,4 +47,12 @@ Volume is fixed at 80. There is no per-button volume.
 - "+ Add Button".
 - Save (rejects rows that have no track) and Cancel.
 
-**Hotkeys:** none in Python. Suggested for the new version: number keys 1–9, active while the soundboard view has focus.
+**Hotkeys:** none in Python.
+
+## In this app (`app/src/routes/music/Soundboard.svelte`)
+- Header: board select, New Board (name only), Delete Board (with confirmation), Edit. No campaign filter and no Stop Music button.
+- The play grid is as in Python: 4 columns of 80 px tiles, the green ring on a playing toggle, plus the playback status indicator on restart and toggle tiles.
+- **Per-button volume** (new) and a **Hotkey** field per button (new). Without any hotkeys set on the board, keys 1–9 press the first nine buttons by position; once any button has a hotkey, only the set hotkeys work. Keys are ignored while typing in a field.
+- The editor's track picker lists every track (no campaign).
+- `oneshot` ducks the music without queueing (see the table above).
+- MCP: `music_soundboards_list`, `music_soundboard_press`.

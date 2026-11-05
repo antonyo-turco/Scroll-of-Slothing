@@ -37,9 +37,12 @@ The sheet is autosaved in `workspaces` under the key `object_sheet`.
 - Images are embedded with alpha preserved. Export runs as a background Job.
 
 ## MCP
-- `object_sheet_list`, `object_sheet_add`, `object_sheet_update`, `object_sheet_remove`, `object_sheet_clear`
-- `object_sheet_set_options {format?, mode?}`: the format is the shared sheet's.
-- `object_sheet_layout` and `object_sheet_export_pdf {path}`: the same as `token_sheet_layout` and `token_sheet_export_pdf` (tokens and cut-outs).
+- `object_sheet_list`, `object_sheet_clear`, `object_sheet_layout`
+- `object_sheet_add {asset_ids?, paths?, size?}`
+- `object_sheet_update {id, label?, size?, scale?, copies?}`, `object_sheet_remove {id}`
+- `object_sheet_set_options {format?, mode?}` (`Letter`/`A4`, `flat`/`standee`)
+- `object_sheet_export_pdf {path}` (Job)
+- `object_sheet_layout` and `object_sheet_export_pdf` are the same as `token_sheet_layout` and `token_sheet_export_pdf` (tokens and cut-outs).
 
 ## Intentional changes
 - Cut-outs print on the Token Sheet with the tokens, in one PDF (2026-10-25); there is no separate Sheet view under Cut-outs any more. Python had a separate object sheet.

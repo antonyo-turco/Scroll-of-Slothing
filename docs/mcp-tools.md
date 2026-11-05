@@ -2,19 +2,19 @@
 
 Server name: `sloth`. There are two ways to run it:
 - **Standalone over stdio**, for example `claude mcp add sloth -- sloth-mcp --data-dir "%APPDATA%\sloth"`. It uses the same data as the app, and the open app picks up the changes live through `change_log`.
-- **Inside the running app**, over streamable HTTP at `http://127.0.0.1:<port>/mcp` with a bearer token. This is off by default; enable it in Settings → Advanced. The in-app server adds UI tools (`ui_*`).
+- **Inside the running app**, over streamable HTTP at `http://127.0.0.1:<port>/mcp` with a bearer token. This is off by default; enable it in Settings → Advanced. Both servers register the same tools; the `ui_*` tools only work in the in-app server and return an error from the standalone one.
 
 ## Conventions
 - Tool names are snake_case `domain_action`, and each tool maps to exactly one service function.
 - Inputs reference assets by `asset_id` or by an absolute file `path`.
 - Outputs are JSON. Tools that write files return the path. Tools that produce images also attach a small preview image, so the model can see the result.
 - Long operations return `{job_id}`. Poll with `jobs_status`, stop with `jobs_cancel`.
-- Errors are tool errors with a readable message and a machine code (`not_found`, `invalid_input`, `cancelled`, `io`).
+- Errors are tool errors with a readable message and a machine code (`not_found`, `invalid_input`, `cancelled`, `io`, `internal`), sent as `code: message` text.
 
 ## Tool list
 Campaign and session tools were removed at the user's request on 2026-10-11.
 
-This list is kept in sync by the test `mcp_tools_documented`, which fails if a registered tool is missing here.
+This list is kept in sync by the test `tools_are_documented` (`crates/mcp/tests/mcp_e2e.rs`), which fails if a registered tool is missing here.
 
 | Tool | Phase | Purpose |
 |---|---|---|
@@ -60,7 +60,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `aoe_presets_list` / `aoe_presets_save` / `aoe_presets_delete` | 5 | Built-in and user presets (overwrite needs `overwrite: true`) |
 | `aoe_sheet_add` / `aoe_sheet_list` / `aoe_sheet_remove` / `aoe_sheet_clear` / `aoe_sheet_set_gap` / `aoe_sheet_layout` / `aoe_sheet_export_pdf` | 5 | Multi-template sheet on Letter, A4 or A3 (MaxRects packing, skipped items reported; export is a job) |
 | `aoe_export_template_pdf` / `aoe_export_png` | 5 | One template as a tiled true-scale PDF (job) or PNG |
-| `ui_navigate` / `ui_open_asset` | 6 | In-app server only |
+| `ui_navigate` / `ui_open_asset` | 6 | Show a view, or open an asset in its editor (in-app server only) |
 | `music_tracks_list` / `music_track_add` / `music_track_delete` / `music_track_set_favorite` / `music_tags_suggest` / `music_tags_apply` | 7 | Music library: YouTube links and uploaded audio, tagged, with a `category` (music, ambient, soundbite) and favourites. The list filters by text, tags, `category`, `favorites_only`, `looping` and `min_duration`/`max_duration` (seconds). Tag suggestions come from the titles and are only added on apply. `music_channel_add` without a role uses the track's category |
 | `music_state` / `music_channel_add` / `music_channel_update` / `music_channel_remove` / `music_set_all_playing` / `music_stop_all` | 7 | Live mixer channels; `music_stop_all` is the global stop |
 | `music_soundbite_add` / `music_soundbite_remove` / `music_soundbite_play` / `music_set_duck` / `music_set_master` | 7 | Randomly timed soundbites, ducking and master volume |
@@ -73,6 +73,7 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `stt_endpoints_list` | 8 | Cloud endpoints (built-in OpenRouter plus those added in Settings) with their model ids and whether a key is set, never the key. Pass an id as `endpoint` to `transcribe_file`; endpoints are managed in Settings only |
 | `stt_cloud_key_status` / `stt_cloud_key_test` | 8 | Whether an OpenRouter key is available (never the key itself), and a live check of it. Keys are set in the app's Settings or `sloth stt key set`, deliberately not over MCP |
 | `transcribe_file` | 8 | Transcribe an audio file, `engine` `local` (Whisper) or `cloud` (OpenRouter) (job; result: engine, model, language, duration, cost, timed segments). Options: model, language, glossary (local), corrections, beam size (local) |
+| `transcript_export` | 8 | Render segments as txt, md, srt or vtt; optionally write to a path |
 | `combat_get` / `combat_next_turn` / `combat_prev_turn` / `combat_reset` | 9 | The 5etools-compatible initiative tracker: rows in turn order, round, settings; turns tick conditions down and count rounds |
 | `combat_add_player` / `combat_add_creature` / `combat_update_row` / `combat_add_condition` / `combat_delete_row` | 9 | Rows: creatures by bestiary hash (count, rolled or average HP), HP or damage, initiative, notes, conditions with turns, per-creature `stats` (5etools JSON fields; null removes one); `similar` deletes every copy |
 | `combat_link` / `combat_import_link` | 9 | 5etools `#combat=` links (export and open) and Bestiary `#encounter=` links rolled into the tracker; missing creatures are reported |
@@ -85,14 +86,8 @@ This list is kept in sync by the test `mcp_tools_documented`, which fails if a r
 | `bestiary_status` / `bestiary_sync` / `bestiary_search` / `bestiary_get` | 9 | Local cache of the 5etools mirror's bestiary (setting `fivetools_base_url`): sync (job), search, full stat block |
 | `compendium_status` / `compendium_sync` / `compendium_search` / `compendium_get` / `compendium_cards` | 12 | Spell and item cards: local cache of the 5etools mirror's spells and items (sync job), search with level, class and rarity filters, full JSON, and card markdown for a deck (unknown ids are reported) |
 | `transcript_last` | 8 | The last finished transcription (`{ path, result }`, saved by the job itself), or null |
-| `transcript_export` | 8 | Render segments as txt, md, srt or vtt; optionally write to a path |
 
 Music plays in the desktop app. When the standalone `sloth-mcp` server changes music state, the change is stored, and the running app applies it to its audio engine.
 
-## Resources
-- `sloth://asset/{id}`: metadata JSON and the thumbnail
-- `sloth://deck/{id}`: deck markdown
-- `sloth://settings`
-
-## Prompts
-- `tokens_from_folder`: import a folder of portraits as tokens with a chosen border and size, then build a sheet.
+## Resources and prompts
+None. The server exposes tools only.

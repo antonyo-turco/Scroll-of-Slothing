@@ -23,49 +23,27 @@ See the `assets` table in `../data-model.md`. Kinds: `token`, `cutout`, `map`.
 - **Pills**: compact tiles (112 × 142 px) with a smaller image and the name only; the pin star shows on hover.
 - All three are the same `AssetCard` component (`variant`), so the hover preview, pinning and selection behave identically; `VirtualGrid` has a `fill` mode for the single-column list.
 
-**Grid**
-- A virtualized card grid. Each card has:
-  - a pin star;
-  - the thumbnail (thumb derivative);
-  - name, kind badge, tag pills and "aka" aliases;
-  - a size select (not shown for maps), saved immediately;
-  - the date.
-- **Hover preview:** after a 300 ms hover, a popover shows the preview derivative (≤2048 px, scaled to 320 px). Python decoded the full original on the UI thread.
-- Card actions, in an overflow menu plus the primary button:
-  - **Add to sheet**: tokens go to the Token Sheet, cut-outs to the Object Sheet;
-  - **Edit**;
-  - **Export**;
-  - **Delete** (with confirmation);
-  - **Open in editor**: Token Cutter, Object Cutter or Map Paginator, depending on the kind.
+**Cards**
+- A virtualized grid. Each card has a pin star, the thumbnail, name, kind badge, tag pills, "aka" aliases, a size select (not for maps, saved immediately) and the date.
+- **Hover preview:** after a 350 ms hover, a popover shows the preview derivative (≤2048 px, scaled to 320 px). Python decoded the full original on the UI thread.
+- A plain click opens the asset in the inspector. Cards have no menu of their own: every per-asset action is in the inspector.
 
-## Edit drawer
-Fields:
-- Name
-- Aliases (one per line)
-- Tags (chip input that creates tags as you type)
+## Inspector
+Always shown on the right (empty when nothing is selected), in sections:
+- **Header:** the preview, **Open in …** (Token Cutter, Object Cutter or Map Paginator, by kind) and, for tokens and cut-outs, **Add to token/object sheet**.
+- **Details:** Name, Print size (not for maps), Aliases (one per line) and Tags (a chip input that creates tags as you type). Name and aliases save on blur (Enter commits the name); size and tags save on change. There is no Save/Cancel.
+- **Export:** Save image… (the rendered token, cut-out or gridded map), Save original…, Save PDF… (only when the asset has a paginated PDF), Copy image.
+- **Footer:** Delete asset… with an inline confirmation.
 
-Buttons: "Open in …", Save, Cancel.
-
-## Export
-For a single asset:
-- Save original
-- Save rendered: the token PNG, or the gridded map PNG
-- Copy image to clipboard
-- Maps only: Save paginated PDF
-
-## Bulk select mode
-Toggled with a "Select" button, Ctrl/Shift-click, or Ctrl+A. The bulk bar offers:
-- Delete (with confirmation)
-- Add tag
-- Pin, Unpin
-- Export to folder: writes `<name>_<kind>.png` for each asset
-- Add to sheet: tokens go to the Token Sheet and cut-outs to the Object Sheet. Maps are skipped and the number skipped is reported.
+## Selection and bulk actions
+- Ctrl+click toggles, Shift+click selects a range, Ctrl+A (or "Select all") selects everything, Esc clears. Ctrl+F focuses the search.
+- Esc in a text field leaves the field (committing the edit); the next Esc deselects.
+- With a selection, the bulk bar offers: Add tag, Pin, Unpin, **Add to sheets** (tokens to the Token Sheet, cut-outs to the Object Sheet; maps are skipped and the count reported), **Export…** to a folder (`<name>_<kind>.png` per asset, with ` (2)`, ` (3)`… on clashes) and Delete… with confirmation.
 
 ## Import
-Opened with the "+ Import" button or by dropping files anywhere on the Library view.
+Opened with the "+ Import" button in the top bar or by dropping files anywhere on the Library view. "Manage tags…" sits next to it.
 - Accepted formats: png, jpg, jpeg, webp, gif, bmp.
-- One row per file:
-  - a 48 px thumbnail;
+- One row per file (no thumbnail: the webview cannot read arbitrary local paths; thumbnails appear in the grid once imported):
   - the name, defaulting to the file stem;
   - the kind (Token, Cut-out or Map);
   - the size (disabled for maps).
@@ -85,7 +63,7 @@ Assets imported from the old app have no params. They open with default framing,
 ## MCP
 | Tool | Purpose |
 |---|---|
-| `library_search` | `{q?, kinds?, tags?, sizes?, pinned?, sort?, limit?, offset?}` returns a list of summaries |
+| `library_search` | `{q?, kinds?, tags?, sizes?, pinned_only?, sort?, limit?, offset?}` returns a list of summaries. `sort`: `newest` (default), `oldest`, `name_asc`, `name_desc`, `kind`, `size`; `limit` defaults to 50, max 500 |
 | `library_get` | `{id}` returns metadata plus a thumbnail image |
 | `library_update` | `{id, name?, aliases?, size?, pinned?}` |
 | `library_set_tags` | |
@@ -114,8 +92,3 @@ Assets imported from the old app have no params. They open with default framing,
 - [x] Bulk "add to sheet": tokens go to the token sheet and cut-outs to the object sheet; maps are skipped and counted (as in Python).
 - [x] Import dialog with kind and size per row (`ui/asset_import_dialog.py`), plus drop-to-import
 - [x] Re-edit routing by kind (`app.py:539-561`), with editor state restore (same tests)
-
-### Phase 1 implementation notes
-- The import dialog lists file names without thumbnails. The webview cannot read arbitrary local paths, and thumbnails appear in the grid as soon as the import finishes.
-- Selection: Ctrl+click toggles, Shift+click selects a range, Ctrl+A selects all, Esc clears. While a selection exists, a plain click toggles.
-- Esc in a text field leaves the field (committing the edit). The next Esc deselects the asset; the inspector stays and shows how to select.
