@@ -9,7 +9,7 @@
   // page tiling. Spec: docs/features/map-paginator.md.
   // The whole state is a MapDoc (full-res image px). Zoom/pan, the grid, tiles
   // and tools are client-side vectors over the Rust-processed proxy image.
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { api, firstImagePath, IMAGE_EXTENSIONS, isTauri, onFileDrop, pickFile, pickSavePath } from '../../lib/api';
   import InfoTip from '../../lib/components/InfoTip.svelte';
   import { app } from '../../lib/state.svelte';
@@ -31,6 +31,7 @@
     resizeRect,
     snapLine,
     snapQuarter,
+    tableRegion,
     squareFrom,
     stylePattern,
     type Handle,
@@ -80,6 +81,8 @@
   let loaded = false;
 
   let tool = $state<Tool>('none');
+  // Print area locked to the Advanced table size (whole squares, grid-snapped)
+  let tableLock = $state(false);
   let tab = $state<Tab>(lastTab);
   $effect(() => {
     lastTab = tab;
@@ -343,6 +346,14 @@
       return;
     }
     if (e.button !== 0) return;
+    if (tool === 'region' && tableLock) {
+      // table-sized: a click places the area there, a drag moves it; no resizing
+      const r = doc.region;
+      const inside = r && p[0] > r[0] && p[0] < r[0] + r[2] && p[1] > r[1] && p[1] < r[1] + r[3];
+      if (!inside) placeTable(p);
+      if (doc.region) drag = { kind: 'move', x0: p[0], y0: p[1], orig: [...doc.region] };
+      return;
+    }
     if (tool === 'region' && doc.region) {
       const r = doc.region;
       const hd = HANDLES.find((h) => near(handlePoint(r, h), p, 8));
@@ -500,6 +511,34 @@
     if (marginBeforeHint != null && doc.margin_in === 0.2) doc.margin_in = marginBeforeHint;
     marginBeforeHint = null;
   }
+
+  /** Sets the print area to the Advanced table size, centred on `at` (default: the current area's centre). */
+  function placeTable(at?: Pt): boolean {
+    if (!doc || !grid) return false;
+    const r = doc.region;
+    const c: Pt = at ?? (r ? [r[0] + r[2] / 2, r[1] + r[3] / 2] : [W / 2, H / 2]);
+    const t = tableRegion([W, H], grid, doc.square_in, [doc.fit_w_ft, doc.fit_h_ft], c);
+    if (!t) return false;
+    if (r && t.every((v, i) => Math.abs(v - r[i]) < 1e-6)) return true; // no-op: don't retrigger a layout
+    doc.region = t;
+    doc.excluded = [];
+    return true;
+  }
+  function toggleTableLock() {
+    tableLock = !tableLock;
+    if (!tableLock) return;
+    if (placeTable()) setTool('region');
+    else {
+      tableLock = false;
+      app.toast('info', 'Set the grid and a table size (Advanced) first');
+    }
+  }
+  // While locked, follow changes to the table size, the square size and the grid.
+  $effect(() => {
+    if (!tableLock || !doc || !grid) return;
+    void [doc.fit_w_ft, doc.fit_h_ft, doc.square_in, grid.cell_w, grid.cell_h, grid.offset_x, grid.offset_y, W, H];
+    untrack(() => placeTable());
+  });
 
   /** Print region = content inside uniform borders, snapped to grid lines. */
   async function fitRegion() {
@@ -661,7 +700,7 @@
               {@const r = doc.region}
               <path class="outside" fill-rule="evenodd" d="M0 0H{W}V{H}H0Z M{r[0]} {r[1]}h{r[2]}v{r[3]}h{-r[2]}Z" />
               <rect class="region" x={r[0]} y={r[1]} width={r[2]} height={r[3]} stroke-width={2 * sw} />
-              {#if tool === 'region'}
+              {#if tool === 'region' && !tableLock}
                 {#each HANDLES as h (h)}
                   {@const [hx, hy] = handlePoint(r, h)}
                   <rect class="handle" x={hx - 4 * sw} y={hy - 4 * sw} width={8 * sw} height={8 * sw} stroke-width={sw} />
@@ -700,10 +739,13 @@
         </div>
         <p class="toolhint" data-testid="tool-hint">
           <strong>{activeTool.label}:</strong>
-          {activeTool.help}{refFocus ? ' Grid and pages are hidden while this tool is active.' : ''}
+          {tool === 'region' && tableLock ? `Table size (${doc.fit_w_ft}×${doc.fit_h_ft} ft): click or drag to place the print area. Turn off Table size to draw freely.` : activeTool.help}{refFocus ? ' Grid and pages are hidden while this tool is active.' : ''}
         </p>
         {#if rendering}<span class="badge">processing…</span>{/if}
         <div class="canvas-controls" role="group" aria-label="Zoom" onpointerdown={(e) => e.stopPropagation()}>
+          {#if fitLine?.ok}
+            <span class="fits-badge" data-testid="fits-badge" title={fitLine.text}>✓ Fits {doc.fit_w_ft}×{doc.fit_h_ft} ft</span>
+          {/if}
           <button class="btn icon" aria-label="Zoom out" onclick={() => zoomCentre(1 / 1.25)}>−</button>
           <span class="zoom-readout">{Math.round(z * 100)}%</span>
           <button class="btn icon" aria-label="Zoom in" onclick={() => zoomCentre(1.25)}>+</button>
@@ -841,6 +883,10 @@
               <button class="btn" aria-pressed={tool === 'region'} onclick={() => setTool(tool === 'region' ? 'none' : 'region')}>▭ Draw…</button>
               <button class="btn" aria-pressed={tool === 'layout'} onclick={() => setTool(tool === 'layout' ? 'none' : 'layout')}>⇲ Move pages…</button>
             </div>
+            <button class="btn" aria-pressed={tableLock} data-testid="table-size" onclick={toggleTableLock}
+              title="Size the print area to the table in Advanced. Click or drag on the map to place it.">
+              ⊞ Table size · {doc.fit_w_ft}×{doc.fit_h_ft} ft
+            </button>
             {#if doc.page_offset[0] || doc.page_offset[1]}
               <button class="btn ghost" onclick={() => doc && (doc.page_offset = [0, 0])}>Reset page position</button>
             {/if}
@@ -872,22 +918,40 @@
 
           <details class="section">
             <summary>Advanced</summary>
-            <label class="field">Overlap (in) <input class="input" type="number" min="0" step="0.05" bind:value={doc.overlap_in} /></label>
-            <div class="field">
-              <span class="label">1 in prints as (mm) <InfoTip label="About printer calibration" text="Printer calibration: print a page, measure what should be one inch, and enter the measured length in millimetres." /></span>
-              <input class="input" type="number" min="1" step="0.1" aria-label="1 in prints as (mm)" bind:value={doc.calibration_mm} />
-            </div>
-            <label class="check"><input type="checkbox" bind:checked={doc.align_to_grid} /> Align pages to grid</label>
-            <div class="field">
-              <span class="label">Check it fits a table of</span>
-              <div class="with-unit">
-                <input class="input" type="number" min="0" step="0.5" aria-label="Fit width (ft)" bind:value={doc.fit_w_ft} />
-                <span>×</span>
-                <input class="input" type="number" min="0" step="0.5" aria-label="Fit height (ft)" bind:value={doc.fit_h_ft} />
-                <span>ft</span>
+            <div class="adv-group">
+              <h4 class="adv-title">Table <InfoTip label="About the table" text="The play area the map must fit. Table size in Print area sizes the print area to it." /></h4>
+              <div class="prop">
+                <span>Size</span>
+                <span class="with-unit">
+                  <input class="input" type="number" min="0" step="0.5" aria-label="Fit width (ft)" bind:value={doc.fit_w_ft} />
+                  <span>×</span>
+                  <input class="input" type="number" min="0" step="0.5" aria-label="Fit height (ft)" bind:value={doc.fit_h_ft} />
+                  <span>ft</span>
+                </span>
               </div>
+              {#if layout?.fit && fitLine}
+                {@const f = layout.fit}
+                <div class="fit-card" class:ok={fitLine.ok} class:bad={!fitLine.ok} data-testid="fit-check" title={fitLine.text}>
+                  <span class="fit-icon" aria-hidden="true">{fitLine.ok ? '✓' : '✗'}</span>
+                  <span class="fit-body">
+                    <strong>{fitLine.ok ? 'Fits the table' : 'Too big for the table'}</strong>
+                    <span>{f.squares[0]}×{f.squares[1]} squares · {(f.printed_in[0] / 12).toFixed(1)}×{(f.printed_in[1] / 12).toFixed(1)} ft</span>
+                  </span>
+                </div>
+              {/if}
             </div>
-            {#if fitLine}<p class="note" class:ok={fitLine.ok} class:bad={!fitLine.ok} data-testid="fit-check">{fitLine.text}</p>{/if}
+            <div class="adv-group">
+              <h4 class="adv-title">Printing</h4>
+              <div class="prop">
+                <span>Overlap</span>
+                <span class="with-unit"><input class="input" type="number" min="0" step="0.05" aria-label="Overlap (in)" bind:value={doc.overlap_in} /><span>in</span></span>
+              </div>
+              <div class="prop">
+                <span>1 in = <InfoTip label="About printer calibration" text="Printer calibration: print a page, measure what should be one inch, and enter the measured length in millimetres." /></span>
+                <span class="with-unit"><input class="input" type="number" min="1" step="0.1" aria-label="1 in prints as (mm)" bind:value={doc.calibration_mm} /><span>mm</span></span>
+              </div>
+              <label class="check"><input type="checkbox" bind:checked={doc.align_to_grid} /> Align pages to grid</label>
+            </div>
           </details>
         {:else}
           <section class="section">
@@ -1047,6 +1111,65 @@
     box-shadow: var(--shadow);
     font-size: var(--fs-xs);
     pointer-events: none;
+  }
+  .fits-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    margin-right: 4px;
+    min-height: 28px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+    color: var(--success);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .adv-group {
+    display: grid;
+    gap: var(--space-2);
+    padding-top: var(--space-2);
+  }
+  .adv-group + .adv-group {
+    margin-top: var(--space-2);
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-3);
+  }
+  .adv-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .fit-card {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    font-size: 13px;
+  }
+  .fit-card.ok {
+    color: var(--success);
+  }
+  .fit-card.bad {
+    color: var(--danger);
+  }
+  .fit-icon {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .fit-body {
+    display: grid;
+    gap: 2px;
+  }
+  .fit-body > span {
+    color: var(--text-muted);
   }
   .badge {
     position: absolute;

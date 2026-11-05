@@ -92,6 +92,12 @@ Both run on the working proxy (≤ 2048 px, 30–300 ms) and are buttons, never 
 - Each edge then snaps to the **nearest** grid line, so the region holds whole squares. Artwork overhanging a line by less than half a square is cut, as a hand-drawn region would be. On the laboratory map this reproduces the user's own 24 × 22-square region.
 - A region covering the whole image becomes "whole map". Page exclusions are cleared.
 
+**Table size** (Pages → Print area, client-side, `tableRegion` in `app/src/routes/maps/geometry.ts`) sizes the print area to the table set in Advanced (`fit_w_ft × fit_h_ft`).
+- The area holds `floor(ft × 12 / square_in)` whole squares per side, snapped to grid lines and kept inside the image (a smaller map gives the squares it has). The table's long side follows the image's long side.
+- It's a toggle. While on, the Print area tool places the area with a click and moves it with a drag; there are no resize handles. Changing the table size, the square size or the grid re-sizes it around its centre.
+- When the print area fits the table, a green "✓ Fits W×H ft" badge sits left of the zoom buttons.
+- Advanced is grouped into **Table** (size, and the fit result as a card) and **Printing** (overlap, calibration, align to grid).
+
 ## Print settings
 Defaults come from Settings.
 
@@ -206,6 +212,7 @@ Defaults come from Settings.
 - Landscape pages and the fewest-pages suggestion are new (Python printed portrait only, from the region's corner).
 - Cut lines extend through the margin to the paper edge instead of only outlining the image (Python drew a rectangle), so the white margin of a printer without borderless printing can be trimmed with a ruler or trimmer. The page preview shows them, and a hint asks for a margin of at least 0.2 in.
 - A3 paper (user request, 2026-10-15). Python printed on A4 and Letter only. A3 uses the same formula as ReportLab's A4 (29.7 × 42 cm), and is offered for maps and AoE templates only; token, object and card sheets refuse it.
+- Table size for the print area, the fits badge on the canvas and the regrouped Advanced panel are new (user request, 2026-11-05).
 - The margin moved from Advanced into Paper, next to the cut lines (user request, 2026-10-15): the hint's "Set margin to 0.2 in" changed a field hidden in a collapsed section, so turning cut lines off left the white margin in place with no visible way back. Turning cut lines off now also restores the margin the hint replaced.
 
 ## Parity checklist (Python `ui/map_paginator_panel.py`, `map_grid.py`, `map_pdf_generator.py`)

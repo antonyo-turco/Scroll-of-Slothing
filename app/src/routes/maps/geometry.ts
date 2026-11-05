@@ -109,3 +109,46 @@ export function moveQuadEdge(q: Pt[], a: number, b: number, dx: number, dy: numb
   const t = dx * nx + dy * ny;
   return q.map((p, i) => (i === a || i === b ? [p[0] + t * nx, p[1] + t * ny] : [p[0], p[1]]));
 }
+
+export interface GridSpec {
+  offset_x: number;
+  offset_y: number;
+  cell_w: number;
+  cell_h: number;
+}
+
+/** Places one axis of a table-sized span: `n` whole cells centred on `c`, on grid lines, inside [0, size]. */
+function placeSpan(c: number, n: number, off: number, step: number, size: number): [number, number] {
+  const first = pmod(off, step);
+  const fitN = Math.max(0, Math.floor((size - first) / step + 1e-6));
+  const k = Math.min(n, fitN);
+  const len = k * step;
+  let x = snapLine(c - len / 2, off, step);
+  if (x < first) x = first;
+  if (x + len > size + 1e-6) x -= Math.ceil((x + len - size) / step - 1e-6) * step;
+  return [Math.max(first, x), len];
+}
+
+/**
+ * The print area a table of `tableFt` feet holds: whole squares at `squareIn` inches each,
+ * snapped to the grid, centred on `centre` and kept inside the image. The table's long side
+ * follows the image's long side. Returns null when there's no grid or table size.
+ */
+export function tableRegion(
+  image: [number, number],
+  grid: GridSpec,
+  squareIn: number,
+  tableFt: [number, number],
+  centre: Pt,
+): Rect | null {
+  const [W, H] = image;
+  if (!(grid.cell_w > 0 && grid.cell_h > 0 && squareIn > 0 && tableFt[0] > 0 && tableFt[1] > 0)) return null;
+  let cols = Math.floor((tableFt[0] * 12) / squareIn + 1e-6);
+  let rows = Math.floor((tableFt[1] * 12) / squareIn + 1e-6);
+  if (W >= H !== cols >= rows) [cols, rows] = [rows, cols];
+  if (cols < 1 || rows < 1) return null;
+  const [x, w] = placeSpan(centre[0], cols, grid.offset_x, grid.cell_w, W);
+  const [y, h] = placeSpan(centre[1], rows, grid.offset_y, grid.cell_h, H);
+  if (w <= 0 || h <= 0) return null;
+  return [x, y, w, h];
+}

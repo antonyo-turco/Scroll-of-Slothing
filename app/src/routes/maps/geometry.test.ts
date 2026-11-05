@@ -9,6 +9,7 @@ import {
   resizeRect,
   snapLine,
   snapQuarter,
+  tableRegion,
   type Rect,
 } from './geometry';
 
@@ -82,5 +83,26 @@ describe('layout drag', () => {
     expect(snapQuarter(197, 200, 5)).toBe(200);
     expect(snapQuarter(70, 200, 5)).toBe(70); // between quarters: free
     expect(snapQuarter(52, 0, 5)).toBe(52);
+  });
+});
+
+describe('tableRegion', () => {
+  const grid = { offset_x: 10, offset_y: 0, cell_w: 70, cell_h: 70 };
+  it('sizes a 3×2 ft table at 1 in squares, long side along the wide image', () => {
+    expect(tableRegion([4000, 3000], grid, 1, [2, 3], [2000, 1500])).toEqual([10 + 70 * 10, 70 * 9, 36 * 70, 24 * 70]);
+  });
+  it('keeps the area inside the image and on grid lines', () => {
+    const r = tableRegion([4000, 3000], grid, 1, [3, 2], [0, 3000])!;
+    expect(r[0]).toBe(10);
+    expect(r[1] + r[3]).toBeLessThanOrEqual(3000);
+    expect(r[1] % 70).toBe(0);
+  });
+  it('shrinks to the whole squares the image has', () => {
+    const r = tableRegion([1000, 700], grid, 1, [3, 2], [500, 350])!;
+    expect(r[2]).toBe(14 * 70);
+    expect(r[3]).toBe(10 * 70);
+  });
+  it('returns null without a table size', () => {
+    expect(tableRegion([1000, 700], grid, 1, [0, 2], [0, 0])).toBeNull();
   });
 });
